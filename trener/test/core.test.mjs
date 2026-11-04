@@ -279,3 +279,32 @@ test('stripRunningLines: prázdný vstup a strana bez textu', () => {
   assert.deepEqual(core.stripRunningLines([]), []);
   assert.deepEqual(core.stripRunningLines(['', '   ']), ['', '   ']);
 });
+
+// ------------------------------------------------------------------ společné pomůcky (checkClaim, scanMechanics)
+test('scanMechanics najde CA/PA, match engine a skryté atributy', () => {
+  assert.equal(core.scanMechanics('Hráč má vysoké CA.'), 'CA');
+  assert.match(core.scanMechanics('Takhle funguje match engine hry'), /match engine/i);
+  assert.equal(core.scanMechanics('Střelba a podpora útočníka.'), null);
+  assert.equal(core.scanMechanics('PAS a CAFE'), null);
+});
+
+test('checkClaim: úroveň nesmí být silnější než nejslabší odkaz, odkazy musí existovat', () => {
+  const ctx = {
+    observations: { o1: { label: 'user_entered' }, o2: { label: 'ocr_unverified' }, o3: { label: 'screenshot_verified' } },
+    passages: new Set(['bk:x:1:1']),
+  };
+  const ok = (section, opts) => core.checkClaim('x', section, ctx, opts);
+  assert.deepEqual(ok({ text: 'Soupeř tlačí po křídle.', tier: 'user_entered', refs: ['o1'] }).errors, []);
+  assert.match(ok({ text: 'Soupeř tlačí po křídle.', tier: 'observed', refs: ['o1'] }).errors.join(), /silnější než nejslabší/);
+  assert.match(ok({ text: 'Soupeř tlačí po křídle.', tier: 'inferred', refs: ['neexistuje'] }).errors.join(), /neodpovídá žádnému/);
+  assert.match(ok({ text: 'Soupeř tlačí po křídle.', tier: 'observed', refs: [] }).errors.join(), /musí mít odkaz/);
+  assert.deepEqual(ok({ text: 'Soupeř tlačí po křídle.', tier: 'unknown', refs: [] }).errors, []);
+  assert.deepEqual(ok({ text: 'Teorie o šířce hřiště.', tier: 'inferred', refs: ['bk:x:1:1'] }).errors, []);
+  assert.match(ok({ text: 'Teorie o šířce hřiště.', tier: 'inferred', refs: ['bk:x:1:1'] }, { allowPassagesAsEvidence: false }).errors.join(), /nemůže být důkaz/);
+  assert.match(ok({ text: 'Důkaz bez pozorování.', tier: 'inferred', refs: ['bk:x:1:1'] }, { needObservation: true }).errors.join(), /alespoň jedno pozorování/);
+  assert.match(ok({ text: 'Hráč má vysoké CA a PA.', tier: 'inferred', refs: ['o1'] }).errors.join(), /interní mechanice/);
+  assert.match(ok({ text: 'kratce', tier: 'unknown', refs: [] }).errors.join(), /příliš krátký/);
+  assert.match(ok({ text: 'Dostatečně dlouhý text.', tier: 'nesmysl', refs: [] }).errors.join(), /neplatná úroveň/);
+  assert.match(ok('řetězec').errors.join(), /musí být objekt/);
+  assert.match(ok({ text: 'Dostatečně dlouhý text.', tier: 'inferred', refs: [] }, { forbidTiers: ['inferred'] }).errors.join(), /není povolená/);
+});

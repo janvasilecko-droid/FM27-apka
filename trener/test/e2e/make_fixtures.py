@@ -116,12 +116,13 @@ def write_scan_pdf(path):
     c.save()
 
 
-def write_png(path, size=48):
+def write_png(path, size=48, invert=False):
     rows = []
     for y in range(size):
         row = bytearray([0])
         for x in range(size):
-            row += bytes(((x * 5) % 256, (y * 5) % 256, 140))
+            r, g, b = (x * 5) % 256, (y * 5) % 256, 140
+            row += bytes((255 - r, 255 - g, 255 - b)) if invert else bytes((r, g, b))
         rows.append(bytes(row))
     raw = b"".join(rows)
 
@@ -147,6 +148,7 @@ def main():
     big = int(sys.argv[2]) if len(sys.argv) > 2 else 24
     write_long_pdf(out / "kniha-s-zahlavim.pdf", big)
     write_png(out / "screenshot.png")
+    write_png(out / "screenshot2.png", invert=True)
     (out / "prazdny.txt").write_text("   \n", encoding="utf-8")
     print("hotovo:", ", ".join(sorted(p.name for p in out.iterdir())))
 

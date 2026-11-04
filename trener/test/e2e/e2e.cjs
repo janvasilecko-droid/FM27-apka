@@ -13,9 +13,11 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
+const { FakeDbServer, installDbMock } = require('./fakedb.cjs');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const HTML = fs.readFileSync(path.join(ROOT, 'trener', 'dist', 'trener.test.html'), 'utf8');
+const HTML_STANDALONE = fs.readFileSync(path.join(ROOT, 'trener', 'dist', 'standalone', 'index.html'), 'utf8');
 const FIX = process.env.FIXTURES;
 const PDFJS = process.env.PDFJS_DIR;
 const OUT = process.env.OUT || path.join(__dirname, 'out');
@@ -64,10 +66,67 @@ function installMock(config) {
     };
   }
 
+  function specialReply(kind, prompt) {
+    const ids = (re) => [...prompt.matchAll(re)].map((m) => m[1]);
+    if (kind === 'explain') {
+      const facts = ids(/^- (geo-[^ |]+) \|/gm);
+      const slots = ids(/^- (s\d+) \| /gm);
+      const passages = ids(/^- (bk:[^ |]+) \|/gm);
+      const f0 = facts[0] || null;
+      return {
+        summary: { text: 'Podle nakresleného rozložení jsou řady postavené jako v zadání.', tier: f0 ? 'inferred' : 'unknown', refs: f0 ? [f0] : [] },
+        worksWell: f0 ? [{ text: 'Záloha kryje střed, v teorii z knihy se tomu říká krytí.', tier: 'inferred', refs: [f0, ...passages.slice(0, 1)], slots: slots.slice(0, 2) }] : [],
+        conflicts: facts.filter((x) => !/^geo-shape-/.test(x)).slice(0, 2).map((x) => ({ text: 'Tohle rozložení může vytvořit prostorový konflikt podle nálezu.', tier: 'inferred', refs: [x], slots: slots.slice(0, 1) })),
+        unknown: { text: 'Role jsou jen tvůj text, jejich pohyb nevím.', items: ['Ověř ve hře, co daná role dělá'] },
+      };
+    }
+    if (kind === 'opponent') {
+      const opp = ids(/^- (opp-[A-Za-z0-9]+) \|/gm).filter((x) => x !== 'opp-name');
+      const keyLine = (/opp-keyPlayers \| [^|]* \| Klíčoví hráči: ([^\n]+)/.exec(prompt) || [])[1] || '';
+      const player = keyLine ? keyLine.split(/\s+[–-]\s+/)[0].trim().split('\n')[0] : null;
+      const refs = opp.slice(0, 1);
+      return {
+        summary: { text: 'Soupeř podle zadaných údajů hraje takhle a jde proti němu postupovat opatrně.', tier: refs.length ? 'inferred' : 'unknown', refs },
+        press: { text: 'Napadat dvojicí záložníků při jejich rozehrávce.', tier: refs.length ? 'inferred' : 'unknown', refs },
+        winBall: { text: 'Míč získávat po ztrátě na jejich křídle.', tier: 'unknown', refs: [] },
+        side: { choice: refs.length ? 'left' : 'none', text: 'Levá strana, kde podle zadání nechávají prostor.', tier: refs.length ? 'inferred' : 'unknown', refs },
+        spaces: { text: 'Obsadit prostor za jejich obráncem.', items: ['Prostor za jejich pravým obráncem'], tier: refs.length ? 'inferred' : 'unknown', refs },
+        limit: { player: player || null, text: 'Hlídat nejnebezpečnějšího hráče dvojicí stoperů.', tier: refs.length ? 'inferred' : 'unknown', refs },
+        risk: { text: 'Otevřený střed.', items: ['Při ztrátě míče zůstane střed otevřený'] },
+        confidence: { level: refs.length ? 'medium' : 'low', text: 'Údaje jsou jen zadané ručně nebo neověřené.' },
+        unknown: { text: 'Chybí standardní situace.', items: ['Jak soupeř brání rohy'] },
+      };
+    }
+    // report
+    const obs = ids(/^- ((?:snap|live|chg|det|sum)-[A-Za-z0-9-]+) \|/gm);
+    const o0 = obs[0] || null;
+    return {
+      worked: o0 ? [{ text: 'V první půlhodině jsme měli víc střel.', tier: 'inferred', refs: [o0] }] : [],
+      didntWork: [],
+      changesHelped: [],
+      changesHurt: [],
+      players: [],
+      opponentEdge: [],
+      repeatedMistakes: [],
+      nextMatch: { text: 'Příště podobně.', items: [{ what: 'Nechat záložníka blíž k útočníkovi', why: 'Pomohlo to podle zadaných statistik', tier: o0 ? 'inferred' : 'unknown', refs: o0 ? [o0] : [] }] },
+      limits: { text: 'Údaje jsou jen z několika snímků.', items: ['Jen málo snímků, jsou čtené z obrázků'] },
+    };
+  }
+
   async function sample(input, opts) {
     opts = opts || {};
     const isStr = typeof input === 'string';
-    const kind = isStr ? (/\{"ok": true\}/.test(input) ? 'ping' : 'planner') : input.length > 1 ? 'repair' : 'advice';
+    const kindOf = (t) =>
+      /\{"ok": true\}/.test(t) ? 'ping'
+      : /obrazovka se soupiskou hráčů/.test(t) ? 'squad'
+      : /informacemi o soupeři/.test(t) ? 'oppread'
+      : /připravuješ předzápasový plán proti soupeři/.test(t) ? 'opponent'
+      : /vysvětluješ, jak je postavené rozložení/.test(t) ? 'explain'
+      : /píšeš rozbor odehraného zápasu/.test(t) ? 'report'
+      : /čtečka snímku obrazovky pro FM27 Tactical Coach/.test(t) ? 'extract'
+      : null;
+    const special = isStr ? kindOf(input) : kindOf(input[0].content);
+    const kind = special || (isStr ? 'planner' : input.length > 1 ? 'repair' : 'advice');
     const prompt = isStr ? input : input.map((t) => t.content).join('\n');
     mock.calls.push({ kind, tier: opts.modelTier || null, images: opts.images ? opts.images.length : 0, cache: opts.cache === undefined ? null : opts.cache, signal: !!opts.signal, bytes: new TextEncoder().encode(prompt).length });
     mock.prompts.push(prompt);
@@ -78,6 +137,18 @@ function installMock(config) {
     let text;
     if (kind === 'ping') {
       text = '{"ok": true}';
+    } else if (kind === 'extract') {
+      const next = (mock.extractQueue && mock.extractQueue.shift()) || mock.extractReply || { screen: 'stats', minute: 10, score: { home: 0, away: 0 }, teams: { home: null, away: null }, stats: { home: { possession: 50, shots: 1 }, away: { possession: 50, shots: 1 } }, events: [], visibleText: ['Statistiky'], notes: '' };
+      if (mock.mode === 'extract-invalid') text = 'to není JSON';
+      else text = JSON.stringify(next);
+    } else if (kind === 'squad') {
+      text = JSON.stringify(mock.squadReply || { players: [{ name: 'Jan Novák', positions: ['ST'], age: 24, role: null, attributes: { Finishing: 15 }, injured: false }, { name: 'Petr Svoboda', positions: ['gk'], age: 31, role: null, attributes: {}, injured: true }, { name: '', positions: [] }], notes: 'čitelné' });
+    } else if (kind === 'oppread') {
+      text = JSON.stringify(mock.oppReadReply || { formation: '4 2 3 1', roles: ['Křídelník'], keyPlayers: ['Novák – hrot'], strengths: [], weaknesses: ['Pomalá obrana'], notes: 'čitelné' });
+    } else if (kind === 'opponent' || kind === 'explain' || kind === 'report') {
+      const prompt0 = isStr ? input : input[0].content;
+      if (mock.mode === 'special-invalid') text = JSON.stringify({ nic: 1 });
+      else text = JSON.stringify(specialReply(kind, prompt0));
     } else if (kind === 'planner') {
       if (mock.plannerFails) throw err('upstream_error', 'planner failed');
       text = JSON.stringify(mock.queries || ['support striker isolation', 'izolovaný útočník podpora záložníků', 'counter-pressing']);
@@ -119,7 +190,48 @@ function installMock(config) {
       return { status: 'saved' };
     },
   };
-  if (!config.noClaude) window.claude = { use: async (name) => (name === 'sample' ? sample : name === 'downloads' ? downloads : null) };
+  // Hlasový stroj: zachytí, co by se přečetlo nahlas.
+  window.__spoken = [];
+  const voicesList = [{ lang: 'cs-CZ', name: 'Zkušební čeština', voiceURI: 'test-cs' }];
+  Object.defineProperty(window, 'speechSynthesis', {
+    configurable: true,
+    value: { speak(u) { window.__spoken.push({ text: u.text, volume: u.volume, rate: u.rate, lang: u.lang }); setTimeout(() => u.onend && u.onend(), 5); }, cancel() {}, getVoices: () => voicesList, addEventListener() {} },
+  });
+  window.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
+  if (config.captureCanvas) {
+    // Sdílení obrazovky: místo skutečného okna se sdílí plátno, jehož obsah řídí zkouška (window.__screen.draw(n)).
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    window.__screen = {
+      stream: null,
+      denied: false,
+      draw(n) {
+        ctx.fillStyle = n % 2 ? '#123' : '#e8d8c0';
+        ctx.fillRect(0, 0, 640, 360);
+        ctx.fillStyle = n % 2 ? '#fa0' : '#036';
+        for (let i = 0; i < 8; i++) ctx.fillRect(20 + i * 70, 40 + ((n * 37 + i * 53) % 220), 50, 60);
+      },
+    };
+    window.__screen.draw(0);
+    navigator.mediaDevices.getDisplayMedia = async () => {
+      if (window.__screen.denied) throw Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+      window.__screen.stream = canvas.captureStream(5);
+      return window.__screen.stream;
+    };
+  }
+  if (!config.noClaude) {
+    window.claude = {
+      use: async (name) => {
+        if (name === 'sample') return sample;
+        if (name === 'downloads') return downloads;
+        if (name === 'db') return config.noDb ? null : window.__dbMock || null;
+        if (name === 'user') return window.__userMock || null;
+        return null;
+      },
+    };
+  }
 }
 
 // ------------------------------------------------------------------ pomůcky
@@ -148,22 +260,29 @@ async function newContext(browser, opts) {
     problems.failed.push(route.request().url());
     return route.abort();
   });
-  await context.route(URL_PAGE, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: HTML }));
+  await context.route(URL_PAGE, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: opts.standalone ? HTML_STANDALONE : HTML }));
   await context.route('https://artifact.test/favicon.ico', (route) => route.fulfill({ status: 204, body: '' }));
   await context.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ contentType: 'text/css', body: '' }));
+  if (process.env.FZSTD_DIR) {
+    await context.route('https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js', (route) => route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(process.env.FZSTD_DIR, 'fzstd', 'umd', 'index.js')) }));
+  }
   await context.route('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/*', (route) => {
     const file = route.request().url().split('/').pop();
     if (!cdnMap[file]) return route.abort();
     return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(cdnMap[file]) });
   });
-  await context.addInitScript(installMock, { noClaude: !!opts.noClaude });
+  if (opts.db) {
+    await opts.db.attach(context, opts.uid || 'u1');
+    await context.addInitScript(installDbMock, { uid: opts.uid || 'u1' });
+  }
+  await context.addInitScript(installMock, { noClaude: !!opts.noClaude, noDb: !opts.db, captureCanvas: !!opts.captureCanvas });
   const page = await context.newPage();
   page.on('console', (m) => m.type() === 'error' && problems.console.push(m.text()));
   page.on('pageerror', (e) => problems.page.push(String(e)));
   return { context, page, problems };
 }
-async function open(page) {
-  await page.goto(URL_PAGE);
+async function open(page, hash) {
+  await page.goto(URL_PAGE + (hash ? '#' + hash : ''));
   await page.waitForFunction(() => window.__trenerReady === true, null, { timeout: 20000 });
 }
 const text = (page, sel) => page.locator(sel).first().innerText();
@@ -192,8 +311,12 @@ async function addObs(page, label, minute, textValue) {
   await page.fill('#obsText', textValue);
   await page.click('#obsAdd');
 }
+async function nav(page, hash) {
+  await page.click('#nav-' + hash);
+  await page.waitForFunction((x) => { const b = document.querySelector('#nav-' + x); return !!b && b.getAttribute('aria-current') === 'page'; }, hash);
+}
 async function addBooks(page, files, { rights = true, title = '', author = '', lang = 'auto' } = {}) {
-  await page.click('#tabBtn-knihovna');
+  await nav(page, 'zdroje');
   await page.setInputFiles('#bookFile', files);
   await page.fill('#bookTitle', title);
   await page.fill('#bookAuthor', author);
@@ -205,331 +328,19 @@ async function addBooks(page, files, { rights = true, title = '', author = '', l
 }
 const overflow = (page) => page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 
-// ------------------------------------------------------------------ zkoušky
+// ------------------------------------------------------------------ spuštění scénářů
+const helpers = { newContext, open, nav, ask, addObs, addBooks, setMode, resetCalls, calls, waitIdle, overflow, text, mock, fx, chromium, OUT, FakeDbServer };
+
 async function main() {
+  const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
+  const dir = path.join(__dirname, 'scenarios');
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.cjs')).sort().filter((f) => !only || only.some((o) => f.includes(o)));
   const browser = await chromium.launch();
   try {
-    // ---------- A) hlavní průchod
-    const { context, page, problems } = await newContext(browser);
-    await open(page);
-
-    check('A1 stránka naběhla bez chyb ve skriptu', problems.page.length === 0, problems.page);
-    check('A1 stav Claude: připojeno', /připojeno/.test(await text(page, '#pillClaude')), await text(page, '#pillClaude'));
-    check('A1 stav knihovny: prázdná', /prázdná/.test(await text(page, '#pillLibrary')), await text(page, '#pillLibrary'));
-    check('A1 tlačítko Poradit je povolené', await page.isEnabled('#askBtn'));
-    check('A1 pole pro obrázky je vidět (Claude hlásí podporu)', await page.isVisible('#imageField'));
-    await page.click('#tabBtn-info');
-    const diag = await text(page, '#diag');
-    check('A1 Info: verze stránky a registr zdrojů', /Verze stránky\s+\d{4}-\d\d-\d\d-[0-9a-f]{8}/.test(diag) && /registru\s+3/.test(diag), diag);
-    await page.click('#tabBtn-coach');
-
-    // A2: rada s prázdnou knihovnou
-    await ask(page, 'Útočník je od 25. minuty bez podpory a soupeř nás přehrává ve středu hřiště.');
-    let c = await calls(page);
-    check('A2 prázdná knihovna: žádný dotaz na plán hledání, jen jedno volání rady', c.length === 1 && c[0].kind === 'advice', c);
-    check('A2 rada má 10 částí', (await page.locator('#result .sec').count()) === 10, await page.locator('#result .sec').count());
-    check('A2 stránka řekne, že rada nevychází z knih', /rada nevychází z knih/.test(await text(page, '#result .banner')), await text(page, '#result .banner'));
-    check('A2 volání bez mezipaměti a s tierem default', c[0].cache === false && c[0].tier === 'default', c[0]);
-    check('A2 bez pozorování je jistota nízká', /nízká/.test(await text(page, '#result .sec:nth-child(4)')), await text(page, '#result .sec:nth-child(4)'));
-
-    // A3: knihovna
-    let status = await addBooks(page, [fx('prazdny.txt')]);
-    check('A3 prázdný soubor se odmítne srozumitelně', /není čitelný text/.test(status), status);
-    status = await addBooks(page, [fx('sken.pdf')]);
-    check('A3 sken bez textové vrstvy se odmítne srozumitelně', /není čitelný text/.test(status), status);
-    status = await addBooks(page, [fx('taktika-cs.txt')], { rights: false });
-    check('A3 bez potvrzení práv se nic nepřidá', /Potvrď/.test(status) && (await page.locator('#bookList .book').count()) === 0, status);
-    status = await addBooks(page, [fx('taktika-cs.txt')], { title: 'Zkušební taktika', author: 'Autor Zkoušky', lang: 'auto' });
-    check('A3 TXT se přidá', /Přidáno: 1/.test(status) && (await page.locator('#bookList .book').count()) === 1, status);
-    check('A3 jazyk TXT se pozná jako čeština', /čeština/.test(await text(page, '#bookList .book')), await text(page, '#bookList .book'));
-    check('A3 stav knihovny: 1 kniha', /1 kniha/.test(await text(page, '#pillLibrary')), await text(page, '#pillLibrary'));
-    status = await addBooks(page, [fx('taktika-cs.pdf'), fx('tactics-en.pdf')]);
-    check('A3 dvě PDF se přidají přes pdf.js', /Přidáno: 2/.test(status), status);
-    const booksText = await text(page, '#bookList');
-    check('A3 PDF se počítá na listy a skloňuje se správně', /3 listy/.test(booksText) && /4 listy/.test(booksText) && /1 oddíl ·/.test(booksText) && /2 úryvky/.test(booksText), booksText);
-    check('A3 jazyk anglického PDF se pozná', /angličtina/.test(booksText), booksText);
-    status = await addBooks(page, [fx('taktika-cs.txt')]);
-    check('A3 stejná kniha podruhé se nepřidá', /už v knihovně máš/.test(status) && (await page.locator('#bookList .book').count()) === 3, status);
-
-    // A4: hledání
-    await page.fill('#searchQ', 'izolovaný útočník podpora');
-    await page.click('#searchBtn');
-    const hit1 = await text(page, '#searchResults .hit');
-    check('A4 hledání češtiny najde odstavec o izolovaném útočníkovi', /izolovan/i.test(hit1) && /útočník/.test(hit1), hit1);
-    check('A4 u nálezu je název knihy a místo', /,\s*(list PDF č\. \d+|oddíl \d+)/.test(await text(page, '#searchResults .hit .cite')), await text(page, '#searchResults .hit .cite'));
-    await page.fill('#searchQ', 'izolovany utocnik');
-    await page.click('#searchBtn');
-    check('A4 hledání funguje i bez diakritiky', (await page.locator('#searchResults .hit').count()) > 0);
-    await page.fill('#searchQ', 'counter-pressing compact');
-    await page.click('#searchBtn');
-    const citeEn = await text(page, '#searchResults .hit .cite');
-    check('A4 hledání v angličtině cituje list PDF', /tactics-en, list PDF č\. 2/.test(citeEn), citeEn);
-    await page.fill('#searchQ', 'qwertzuiop');
-    await page.click('#searchBtn');
-    check('A4 neexistující výraz nic nenajde a řekne to', /Nic nenalezeno/.test(await text(page, '#searchResults')), await text(page, '#searchResults'));
-    await page.fill('#searchQ', 'protipresink ztráta míče');
-    await page.click('#searchBtn');
-    await page.locator('#searchResults .hit button').first().click();
-    check('A4 úryvek se otevře v panelu i se sousedními odstavci', (await page.isVisible('#drawer')) && (await page.locator('#drawerBody .passage').count()) >= 2);
-    await page.keyboard.press('Escape');
-    check('A4 Escape panel zavře', !(await page.isVisible('#drawer')));
-
-    // A5: knihovna přežije obnovení stránky
-    await page.reload();
-    await page.waitForFunction(() => window.__trenerReady === true);
-    check('A5 po obnovení stránky jsou knihy pořád tam', /3 knihy/.test(await text(page, '#pillLibrary')), await text(page, '#pillLibrary'));
-    await page.click('#tabBtn-knihovna');
-    await page.fill('#searchQ', 'izolovaný útočník');
-    await page.click('#searchBtn');
-    check('A5 a hledání po obnovení funguje', (await page.locator('#searchResults .hit').count()) > 0);
-    await page.click('#tabBtn-coach');
-
-    // A6: rada s knihami
-    await resetCalls(page);
-    await addObs(page, 'user_entered', 25, 'střely 11:3, držení míče 62 %');
-    check('A6 pozorování se přidá do seznamu', (await page.locator('#obsList li').count()) === 1 && /obs-1/.test(await text(page, '#obsList')), await text(page, '#obsList'));
-    await ask(page, 'Útočník je od 25. minuty bez podpory a soupeř nás přehrává ve středu hřiště.');
-    c = await calls(page);
-    check('A6 pořadí volání: plán hledání, rada', c.map((x) => x.kind).join() === 'planner,advice', c.map((x) => x.kind));
-    check('A6 plán hledání jde levným tierem, rada defaultním', c[0].tier === 'quick' && c[1].tier === 'default', c.map((x) => x.tier));
-    const prompt = await page.evaluate(() => window.__mock.prompts[1]);
-    check('A6 rada dostala úryvky z knih (id bk:) i pozorování obs-1', /- bk:[^ ]+ \| /.test(prompt) && /- obs-1 \| user_entered/.test(prompt));
-    check('A6 výsledek má 10 částí a prošel kontrolou', (await page.locator('#result .sec').count()) === 10 && /prošla kontrolou/.test(await text(page, '#result .banner')));
-    const refButtons = await page.locator('#result button.ref').count();
-    check('A6 odkazy na knihy jsou klikací', refButtons >= 1, refButtons);
-    await page.locator('#result button.ref').first().click();
-    check('A6 odkaz na knihu otevře úryvek', (await page.isVisible('#drawer')) && (await text(page, '#drawerBody')).length > 40);
-    await page.click('#drawerClose');
-    check('A6 historie má dva záznamy (A2 a A6)', (await page.locator('#historyList li').count()) === 2, await page.locator('#historyList li').count());
-    check('A6 průběh ukazuje hotovo', (await page.locator('#steps li.done').count()) >= 3, await text(page, '#steps'));
-    check('A6 banner ukazuje, co se hledalo', /Hledáno:/.test(await text(page, '#result .banner')));
-
-    // A7: důkladný režim
-    await resetCalls(page);
-    await page.check('#deepMode');
-    await ask(page, 'Co mám změnit?');
-    c = await calls(page);
-    check('A7 důkladný režim volá tier complex', c.some((x) => x.kind === 'advice' && x.tier === 'complex'), c);
-    await page.uncheck('#deepMode');
-
-    // A8: opravné kolo
-    await setMode(page, { mode: 'repair' });
-    await resetCalls(page);
-    await ask(page, 'Pressing nefunguje.');
-    c = await calls(page);
-    check('A8 neprošlá rada vyvolá jedno opravné kolo', c.map((x) => x.kind).join() === 'planner,advice,repair', c.map((x) => x.kind));
-    check('A8 po opravě se rada zobrazí', (await page.locator('#result .sec').count()) === 10);
-    const repairPrompt = await page.evaluate(() => window.__mock.prompts[2]);
-    check('A8 opravné kolo dostane seznam výhrad', /nesplnila tato pravidla/.test(repairPrompt) && /confidence: high/.test(repairPrompt), repairPrompt.slice(-600));
-
-    await setMode(page, { mode: 'repair-fail' });
-    await resetCalls(page);
-    await ask(page, 'Pressing nefunguje.');
-    check('A8 když ani oprava neprojde, žádná rada se neukáže', (await page.locator('#result .sec').count()) === 0 && /nedodal radu/.test(await text(page, '#result .banner')), await text(page, '#result'));
-    check('A8 stránka vypíše důvody výhrad', (await page.locator('#result .banner li').count()) >= 1);
-    const failText = await text(page, '#result .banner');
-    check('A8 výhrady jsou česky (Jistota:), ne s názvem pole (confidence:)', /Jistota:/.test(failText) && !/confidence:/.test(failText), failText);
-    await setMode(page, { mode: 'ok' });
-    await page.getByRole('button', { name: 'Zkusit znovu' }).click();
-    await waitIdle(page);
-    check('A8 „Zkusit znovu“ po neúspěchu zkusí radu znovu', (await page.locator('#result .sec').count()) === 10);
-    await setMode(page, { mode: 'repair-fail' });
-
-    await setMode(page, { mode: 'invalid_json' });
-    await resetCalls(page);
-    await ask(page, 'Pressing nefunguje.');
-    c = await calls(page);
-    check('A8 odpověď mimo JSON vyvolá opravné kolo', c.map((x) => x.kind).join() === 'planner,advice,repair' && (await page.locator('#result .sec').count()) === 10, c.map((x) => x.kind));
-    await setMode(page, { mode: 'ok' });
-
-    // A9: chyby
-    await setMode(page, { mode: 'not_granted' });
-    await ask(page, 'Pressing nefunguje.');
-    check('A9 nepovolený Claude: srozumitelná zpráva a bez zbytečného „Zkusit znovu“', /není povolený/.test(await text(page, '#result .banner.bad')) && !/Zkusit znovu/.test(await text(page, '#result .banner.bad')), await text(page, '#result'));
-    await setMode(page, { mode: 'rate_limited' });
-    await ask(page, 'Pressing nefunguje.');
-    check('A9 vyčerpaný limit: srozumitelná zpráva', /limitu/.test(await text(page, '#result .banner.bad')), await text(page, '#result'));
-    await setMode(page, { mode: 'upstream' });
-    await ask(page, 'Pressing nefunguje.');
-    check('A9 přechodná chyba služby nabídne „Zkusit znovu“', /Služba Claude/.test(await text(page, '#result .banner.bad')) && /Zkusit znovu/.test(await text(page, '#result .banner.bad')), await text(page, '#result'));
-    await setMode(page, { mode: 'ok', plannerFails: true });
-    await ask(page, 'Pressing nefunguje.');
-    check('A9 selhání plánu hledání rada přežije a řekne to', (await page.locator('#result .sec').count()) === 10 && /Plán hledání se nepovedl/.test(await text(page, '#result .banner')), await text(page, '#result .banner'));
-    await setMode(page, { plannerFails: false });
-
-    // A10: zastavení
-    await setMode(page, { mode: 'slow' });
-    await page.fill('#question', 'Pomalá otázka.');
-    await page.click('#askBtn');
-    await page.waitForSelector('#stopBtn:not([hidden])');
-    await page.click('#stopBtn');
-    await waitIdle(page);
-    check('A10 zastavení vrátí tlačítka do základu', (await page.isEnabled('#askBtn')) && !(await page.isVisible('#stopBtn')));
-    check('A10 průběh ukazuje zastaveno', /zastaveno/.test(await text(page, '#steps')), await text(page, '#steps'));
-    await setMode(page, { mode: 'ok' });
-
-    // A11: doplnění
-    await resetCalls(page);
-    await ask(page, 'Útočník je bez podpory.');
-    const followInputs = page.locator('#result .followup input');
-    check('A11 rada nabídne doplnění k tomu, co neví', (await followInputs.count()) >= 1);
-    await followInputs.first().fill('Hraju 4-2-3-1, záložníci jsou hluboko.');
-    await page.getByRole('button', { name: 'Poradit znovu s doplněním' }).click();
-    await waitIdle(page);
-    const prompts = await page.evaluate(() => window.__mock.prompts);
-    const last = prompts[prompts.length - 1];
-    check('A11 doplnění se vrátí jako pozorování dop-1', /dop-1/.test(await text(page, '#obsList')) && /- dop-1 \| user_entered/.test(last), await text(page, '#obsList'));
-    check('A11 nová rada zná předchozí radu', /Předchozí rada v tomto rozhovoru/.test(last));
-
-    // A12: obrázek a plán
-    await page.setInputFiles('#imageInput', fx('screenshot.png'));
-    check('A12 obrázek se ukáže v poznámce', /screenshot\.png/.test(await text(page, '#imageInfo')), await text(page, '#imageInfo'));
-    await page.setInputFiles('#planInput', PLAN);
-    await page.waitForFunction(() => /Načteno|nepodařilo/.test(document.querySelector('#planInfo').textContent));
-    check('A12 plán se načte', /Načteno/.test(await text(page, '#planInfo')), await text(page, '#planInfo'));
-    await setMode(page, { mode: 'repair' });
-    await resetCalls(page);
-    await ask(page, 'Podívej se na screenshot.');
-    c = await calls(page);
-    const adv = c.find((x) => x.kind === 'advice');
-    const rep = c.find((x) => x.kind === 'repair');
-    check('A12 obrázek jde jen v prvním volání rady, ne v opravě', adv && adv.images === 1 && rep && rep.images === 0, c);
-    const p2 = await page.evaluate(() => window.__mock.prompts.find((x) => /img-1/.test(x)));
-    check('A12 obrázek je v pozorováních jako vision_unverified', /- img-1 \| vision_unverified/.test(p2 || ''), (p2 || '').slice(0, 300));
-    check('A12 plán je v pozorováních jako zadání uživatele', /- plan \| user_entered/.test(p2 || '') && /Klub:/.test(p2 || ''));
-    await setMode(page, { mode: 'ok' });
-    await page.setInputFiles('#imageInput', []);
-    await page.setInputFiles('#planInput', []);
-
-    // A13: export a import
-    await page.click('#tabBtn-knihovna');
-    await page.click('#exportLib');
-    await page.waitForFunction(() => window.__mock.saves.length >= 1, null, { timeout: 10000 }).catch(() => {});
-    const saves = await page.evaluate(() => window.__mock.saves);
-    let exported = null;
-    try {
-      exported = JSON.parse(saves[0].text);
-    } catch (e) {
-      /* ohlásí se níž */
+    for (const file of files) {
+      console.log(`\n=== ${file} ===`);
+      await require(path.join(dir, file))({ browser, check, fx, OUT, PLAN, h: helpers });
     }
-    check('A13 export uloží soubor fm27-knihovna.json s 3 knihami', saves.length === 1 && saves[0].filename === 'fm27-knihovna.json' && exported && exported.format === 'fm27-trener-library' && exported.books.length === 3 && exported.passages.length > 5, saves.map((s) => s.filename));
-    for (let i = 0; i < 3; i++) {
-      const del = page.locator('#bookList .danger').first();
-      await del.click();
-      await del.click();
-      await page.waitForFunction((n) => document.querySelectorAll('#bookList .book').length === n, 2 - i);
-    }
-    check('A13 po smazání je knihovna prázdná', (await page.isVisible('#bookEmpty')) && /prázdná/.test(await text(page, '#pillLibrary')));
-    await page.reload();
-    await page.waitForFunction(() => window.__trenerReady === true);
-    check('A13 smazání přežije obnovení', /prázdná/.test(await text(page, '#pillLibrary')), await text(page, '#pillLibrary'));
-    await page.click('#tabBtn-knihovna');
-    await page.setInputFiles('#importLib', { name: 'fm27-knihovna.json', mimeType: 'application/json', buffer: Buffer.from(saves[0].text) });
-    await page.waitForFunction(() => document.querySelectorAll('#bookList .book').length === 3);
-    await page.fill('#searchQ', 'izolovaný útočník');
-    await page.click('#searchBtn');
-    check('A13 import vrátí 3 knihy a hledání zase funguje', (await page.locator('#searchResults .hit').count()) > 0);
-    await page.setInputFiles('#importLib', { name: 'spatny.json', mimeType: 'application/json', buffer: Buffer.from('{"a":1}') });
-    await page.waitForSelector('#toast:not([hidden])');
-    check('A13 cizí JSON se při importu odmítne', /Import se nepovedl/.test(await text(page, '#toast')), await text(page, '#toast'));
-
-    // A14: historie po obnovení
-    await page.reload();
-    await page.waitForFunction(() => window.__trenerReady === true);
-    await page.click('#tabBtn-coach');
-    check('A14 historie přežije obnovení', (await page.locator('#historyList li').count()) >= 1);
-    await page.locator('#historyList button').first().click();
-    check('A14 uložená rada se dá otevřít', (await page.locator('#result .sec').count()) === 10 && /Uložená rada/.test(await text(page, '#result .banner')));
-    const histRef = page.locator('#result button.ref').first();
-    if (await histRef.count()) {
-      await histRef.click();
-      check('A14 odkaz v uložené radě otevře úryvek', await page.isVisible('#drawer'));
-      await page.click('#drawerClose');
-    }
-
-    // A15: Info a zkoušky
-    await page.click('#tabBtn-info');
-    await page.click('#testClaude');
-    await page.waitForFunction(() => /Spojení s Claude funguje/.test(document.querySelector('#testOut').textContent));
-    check('A15 zkouška spojení s Claude', true);
-    await page.click('#testSearch');
-    check('A15 zkouška hledání', /Hledání funguje/.test(await text(page, '#testOut')), await text(page, '#testOut'));
-
-    // A16: téma přepnuté ručně přebije systém
-    await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
-    const bgLight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'));
-    const bgDark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    check('A16 ruční volba tématu přebije systém v obou směrech', bgLight === 'rgb(242, 245, 239)' && bgDark === 'rgb(11, 17, 24)', { bgLight, bgDark });
-    await page.evaluate(() => delete document.documentElement.dataset.theme);
-
-    check('A99 žádná chyba ve skriptu za celou dobu', problems.page.length === 0, problems.page);
-    const consoleErrors = problems.console.filter((m) => !/Failed to load resource/.test(m));
-    check('A99 žádná chyba v konzoli za celou dobu', consoleErrors.length === 0, consoleErrors);
-    const unexpected = problems.failed.filter((u) => !/fonts\.gstatic\.com/.test(u));
-    check('A99 stránka nesahala na nic mimo povolené adresy', unexpected.length === 0, unexpected);
-
-    // ---------- B) rozložení a snímky
-    await page.click('#tabBtn-coach');
-    await setMode(page, { mode: 'ok' });
-    await resetCalls(page);
-    await ask(page, 'Útočník je od 25. minuty bez podpory a soupeř nás přehrává ve středu hřiště.');
-    const shots = [
-      ['desktop-dark-coach', { width: 1280, height: 900 }, 'dark', 'coach'],
-      ['phone-dark-coach', { width: 390, height: 844 }, 'dark', 'coach'],
-      ['phone-light-coach', { width: 390, height: 844 }, 'light', 'coach'],
-      ['desktop-light-library', { width: 1280, height: 900 }, 'light', 'knihovna'],
-      ['phone-dark-library', { width: 390, height: 844 }, 'dark', 'knihovna'],
-      ['phone-light-info', { width: 390, height: 844 }, 'light', 'info'],
-    ];
-    for (const [name, viewport, scheme, tab] of shots) {
-      await page.setViewportSize(viewport);
-      await page.emulateMedia({ colorScheme: scheme });
-      await page.click('#tabBtn-' + tab);
-      await page.waitForTimeout(150);
-      const o = await overflow(page);
-      check(`B ${name}: bez vodorovného posouvání`, o.sw <= o.cw, o);
-      await page.screenshot({ path: path.join(OUT, name + '.png'), fullPage: true });
-    }
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.click('#tabBtn-knihovna');
-    await page.fill('#searchQ', 'izolovaný útočník');
-    await page.click('#searchBtn');
-    await page.locator('#searchResults .hit button').first().click();
-    await page.waitForTimeout(150);
-    await page.screenshot({ path: path.join(OUT, 'phone-light-drawer.png') });
-    const o2 = await overflow(page);
-    check('B phone-light-drawer: bez vodorovného posouvání', o2.sw <= o2.cw, o2);
-    await context.close();
-
-    // ---------- C) bez Claude
-    const second = await newContext(browser, { noClaude: true });
-    await open(second.page);
-    check('C stránka bez Claude: stav nedostupné', /nedostupné/.test(await text(second.page, '#pillClaude')), await text(second.page, '#pillClaude'));
-    check('C stránka bez Claude: Poradit je zakázané a vysvětlené', !(await second.page.isEnabled('#askBtn')) && /nemá přístup ke Claude/.test(await text(second.page, '#askHint')), await text(second.page, '#askHint'));
-    check('C stránka bez Claude: pole pro obrázky skryté', !(await second.page.isVisible('#imageField')));
-    await addBooks(second.page, [fx('taktika-cs.txt')]);
-    await second.page.fill('#searchQ', 'izolovaný útočník');
-    await second.page.click('#searchBtn');
-    check('C knihovna a hledání fungují i bez Claude', (await second.page.locator('#searchResults .hit').count()) > 0);
-    check('C bez Claude žádná chyba ve skriptu', second.problems.page.length === 0, second.problems.page);
-    await second.context.close();
-
-    // ---------- D) delší kniha se záhlavím a čísly stran
-    const third = await newContext(browser);
-    await open(third.page);
-    const dStatus = await addBooks(third.page, [fx('kniha-s-zahlavim.pdf')]);
-    check('D delší PDF se přidá', /Přidáno: 1/.test(dStatus), dStatus);
-    check('D počet listů a úryvků je v seznamu knih', /24 listů/.test(await text(third.page, '#bookList')) && /\d+ úryvků/.test(await text(third.page, '#bookList')), await text(third.page, '#bookList'));
-    await third.page.fill('#searchQ', 'ZKUŠEBNÍ PŘÍRUČKA ZÁHLAVÍ STRANY');
-    await third.page.click('#searchBtn');
-    check('D záhlaví stran se do úryvků nedostalo', !/ZÁHLAVÍ STRANY/.test(await text(third.page, '#searchResults')), await text(third.page, '#searchResults'));
-    await third.page.fill('#searchQ', 'útočník nabíhá do prostoru');
-    await third.page.click('#searchBtn');
-    const dHits = await third.page.locator('#searchResults .hit').allInnerTexts();
-    check('D v těle knihy se hledá dál', dHits.length > 0 && dHits.every((t) => !/^\s*\d+\s*$/m.test(t.replace(/^.*\n/, ''))), dHits.slice(0, 1));
-    check('D bez chyb ve skriptu', third.problems.page.length === 0, third.problems.page);
-    await third.context.close();
   } finally {
     await browser.close();
   }
@@ -543,5 +354,5 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 } else {
-  module.exports = { newContext, open, ask, addObs, addBooks, setMode, resetCalls, calls, waitIdle, overflow, fx, chromium, OUT };
+  module.exports = helpers;
 }

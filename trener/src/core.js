@@ -605,6 +605,83 @@
     return result({ needs_verification: needsVerification });
   }
 
+  // ---------------------------------------------------------------- společné pomůcky pro další schémata
+  /** Vrátí text, který se shoduje s tvrzením o interní mechanice FM27, jinak null. */
+  function scanMechanics(text) {
+    for (const pattern of MECHANIC_PATTERNS) {
+      const match = pattern.exec(String(text));
+      if (match) return match[0];
+    }
+    return null;
+  }
+
+  /** Převede id odkazu na úroveň důvěry. ctx: {observations: {id: {label}}, passages: Set|Map|{id:…}, registry}. */
+  function makeRefResolver(ctx) {
+    const observations = (ctx && ctx.observations) || {};
+    const registry = (ctx && ctx.registry) || null;
+    const raw = ctx && ctx.passages;
+    const passages = raw ? (raw instanceof Set || raw instanceof Map ? raw : new Set(Object.keys(raw))) : null;
+    const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    return {
+      isObservation: (ref) => has(observations, ref),
+      isPassage: (ref) => !!passages && passages.has(ref),
+      tier(ref) {
+        if (has(observations, ref)) return LABEL_TO_TIER[observations[ref].label] || 'unknown';
+        if (passages && passages.has(ref)) return 'inferred';
+        if (registry && registry.has(ref)) return registry.isOfficialFm27(ref) ? 'verified' : 'inferred';
+        return null;
+      },
+    };
+  }
+
+  /** Společná kontrola jednoho tvrzení {text, tier, refs} pro schémata mimo desetibodovou radu
+      (soupeř, vyhodnocení změny, zpráva po zápase, lekce). Stejná pravidla jako ve validateAdvice10:
+      odkaz musí existovat, úroveň nesmí být silnější než nejslabší odkazovaný důkaz, verified/observed/user_entered
+      vyžadují odkaz, tvrzení o mechanice FM27 bez ověřeného zdroje se odmítne.
+      opts: {minText, needObservation, forbidTiers: [...], allowPassagesAsEvidence (výchozí true)}.
+      Vrací {errors, tier, refs} (refs jen platné odkazy). */
+  function checkClaim(name, section, ctx, opts) {
+    const o = Object.assign({ minText: MIN_TEXT, needObservation: false, forbidTiers: [], allowPassagesAsEvidence: true }, opts);
+    const errors = [];
+    if (!isObject(section)) return { errors: [`${name}: sekce musí být objekt.`], tier: null, refs: [] };
+    const resolver = makeRefResolver(ctx);
+    const text = txt(section.text);
+    const tier = section.tier;
+    const refs = strList(section.refs);
+    if (text.length < o.minText) errors.push(`${name}: text je prázdný nebo příliš krátký.`);
+    if (!TIERS.includes(tier)) {
+      errors.push(`${name}: neplatná úroveň důvěry „${tier}“.`);
+      return { errors, tier: null, refs: [] };
+    }
+    if (o.forbidTiers.includes(tier)) errors.push(`${name}: úroveň ${tier} tady není povolená.`);
+    if (refs === null) {
+      errors.push(`${name}: refs musí být seznam textů.`);
+      return { errors, tier: null, refs: [] };
+    }
+    for (const ref of refs) {
+      if (resolver.tier(ref) === null) errors.push(`${name}: odkaz „${ref}“ neodpovídá žádnému pozorování ani zdroji.`);
+    }
+    const good = refs.filter((ref) => resolver.tier(ref) !== null);
+    if (['verified', 'observed', 'user_entered'].includes(tier) && !good.length) {
+      errors.push(`${name}: tvrzení s úrovní ${tier} musí mít odkaz na pozorování nebo zdroj.`);
+    }
+    if (good.length) {
+      const weakest = good.map((r) => resolver.tier(r)).reduce((a, b) => (TIER_RANK[b] < TIER_RANK[a] ? b : a));
+      if (TIER_RANK[tier] > TIER_RANK[weakest]) errors.push(`${name}: úroveň ${tier} je silnější než nejslabší odkazovaný důkaz (${weakest}).`);
+    }
+    if (o.needObservation && tier !== 'unknown' && !good.some((r) => resolver.isObservation(r))) {
+      errors.push(`${name}: důkaz musí odkazovat alespoň jedno pozorování (id).`);
+    }
+    if (!o.allowPassagesAsEvidence && good.some((r) => resolver.isPassage(r))) {
+      errors.push(`${name}: úryvek z knihy tu nemůže být důkaz; je to teorie, ne pozorování.`);
+    }
+    if (tier !== 'verified' && tier !== 'observed') {
+      const hit = scanMechanics(text);
+      if (hit) errors.push(`${name}: tvrzení o interní mechanice FM27 („${hit}“) bez ověřeného zdroje; přepiš jako otevřenou otázku.`);
+    }
+    return { errors, tier, refs: good };
+  }
+
   // ---------------------------------------------------------------- vykreslení do textu
   const TIER_LABEL_CS = {
     verified: 'ověřeno, oficiální zdroj',
@@ -787,7 +864,7 @@ Pravidla poctivosti platí bez výjimky:
     fold, tokenize, stem, normalizeSpace, splitSentences, chunkText, splitTextIntoSections, detectLanguage, makeId,
     buildPassages, stripRunningLines, citationLabel, Index, multiSearch,
     parseSource, Registry,
-    validateAdvice10, adviceToText,
+    validateAdvice10, adviceToText, scanMechanics, makeRefResolver, checkClaim,
     normalizeObservations, renderPlan,
     RULES_CS, ADVICE_SHAPE, buildPlannerPrompt, sanitizeQueries, buildAdviceTurns, buildRepairTurns,
   };
