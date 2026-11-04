@@ -111,8 +111,10 @@ module.exports = async function run(env) {
   await phone.page.waitForSelector('svg.pitch .pl', { timeout: 10000 });
   const o = await phone.page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   check('04 telefon: laboratoř bez vodorovného posouvání', o.sw <= o.cw, o);
-  const pb = await phone.page.locator('svg.pitch').boundingBox();
-  check('04 telefon: hřiště se vejde na šířku', pb.width <= 390 && pb.width > 250, pb);
+  // Hřiště se při příchodu synchronizovaných dat může překreslit; měří se uvnitř stránky, až je k dispozici.
+  await phone.page.waitForFunction(() => { const el = document.querySelector('svg.pitch'); return !!el && el.getBoundingClientRect().width > 0; }, null, { timeout: 10000 }).catch(() => {});
+  const pb = await phone.page.evaluate(() => { const el = document.querySelector('svg.pitch'); const r = el && el.getBoundingClientRect(); return r ? { width: r.width, height: r.height } : null; });
+  check('04 telefon: hřiště se vejde na šířku', !!pb && pb.width <= 390 && pb.width > 250, pb);
   const movedOnPhone = await phone.page.evaluate(() => window.FM27.app.store.list('tactic').find((t) => t.name !== 'Alternativa 4-4-2').slots.find((s) => s.key === 's10').y);
   check('04 telefon: přesunutý útočník je vidět i na telefonu (synchronizace)', movedOnPhone < 10, movedOnPhone);
   await phone.context.close();
