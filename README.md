@@ -13,10 +13,12 @@ Je jen v Cursoru a nikam se nenahrál, takže soubory, na které odkazuje `HANDO
 |---|---|
 | `HANDOFF_CLAUDE.md`, `PROMPT_CLAUDE_CONTINUE.md` | předání z Cursoru, beze změn |
 | `reference/codex-2026-11-01/` | starší soubory z původní složky (1. 11.), jen reference, starší než Wave 76 |
-| `ai_gateway/` | **nové:** serverový AI trenér (Claude) s kontrolou poctivosti, čtení obrazovky, náklady. 126 testů prochází; živé API zatím neověřeno (chybí klíč) |
+| `trener/` | **nové:** samostatný poradce jako stránka v Claude. Čte tvoje knihy (PDF, TXT), hledá v nich, radí desetibodově a kontroluje poctivost. Popis: [`trener/README.md`](./trener/README.md) |
+| `ai_gateway/` | **nové:** serverový AI trenér (Claude) s kontrolou poctivosti, čtení obrazovky, náklady, úryvky z knih. 135 testů prochází; živé API zatím neověřeno (chybí klíč) |
 | `fmf_research/` | **nové:** opravený inspektor FMF (11 testů). Originál je beze změny v `reference/` |
 | `docs/AI_GATEWAY_V2.md` | jak gateway zapojit a co s klíčem ověřit |
 | `docs/REVIZE_CLAUDE_2026-11-04.md` | kontrola souborů z Cursoru: nálezy, důkazy, návrhy |
+| `docs/ZADANI_MASTER_PROMPT.md` | původní zadání (MASTER PROMPT) doslova a upřesnění ze 4. 11. |
 | `POKRACOVANI.md` | co dál a co od majitele potřebuju |
 
 ## Jak sem nahrát kód z Cursoru
@@ -34,6 +36,7 @@ Repozitář je **veřejný**: nikdy do něj nedávej klíče (hlídá to test `t
 pip install anthropic zstandard    # volitelné; bez nich se příslušné testy přeskočí
 python3 -m unittest discover -s ai_gateway/tests -t . -v
 python3 -m unittest discover -s fmf_research/tests -t . -v
+node --test trener/test/*.test.mjs     # jádro stránky trenéra (hledání, kontrola poctivosti)
 python3 -m ai_gateway.demo         # ukázka formátu rady (DEMO, žádná AI ani síť)
 ```
 

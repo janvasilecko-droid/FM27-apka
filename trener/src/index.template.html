@@ -1,0 +1,196 @@
+<title>FM27 Tactical Coach</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="trener-build" content="/*BUILD*/">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/*CSS*/
+</style>
+
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">TC</div>
+      <div><b>FM27 TACTICAL COACH</b><small>Trenér, který vychází z tvých knih</small></div>
+    </div>
+    <div class="status" aria-live="polite">
+      <span class="pill" id="pillLibrary"><i></i><span>Knihovna: načítám…</span></span>
+      <span class="pill" id="pillClaude"><i></i><span>Claude: zjišťuji…</span></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sekce">
+    <button class="tab" role="tab" id="tabBtn-coach" data-tab="coach" aria-selected="true" aria-controls="tab-coach">Trenér</button>
+    <button class="tab" role="tab" id="tabBtn-knihovna" data-tab="knihovna" aria-selected="false" aria-controls="tab-knihovna">Knihovna</button>
+    <button class="tab" role="tab" id="tabBtn-info" data-tab="info" aria-selected="false" aria-controls="tab-info">Info</button>
+  </nav>
+
+  <!-- ====================================================== TRENÉR -->
+  <section class="panel" id="tab-coach" role="tabpanel" aria-labelledby="tabBtn-coach">
+    <div class="coach-grid">
+      <div>
+        <div class="card">
+          <h2>Co řešíš?</h2>
+          <p class="lead">Popiš, co se ve hře děje. Trenér prohledá tvoje knihy, poradí a výslovně řekne, co neví.</p>
+          <div class="field">
+            <label for="question">Problém nebo otázka</label>
+            <textarea id="question" placeholder="Např.: Útočník je od 25. minuty bez podpory a soupeř nás přehrává ve středu hřiště."></textarea>
+          </div>
+
+          <div class="field">
+            <span class="label">Pozorování: jen to, co jsi opravdu viděl</span>
+            <div class="row">
+              <div class="field" style="margin-top:0">
+                <label for="obsLabel">Původ</label>
+                <select id="obsLabel">
+                  <option value="user_entered">Moje poznámka</option>
+                  <option value="screenshot_verified">Ověřený screenshot (popsal jsem ho já)</option>
+                  <option value="ocr_unverified">Strojově vyčteno ze screenshotu</option>
+                </select>
+              </div>
+              <div class="field" style="margin-top:0;width:92px">
+                <label for="obsMinute">Minuta</label>
+                <input type="number" id="obsMinute" min="0" max="130" inputmode="numeric" placeholder="–">
+              </div>
+              <div class="field grow" style="margin-top:0">
+                <label for="obsText">Co jsi viděl</label>
+                <input type="text" id="obsText" maxlength="400" placeholder="Např.: střely 11:3, držení míče 62 %">
+              </div>
+              <button class="btn" id="obsAdd" type="button">Přidat</button>
+            </div>
+            <ul class="obs-list" id="obsList"></ul>
+            <p class="hint">Trenér z pozorování dělá důkazy. Strojově vyčtený text bere jen jako odhad, ne jako fakt.</p>
+          </div>
+
+          <div class="field" id="imageField" hidden>
+            <label for="imageInput">Screenshot (volitelné)</label>
+            <input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp" multiple>
+            <p class="hint" id="imageInfo">Obrázek se pošle ke Claude jen po stisknutí „Poradit“. Co z něj Claude přečte, bere trenér jako neověřené.</p>
+          </div>
+
+          <div class="field">
+            <label for="planInput">Ruční plán taktiky (volitelné, soubor .json z aplikace)</label>
+            <input type="file" id="planInput" accept="application/json,.json">
+            <p class="hint" id="planInfo">Bez plánu trenér nezná tvoje rozestavení ani role.</p>
+          </div>
+
+          <label class="checkline"><input type="checkbox" id="deepMode"><span>Důkladný režim: pomalejší a spotřebuje víc tvého limitu Claude, hodí se u těžkých rozhodnutí.</span></label>
+
+          <div class="actions">
+            <button class="btn primary" id="askBtn" type="button">Poradit</button>
+            <button class="btn" id="stopBtn" type="button" hidden>Zastavit</button>
+            <span class="hint" id="askHint"></span>
+          </div>
+          <ol class="steps" id="steps" hidden></ol>
+        </div>
+
+        <div class="card">
+          <h3>Historie rad</h3>
+          <ul class="history" id="historyList"></ul>
+          <p class="hint" id="historyEmpty">Zatím nic. Rady se ukládají jen v tomto zařízení.</p>
+        </div>
+      </div>
+
+      <div id="resultCol" aria-live="polite">
+        <div class="card" id="resultEmpty">
+          <h2>Rada se zobrazí tady</h2>
+          <p class="lead">Každá rada má deset částí: kontext, dva důkazy, jistotu, diagnózu, konkrétní změnu, jak ji změřit, rizika, jak ji vrátit a co trenér neví. U každého tvrzení uvidíš, odkud je.</p>
+          <ul class="list">
+            <li><span class="chip t-observed">pozorováno</span> viděl jsi to na ověřeném screenshotu</li>
+            <li><span class="chip t-user_entered">zadal uživatel</span> tvoje slova</li>
+            <li><span class="chip t-inferred">odhad</span> strojové čtení nebo úvaha, neověřeno</li>
+            <li><span class="chip t-unknown">neznámé</span> trenér to neví a řekne, co ověřit</li>
+          </ul>
+        </div>
+        <div id="result"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== KNIHOVNA -->
+  <section class="panel" id="tab-knihovna" role="tabpanel" aria-labelledby="tabBtn-knihovna" hidden>
+    <div class="card">
+      <h2>Přidat knihu</h2>
+      <p class="lead">Soubory se čtou přímo v tomto zařízení. Texty knih zůstávají tady a trenér z nich cituje s názvem knihy a listem PDF.</p>
+      <div class="field">
+        <label for="bookFile">Soubory (PDF s textovou vrstvou, TXT nebo MD)</label>
+        <input type="file" id="bookFile" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" multiple>
+      </div>
+      <div class="row">
+        <div class="field grow"><label for="bookTitle">Název (u jednoho souboru)</label><input type="text" id="bookTitle" maxlength="160" placeholder="Doplní se z názvu souboru"></div>
+        <div class="field grow"><label for="bookAuthor">Autor (volitelné)</label><input type="text" id="bookAuthor" maxlength="120"></div>
+        <div class="field" style="width:150px"><label for="bookLang">Jazyk</label>
+          <select id="bookLang"><option value="auto">Poznat sám</option><option value="cs">čeština</option><option value="en">angličtina</option><option value="de">němčina</option><option value="other">jiný</option></select>
+        </div>
+      </div>
+      <label class="checkline"><input type="checkbox" id="bookRights"><span>Mám právo tento dokument používat pro vlastní potřebu.</span></label>
+      <div class="actions"><button class="btn primary" id="bookAdd" type="button">Zpracovat a přidat</button><span class="hint" id="bookHint"></span></div>
+      <div class="progress" id="bookProgress" hidden><i></i></div>
+      <p class="hint" id="bookStatus" aria-live="polite"></p>
+    </div>
+
+    <div class="card">
+      <h2>Moje knihy</h2>
+      <div class="books" id="bookList"></div>
+      <p class="hint" id="bookEmpty">Knihovna je prázdná. Bez knih trenér poradí jen z tvých pozorování a řekne to.</p>
+      <div class="actions">
+        <button class="btn small" id="exportLib" type="button">Exportovat knihovnu</button>
+        <label class="btn small" for="importLib" style="cursor:pointer">Importovat knihovnu</label>
+        <input type="file" id="importLib" accept="application/json,.json" hidden>
+        <span class="hint" id="libHint">Export se hodí pro přenos na jiné zařízení. Soubor obsahuje texty knih, nikam ho nesdílej.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Zkušební hledání</h2>
+      <p class="lead">Podívej se, co z knihovny trenér vidí. Takové úryvky dostane, když se ho zeptáš.</p>
+      <div class="row">
+        <div class="field grow" style="margin-top:0"><label for="searchQ">Hledaný výraz</label><input type="text" id="searchQ" placeholder="Např.: izolovaný útočník, support striker"></div>
+        <button class="btn" id="searchBtn" type="button">Hledat</button>
+      </div>
+      <div id="searchResults"></div>
+    </div>
+  </section>
+
+  <!-- ====================================================== INFO -->
+  <section class="panel" id="tab-info" role="tabpanel" aria-labelledby="tabBtn-info" hidden>
+    <div class="card">
+      <h2>Jak trenér pracuje</h2>
+      <ol class="list">
+        <li>Z tvého popisu navrhne hledací dotazy v jazycích tvých knih.</li>
+        <li>Najde v knihovně nejlepší úryvky a ukáže, ze které knihy a z jakého listu jsou.</li>
+        <li>Složí desetibodovou radu a každé tvrzení označí podle původu.</li>
+        <li>Zkontroluje, že rada neslibuje víc, než unese: bez dvou ověřených screenshotů nikdy nenapíše „vysoká jistota“.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>Co je a není ověřené</h2>
+      <ul class="list">
+        <li>Knihy dávají teorii obecného fotbalu. Neříkají, jak funguje FM27.</li>
+        <li>Názvy rolí, nastavení a cest v menu FM27 trenér nezná. Dokud je nepotvrdí tvůj screenshot nebo oficiální zdroj FM27, označí je jako neověřené a požádá tě o ověření.</li>
+        <li>Starší verze Football Manageru není FM27. Oficiální články o FM27 popisují oznámené funkce předvydané verze, ne ověřené chování ve hře.</li>
+        <li>Text vyčtený strojem ze screenshotu je jen odhad.</li>
+        <li>Když informací nestačí, trenér to řekne a napíše, co potřebuje vidět.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Stav a zkoušky</h2>
+      <div class="diag" id="diag"></div>
+      <div class="actions">
+        <button class="btn small" id="testClaude" type="button">Zkouška spojení s Claude</button>
+        <button class="btn small" id="testSearch" type="button">Zkouška hledání na ukázkovém textu</button>
+      </div>
+      <p class="hint" id="testOut" aria-live="polite"></p>
+      <p class="hint">Každé „Poradit“ spotřebuje tvůj limit Claude: obvykle jedno levné volání na plán hledání a jedno až dvě na radu.</p>
+    </div>
+  </section>
+</div>
+
+<aside class="drawer" id="drawer" hidden aria-label="Úryvek z knihy">
+  <header><h2 id="drawerTitle"></h2><button class="btn small" id="drawerClose" type="button">Zavřít</button></header>
+  <div class="body" id="drawerBody"></div>
+</aside>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="application/json" id="knowledge-data">/*KNOWLEDGE*/</script>
+<script>/*CORE*/</script>
+<script>/*APP*/</script>

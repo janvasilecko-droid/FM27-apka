@@ -17,3 +17,6 @@ dist/
 # Systémové
 .DS_Store
 Thumbs.db
+
+# Výstupy zkoušek v prohlížeči
+trener/test/e2e/out/

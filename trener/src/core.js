@@ -124,6 +124,45 @@
     return sections;
   }
 
+  /** Z textů stran PDF odstraní běžící záhlaví a zápatí (řádky opakované na většině stran)
+      a samostatná čísla stran. Hledá jen v prvních a posledních třech řádcích strany a jen na stranách
+      s aspoň deseti řádky, takže krátké strany a tělo textu se nemění. */
+  function stripRunningLines(pages) {
+    const EDGE = 3;
+    const MIN_LINES = 10;
+    const lines = pages.map((p) => String(p).split('\n'));
+    const filled = (arr) => arr.reduce((acc, l, i) => (l.trim() ? (acc.push(i), acc) : acc), []);
+    const edges = (arr) => {
+      const idx = filled(arr);
+      if (idx.length >= MIN_LINES) return { idx: [...idx.slice(0, EDGE), ...idx.slice(-EDGE)], long: true };
+      return { idx: idx.length ? [idx[0], idx[idx.length - 1]] : [], long: false };
+    };
+    const norm = (l) => l.trim().replace(/\d+/g, '#').replace(/\s+/g, ' ').toLowerCase();
+    const isPageNumber = (l) => /^(?:[-–—]\s*)?(?:(?:page|strana|str\.|s\.)\s*)?\d{1,4}(?:\s*(?:\/|z|of)\s*\d{1,4})?(?:\s*[-–—])?$/i.test(l.trim());
+    const counts = new Map();
+    let eligible = 0;
+    for (const arr of lines) {
+      const e = edges(arr);
+      if (!e.long) continue;
+      eligible++;
+      const seen = new Set();
+      for (const i of e.idx) {
+        const n = norm(arr[i]);
+        if (n.length >= 3 && n.length <= 120 && !seen.has(n)) {
+          seen.add(n);
+          counts.set(n, (counts.get(n) || 0) + 1);
+        }
+      }
+    }
+    const need = Math.max(4, Math.ceil(eligible * 0.35));
+    const running = new Set([...counts].filter(([, c]) => c >= need).map(([n]) => n));
+    return lines.map((arr) => {
+      const e = edges(arr);
+      const drop = new Set(e.idx.filter((i) => isPageNumber(arr[i]) || (e.long && running.has(norm(arr[i])))));
+      return arr.filter((_, i) => !drop.has(i)).join('\n');
+    });
+  }
+
   function detectLanguage(sample) {
     const words = fold(sample).split(/[^a-z0-9]+/).filter(Boolean).slice(0, 4000);
     const cs = new Set('je jsou byl byla ale nebo kdyz jako tento ktery ktera ktere pro pri jeho jeji nez take se si na do od'.split(' '));
@@ -746,7 +785,7 @@ Pravidla poctivosti platí bez výjimky:
   return {
     TIERS, TIER_RANK, LABELS, LABEL_TO_TIER, INPUT_LABELS, SECTION_KEYS, TIER_LABEL_CS, LEVEL_CS,
     fold, tokenize, stem, normalizeSpace, splitSentences, chunkText, splitTextIntoSections, detectLanguage, makeId,
-    buildPassages, citationLabel, Index, multiSearch,
+    buildPassages, stripRunningLines, citationLabel, Index, multiSearch,
     parseSource, Registry,
     validateAdvice10, adviceToText,
     normalizeObservations, renderPlan,

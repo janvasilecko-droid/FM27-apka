@@ -12,6 +12,21 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `HANDOFF_CLAUDE.md
   - `docs/REVIZE_CLAUDE_2026-11-04.md` (kontrola souborů, které jsem dostal).
 - Stav aplikace (≈ 88 %, 12 z 15 testů) je z handoffu, **neověřený mnou**.
 
+## Co přibylo 4. 11. odpoledne: samostatný poradce `trener/`
+
+Majitel upřesnil, že aplikace má být **samostatný poradce, který s ním řeší problémy, vychází hlavně z jeho knih (teorie)
+a umí hledat kontext**. Původní zadání je teď v `docs/ZADANI_MASTER_PROMPT.md`. Cursorův kód stále není k dispozici,
+a protože nebylo kam navázat, vznikl nezávislý modul, který kód z Cursoru nenahrazuje ani nepřepisuje:
+
+- `trener/` je jedna stránka (artefakt v Claude). Knihy se čtou v prohlížeči majitele, hledá se v nich BM25 a Claude
+  skládá desetibodovou radu; JS validátor poctivosti je překlad `advice10.py` (68 společných případů hlídá test).
+- Žádný server, žádný klíč v chatu: stránka volá Claude přes schopnost `sample` z účtu toho, kdo ji otevře.
+- Texty knih zůstávají v IndexedDB prohlížeče a v exportu, který si majitel sám uloží. **Nikdy do gitu.**
+- Co je ověřené a co ne: viz `trener/README.md`, část „Co je ověřeno“.
+
+Dlouhodobá varianta, kdyby stránka přestala stačit: samostatné hostované řešení podle pivovarské bible (vlastní Supabase
+projekt, zpracování knih na serveru, hledání v databázi, náklady na AI). Rozhodnout s majitelem, až vyzkouší stránku.
+
 ## Co udělat jako první
 
 1. Zjistit, jestli je v repozitáři kód Wave 76 (`git ls-remote origin`, `ls`). Pokud ano: přečíst `ARCHITECTURE.md`, spustit testy z handoffu

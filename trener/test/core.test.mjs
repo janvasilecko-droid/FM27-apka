@@ -232,3 +232,50 @@ test('renderPlan z ručního plánu a text rady', () => {
   assert.match(core.adviceToText(demo), /navigace: neznámé/);
   assert.equal(typeof core.adviceToText({}), 'string');
 });
+
+// ------------------------------------------------------------------ běžící záhlaví a čísla stran
+const W = ['presink', 'obrana', 'zaloznik', 'kridlo', 'prechod', 'blok', 'tempo', 'prostor', 'souboj', 'rozestaveni', 'podpora'];
+function makePages(n, withHeader) {
+  return Array.from({ length: n }, (_, i) => {
+    const body = Array.from({ length: 14 }, (_, k) => `Veta ${k} strany ${i + 1} popisuje ${W[(i * 5 + k * 3) % W.length]} a ${W[(i * 7 + k * 2 + 1) % W.length]} ve hre.`);
+    const top = withHeader ? [`TACTICAL FORMATIONS ${i % 2 ? 'Autor Jmeno' : 'Kapitola'}`, ''] : [];
+    const bottom = [String(i + 1), `Page ${i + 1}`];
+    return [...top, ...body, ...bottom].join('\n');
+  });
+}
+
+test('stripRunningLines: odstraní záhlaví a čísla stran, tělo nechá', () => {
+  const pages = makePages(12, true);
+  const out = core.stripRunningLines(pages);
+  assert.equal(out.length, 12);
+  for (const [i, text] of out.entries()) {
+    assert.ok(!/TACTICAL FORMATIONS/.test(text), `strana ${i + 1}: záhlaví zůstalo`);
+    assert.ok(!/^Page \d+$/m.test(text) && !/^\d+$/m.test(text), `strana ${i + 1}: číslo strany zůstalo`);
+    assert.equal(text.split('\n').filter((l) => l.startsWith('Veta ')).length, 14, `strana ${i + 1}: ztratilo se tělo`);
+  }
+});
+
+test('stripRunningLines: číslo uprostřed textu a řídce opakovaný řádek se nesmí smazat', () => {
+  const pages = makePages(12, false).map((p, i) => (i < 2 ? 'Kratky opakovany radek\n' + p : p));
+  pages[3] = pages[3].split('\n').toSpliced(5, 0, '42').join('\n');
+  const out = core.stripRunningLines(pages);
+  assert.match(out[0], /^Kratky opakovany radek/);
+  assert.match(out[3], /^42$/m);
+});
+
+test('stripRunningLines: krátké strany se nemění, jen čísla stran se odstraní', () => {
+  const pages = Array.from({ length: 10 }, (_, i) => ['Stejna kratka veta.', 'Dalsi kratka veta.', String(i + 1)].join('\n'));
+  const out = core.stripRunningLines(pages);
+  for (const text of out) assert.equal(text, 'Stejna kratka veta.\nDalsi kratka veta.');
+});
+
+test('stripRunningLines: u knihy do pěti stran se záhlaví nemaže (málo důkazů)', () => {
+  const out = core.stripRunningLines(makePages(3, true));
+  assert.match(out[0], /TACTICAL FORMATIONS/);
+  assert.ok(!/^\d+$/m.test(out[0]));
+});
+
+test('stripRunningLines: prázdný vstup a strana bez textu', () => {
+  assert.deepEqual(core.stripRunningLines([]), []);
+  assert.deepEqual(core.stripRunningLines(['', '   ']), ['', '   ']);
+});

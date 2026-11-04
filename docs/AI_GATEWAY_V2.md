@@ -38,6 +38,18 @@ Výstup má vždy `status`: `ok` (rada prošla kontrolou), `stub` (není klíč 
 `needs_more_info` (rada ani po jedné opravě neprošla, uživateli se nevydá žádná rada), `refused`, `budget_exceeded`, `error`.
 K tomu `provenance`, `advice`, `text_cs` (české vykreslení 10 bodů), `warnings`, `needs_verification`, `usage`, `cost_usd`.
 
+## Úryvky z knih (`passages`)
+
+Žádost smí nést `passages`: seznam `{id, title, page, text}`, kde `id` začíná `bk:` (nejvýš 12 úryvků, text se krátí na 1500 znaků).
+Do požadavku je dá aplikace, která knihy hledá (v `trener/` to dělá stránka v Claude). Gateway s nimi zachází jako s **teorií obecného fotbalu**:
+
+- v `refs` je smí citovat `context`, `diagnosis` a `change`; nejvýš na úrovni `inferred`, nikdy výš;
+- `evidenceA` a `evidenceB` musí odkazovat na pozorování, úryvek z knihy důkazem není;
+- neznámé `bk:` id (rada si vymyslela citaci) je chyba a spustí opravné kolo;
+- v systémovém promptu je pravidlo, že úryvky nesmí sloužit k tvrzení, jak funguje FM27.
+
+Texty knih nepatří do repozitáře, do logů ani do záznamu spotřeby.
+
 ## Pravidla poctivosti, která validátor vynucuje
 
 Každé pravidlo má test v `ai_gateway/tests/test_advice10.py`; šest záměrně vnesených chyb testy odhalily.
