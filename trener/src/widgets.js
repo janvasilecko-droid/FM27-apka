@@ -81,6 +81,27 @@
       onRetry ? W.retryButton(onRetry) : null
     );
 
+  // ------------------------------------------------------------------ vyhodnocení změny před a po (Live Coach i historie)
+  const VERDICT_CS = { higher: 'vyšší', lower: 'nižší', similar: 'podobné' };
+  const num = (v) => (v === null || v === undefined ? '–' : String(v).replace('.', ','));
+  /** Popisné srovnání před a po změně. Nikdy netvrdí příčinu; věta o tom je vždy vidět (id liveCausality). */
+  W.evaluationView = (match, change) => {
+    const ev = FM27.live.evaluate(match, change);
+    if (ev.status !== 'ready') {
+      return h('div', null, h('span', { class: 'chip t-unknown', text: 'zatím nelze vyhodnotit' }), h('ul', { class: 'list' }, ev.notes.map((n) => h('li', { text: n }))));
+    }
+    const row = (label, d) => h('div', null, h('span', { text: label }), h('span', { text: `${num(d.before)} → ${num(d.after)} (${VERDICT_CS[d.verdict] || '–'})` }));
+    const pp = ev.deltas.possessionChangePp;
+    return h(
+      'div',
+      null,
+      h('div', { class: 'diag' }, row('Naše střely na 10 min', ev.deltas.mine.shots), row('Naše střely na bránu na 10 min', ev.deltas.mine.shotsOnTarget), row('Naše xG na 10 min', ev.deltas.mine.xg), row('Soupeřovy střely na 10 min', ev.deltas.opp.shots), row('Soupeřovo xG na 10 min', ev.deltas.opp.xg), h('div', null, h('span', { text: 'Změna našeho držení míče' }), h('span', { text: `${num(pp.before)} → ${num(pp.after)} p. b. (${VERDICT_CS[pp.verdict] || '–'})` }))),
+      h('ul', { class: 'list' }, ev.notes.map((n) => h('li', { text: n }))),
+      h('p', { class: 'banner warn', style: 'margin-top:8px', id: 'liveCausality', text: ev.causalityNote }),
+      ui.tierChip(ev.evidenceTier === 'observed' ? 'observed' : 'inferred', ev.evidenceTier === 'observed' ? 'ověřené snímky' : 'neověřené čtení')
+    );
+  };
+
   // ------------------------------------------------------------------ kroky průběhu (seznam s kolečky)
   W.steps = (labels) => {
     const ol = h('ol', { class: 'steps', hidden: true });

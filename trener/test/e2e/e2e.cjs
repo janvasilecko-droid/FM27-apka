@@ -97,6 +97,30 @@ function installMock(config) {
         unknown: { text: 'Chybí standardní situace.', items: ['Jak soupeř brání rohy'] },
       };
     }
+    if (kind === 'lesson') {
+      const refs = ids(/^- (bk:[^ |]+) \|/gm).slice(0, 1);
+      const q = (text, options, answerIndex) => ({ q: text, options, answerIndex, explanation: 'Správná odpověď vychází z principu výše.', refs: [] });
+      return {
+        principle: { text: 'Podle úryvků z knih mají být řady blízko u sebe, aby měl útočník komu přihrát.', tier: refs.length ? 'inferred' : 'unknown', refs },
+        fm27Example: { text: 'Zkus ve hře přiblížit záložníka k útočníkovi a sleduj, jestli útočník dostane víc míčů.', tier: 'inferred', refs: [], verify: ['Ověř ve hře, jak se role záložníka jmenuje a kde se nastavuje'] },
+        diagram: { players: [{ x: 50, y: 30, team: 'own', label: 'Útočník' }, { x: 50, y: 55, team: 'own', label: 'Záložník' }, { x: 50, y: 18, team: 'opp', label: 'Obránce' }], arrows: [{ from: [50, 55], to: [50, 34], kind: 'pass' }], zones: [{ x: 30, y: 35, w: 40, h: 18, label: 'Prostor' }], caption: 'Záložník nabízí přihrávku útočníkovi' },
+        usage: { text: 'Obecně: zkrať vzdálenost mezi řadami.', steps: ['Najdi izolovaného hráče', 'Přibliž k němu záložníka', 'Sleduj, co se změnilo'] },
+        mistakes: ['Přiblížit celou řadu najednou', 'Zapomenout na prostor za záložníkem'],
+        exercise: { task: 'Nakresli rozestavení se vzdáleností řad 30 a potom 20.', hint: 'Použij taktickou laboratoř.', solutionOutline: 'Menší vzdálenost mezi řadami zvyšuje počet přihrávkových možností.' },
+        quiz: [q('Co zkrátí vzdálenost mezi řadami?', ['Přiblížení záložníka k útočníkovi', 'Odsunutí obrany dozadu', 'Širší hra'], 0), q('Kdy je útočník izolovaný?', ['Když má kolem sebe hodně spoluhráčů', 'Když je daleko od zbytku týmu', 'Když hraje na křídle'], 1), q('Co hlídat po přiblížení záložníka?', ['Nic', 'Šířku hřiště', 'Prostor za ním'], 2)],
+      };
+    }
+    if (kind === 'scenario') {
+      const refs = ids(/^- (bk:[^ |]+) \|/gm).slice(0, 1);
+      return {
+        situation: 'Soupeř tlačí a tvůj tým ztrácí míče ve středu hřiště. Jak zareaguješ?',
+        options: [{ id: 'a', text: 'Stáhneš tým hlouběji' }, { id: 'b', text: 'Zkrátíš vzdálenosti mezi řadami' }, { id: 'c', text: 'Pošleš všechny dopředu' }],
+        best: 'b',
+        why: { text: 'Podle úryvků zkrácení vzdáleností pomáhá bránit prostor a ostatní možnosti ho nechávají otevřený.', tier: refs.length ? 'inferred' : 'unknown', refs },
+        commonMistake: 'Stáhnout tým příliš hluboko a vzdát střed.',
+        followUp: 'Sleduj, jestli soupeř ztrácí míč častěji.',
+      };
+    }
     // report
     const obs = ids(/^- ((?:snap|live|chg|det|sum)-[A-Za-z0-9-]+) \|/gm);
     const o0 = obs[0] || null;
@@ -124,6 +148,8 @@ function installMock(config) {
       : /vysvětluješ, jak je postavené rozložení/.test(t) ? 'explain'
       : /píšeš rozbor odehraného zápasu/.test(t) ? 'report'
       : /čtečka snímku obrazovky pro FM27 Tactical Coach/.test(t) ? 'extract'
+      : /Jsi učitel taktiky v aplikaci FM27 Tactical Coach/.test(t) ? 'lesson'
+      : /Jsi trenér rozhodování v aplikaci FM27 Tactical Coach/.test(t) ? 'scenario'
       : null;
     const special = isStr ? kindOf(input) : kindOf(input[0].content);
     const kind = special || (isStr ? 'planner' : input.length > 1 ? 'repair' : 'advice');
@@ -145,7 +171,7 @@ function installMock(config) {
       text = JSON.stringify(mock.squadReply || { players: [{ name: 'Jan Novák', positions: ['ST'], age: 24, role: null, attributes: { Finishing: 15 }, injured: false }, { name: 'Petr Svoboda', positions: ['gk'], age: 31, role: null, attributes: {}, injured: true }, { name: '', positions: [] }], notes: 'čitelné' });
     } else if (kind === 'oppread') {
       text = JSON.stringify(mock.oppReadReply || { formation: '4 2 3 1', roles: ['Křídelník'], keyPlayers: ['Novák – hrot'], strengths: [], weaknesses: ['Pomalá obrana'], notes: 'čitelné' });
-    } else if (kind === 'opponent' || kind === 'explain' || kind === 'report') {
+    } else if (kind === 'opponent' || kind === 'explain' || kind === 'report' || kind === 'lesson' || kind === 'scenario') {
       const prompt0 = isStr ? input : input[0].content;
       if (mock.mode === 'special-invalid') text = JSON.stringify({ nic: 1 });
       else text = JSON.stringify(specialReply(kind, prompt0));

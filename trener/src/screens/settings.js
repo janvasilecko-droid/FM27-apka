@@ -148,7 +148,22 @@
 
   function prefsCard(app) {
     const s = app.settings();
-    const save = ui.debounce((patch) => app.updateSettings(patch).catch(() => toast('Nastavení se nepodařilo uložit.')), 300);
+    // Změny se sbírají a ukládají najednou; kdyby se odložené uložení jen přepisovalo, rychlá druhá změna by první zahodila.
+    let pending = {};
+    const mergePatch = (a, b) => {
+      const out = Object.assign({}, a);
+      for (const [k, v] of Object.entries(b)) out[k] = v && typeof v === 'object' && !Array.isArray(v) ? mergePatch(out[k] || {}, v) : v;
+      return out;
+    };
+    const flush = ui.debounce(() => {
+      const patch = pending;
+      pending = {};
+      app.updateSettings(patch).catch(() => toast('Nastavení se nepodařilo uložit.'));
+    }, 300);
+    const save = (patch) => {
+      pending = mergePatch(pending, patch);
+      flush();
+    };
     const volume = ui.input({ id: 'setVolume', type: 'range', min: 0, max: 1, step: 0.05, value: s.voice.volume });
     const rate = ui.input({ id: 'setRate', type: 'range', min: 0.7, max: 1.4, step: 0.05, value: s.voice.rate });
     const freq = ui.select([['low', 'Jen opravdu důležitá upozornění'], ['normal', 'Běžně'], ['high', 'Častěji']], s.voice.frequency, { id: 'setFreq' });

@@ -9,7 +9,7 @@
   const W = FM27.widgets;
 
   // ------------------------------------------------------------------ rozpracovaný dotaz (přežije přepnutí sekce)
-  const draft = { question: '', obs: [], images: [], deep: null };
+  const draft = { question: '', obs: [], images: [], deep: null, spoken: false };
   let run = null; // {ctl} běžící dotaz
 
   const OBS_LABEL_CS = { user_entered: 'moje poznámka', screenshot_verified: 'ověřený screenshot', ocr_unverified: 'strojově vyčteno', heuristic_coach: 'výpočet aplikace', vision_unverified: 'přečteno z obrázku' };
@@ -91,7 +91,11 @@
       return toast(res.message);
     }
     if (res.status === 'error') stepsUi.set('advice', 'fail');
-    if (res.status === 'ok') await FM27.advice.save(app, { question, advice: res.advice, ctx: res.ctx, verdict: res.verdict, source: 'trener' });
+    if (res.status === 'ok') {
+      await FM27.advice.save(app, { question, advice: res.advice, ctx: res.ctx, verdict: res.verdict, source: 'trener' });
+      if (draft.spoken && FM27.voice.available() && !app.settings().voice.quiet) FM27.voice.say(FM27.advice.spokenSummary(res.advice), app.settings().voice);
+    }
+    draft.spoken = false;
     FM27.advice.render(app, $('#result'), res, {
       onRetry: () => runCoach(app),
       onFollowUp: (given, previousText) => {
@@ -201,6 +205,35 @@
       app.updateSettings({ coach: { deep: deepBox.checked } }).catch(() => {});
     });
 
+    // Hlasový vstup: jen v samostatné verzi (stránka v Claude mikrofon nepouští). Rozpoznání řeči zajišťuje prohlížeč.
+    let listening = null;
+    const mic = app.standalone && FM27.voice && FM27.voice.recognitionAvailable()
+      ? h('button', {
+          class: 'btn',
+          id: 'micBtn',
+          type: 'button',
+          text: 'Mluvit',
+          onclick: () => {
+            if (listening) {
+              listening.stop();
+              return;
+            }
+            mic.textContent = 'Poslouchám… (stiskni pro zastavení)';
+            listening = FM27.voice.listen({
+              onResult: (t) => {
+                question.value = t;
+                draft.question = t;
+                draft.spoken = true;
+              },
+              onError: (code) => toast(code === 'not-allowed' ? 'Mikrofon jsi nepovolil.' : 'Hlas se nepodařilo rozpoznat (' + code + ').'),
+              onEnd: () => {
+                listening = null;
+                mic.textContent = 'Mluvit';
+              },
+            });
+          },
+        })
+      : null;
     const askBtn = h('button', { class: 'btn primary', id: 'askBtn', type: 'button', text: 'Poradit', disabled: !ai.available, onclick: () => runCoach(app) });
     const stopBtn = h('button', { class: 'btn', id: 'stopBtn', type: 'button', text: 'Zastavit', hidden: true, onclick: () => run && run.ctl.abort() });
     const hint = ai.available ? (ai.kind === 'claude-sample' ? 'Při prvním použití tě Claude požádá o povolení.' : 'Volání jde přes tvůj vlastní klíč.') : 'Tahle stránka nemá přístup ke Claude. Otevři ji v aplikaci Claude nebo na claude.ai, případně v nastavení zadej vlastní klíč.';
@@ -228,7 +261,7 @@
         ),
         imageField,
         h('label', { class: 'checkline' }, deepBox, h('span', { text: 'Důkladný režim: pomalejší a spotřebuje víc tvého limitu Claude, hodí se u těžkých rozhodnutí.' })),
-        h('div', { class: 'actions' }, askBtn, stopBtn, h('span', { class: 'hint', id: 'askHint', text: hint })),
+        h('div', { class: 'actions' }, askBtn, mic, stopBtn, h('span', { class: 'hint', id: 'askHint', text: hint })),
         (stepsUi.el.id = 'steps', stepsUi.el)
       ),
       h('div', { class: 'card' }, h('h3', { text: 'Historie rad' }), h('ul', { class: 'history', id: 'historyList' }), h('p', { class: 'hint', id: 'historyEmpty', text: 'Zatím nic. Rady se ukládají ke kariéře a synchronizují se mezi zařízeními (bez textů knih).' }))

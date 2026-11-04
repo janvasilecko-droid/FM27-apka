@@ -317,8 +317,10 @@
     video.muted = true;
     video.playsInline = true;
     video.srcObject = stream;
-    await video.play();
-    const cap = { stream, video, timer: 0, paused: false, frames: 0 };
+    // play() se nečeká: u sdíleného proudu může skončit až s prvním snímkem. Smyčka si počká na rozměry videa.
+    video.play().catch(() => {});
+    // Hooks se čtou při každém použití: po přepnutí obrazovky je nová obrazovka znovu připojí (cap.hooks = …).
+    const cap = { stream, video, timer: 0, paused: false, frames: 0, hooks: h };
     const canvas = document.createElement('canvas');
     const tick = async () => {
       if (cap.paused || s.busy || !video.videoWidth) return;
@@ -331,22 +333,22 @@
         const gray = grayOf(canvas, canvas.width, canvas.height);
         const gate = s.gate.check(gray, Date.now());
         if (!gate.process) {
-          if (h.onStatus) h.onStatus(`Sleduji. Přeskočeno: ${gate.reason}.`);
+          if (cap.hooks.onStatus) cap.hooks.onStatus(`Sleduji. Přeskočeno: ${gate.reason}.`);
           return;
         }
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
-        if (h.onStatus) h.onStatus('Čtu snímek…');
+        if (cap.hooks.onStatus) cap.hooks.onStatus('Čtu snímek…');
         const result = await live.ingest(app, blob, { source: 'screen' });
-        if (h.onStatus) h.onStatus(result.status === 'added' ? 'Snímek přečten.' : result.message || 'Snímek se nepodařilo přečíst.');
-        if (h.onResult) h.onResult(result);
+        if (cap.hooks.onStatus) cap.hooks.onStatus(result.status === 'added' ? 'Snímek přečten.' : result.message || 'Snímek se nepodařilo přečíst.');
+        if (cap.hooks.onResult) cap.hooks.onResult(result);
       } catch (e) {
-        if (h.onStatus) h.onStatus('Chyba při sledování: ' + ((e && e.message) || e));
+        if (cap.hooks.onStatus) cap.hooks.onStatus('Chyba při sledování: ' + ((e && e.message) || e));
       }
     };
     cap.timer = setInterval(tick, 1500);
     stream.getVideoTracks()[0].addEventListener('ended', () => {
       live.stopCapture();
-      if (h.onEnded) h.onEnded();
+      if (cap.hooks.onEnded) cap.hooks.onEnded();
     });
     s.capture = cap;
     return cap;

@@ -127,6 +127,14 @@
     return saved;
   };
 
+  /** Krátká mluvená verze rady: diagnóza, první změna a hlavní riziko. Čtení trvá pár vteřin, ne minutu. */
+  advice.spokenSummary = function spokenSummary(a) {
+    const item = a.change.items[0];
+    const parts = [`Diagnóza: ${a.diagnosis.text}`, item ? `Navrhuji změnu: ${item.player}, ${item.setting}, z ${item.from} na ${item.to}.` : '', a.risk.items[0] ? `Pozor: ${a.risk.items[0]}.` : ''];
+    const raw = parts.filter(Boolean).join(' ');
+    return window.TrenerAlerts ? window.TrenerAlerts.shortenForSpeech(raw, 320) : raw.slice(0, 320);
+  };
+
   // ------------------------------------------------------------------ vykreslení
   /** Vykreslí výsledek do `container`. opts: {onRetry, onFollowUp(previousAdviceText), changeAction(item, index) → uzel|null, scroll} */
   advice.render = function render(app, container, res, opts) {
@@ -208,7 +216,21 @@
     }
     list.append(unknownSec);
     container.append(list);
-    container.append(h('div', { class: 'actions' }, h('button', { class: 'btn small', type: 'button', text: 'Kopírovat radu', onclick: () => ui.copyText(C.adviceToText(a), 'Rada je zkopírovaná.') })));
+    const speakBtn =
+      FM27.voice && FM27.voice.available()
+        ? h('button', {
+            class: 'btn small',
+            type: 'button',
+            'data-act': 'speak',
+            text: 'Přečíst radu nahlas',
+            onclick: () => {
+              const v = app.settings().voice;
+              if (v.quiet) return toast('Tichý režim je zapnutý. Vypni ho v Nastavení, ať trenér mluví.');
+              FM27.voice.say(advice.spokenSummary(a), v);
+            },
+          })
+        : null;
+    container.append(h('div', { class: 'actions' }, h('button', { class: 'btn small', type: 'button', text: 'Kopírovat radu', onclick: () => ui.copyText(C.adviceToText(a), 'Rada je zkopírovaná.') }), speakBtn));
     if (o.scroll !== false) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 })();

@@ -246,7 +246,7 @@ button.ref:hover, a.ref:hover { border-color: var(--accent); }
 .btn.seg { border: 0; border-radius: 0; background: var(--panel-2); }
 .btn.seg[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); }
 .checkline.compact { margin-top: 0; align-items: center; }
-svg.pitch { width: 100%; max-width: 560px; height: auto; touch-action: none; display: block; margin: 0 auto; user-select: none; }
+svg.pitch { width: 100%; max-width: 560px; height: auto; max-height: 82vh; touch-action: none; display: block; margin: 0 auto; user-select: none; }
 .pitch-bg { fill: var(--bg-2); }
 .pl-line { stroke: var(--line); stroke-width: 0.5; fill: none; }
 .zone-line { stroke: var(--line); stroke-width: 0.3; stroke-dasharray: 1.2 1.2; }
@@ -288,3 +288,19 @@ details.manual summary { cursor: pointer; font-weight: 600; }
 .alertrow.watch { border-left: 4px solid var(--warn); }
 .finding .chips { flex-direction: column; align-items: flex-start; }
 .snap .chips { margin-top: 6px; }
+.book.match.selected { border-color: var(--accent); }
+
+/* škola taktiky */
+.diagram { max-width: 520px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+.options { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); margin-top: 8px; }
+.btn.option { text-align: left; font-weight: 500; white-space: normal; }
+.btn.option.best { border-color: var(--ok); background: var(--accent-soft); }
+.btn.option.wrong { border-color: var(--bad); }
+.card.inner { background: var(--bg-2); margin-top: 12px; }
+fieldset.quiz-q { border: 1px solid var(--line); border-radius: 10px; margin: 10px 0 0; padding: 10px 12px; min-width: 0; }
+fieldset.quiz-q legend { padding: 0 6px; font-weight: 600; }
+.quiz-ok { color: var(--ok); }
+.quiz-bad { color: var(--bad); }
+.group + .group { margin-top: 12px; }
+.lesson-row.selected { border-color: var(--accent); }

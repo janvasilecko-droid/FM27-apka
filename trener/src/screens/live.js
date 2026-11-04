@@ -11,7 +11,6 @@
   const A = () => window.TrenerAnalysis;
 
   const PROV_CHIP = { vision_unverified: ['inferred', 'přečteno z obrázku, neověřeno'], screenshot_verified: ['observed', 'ověřeno tebou podle snímku'], user_entered: ['user_entered', 'zadal jsi ručně'] };
-  const VERDICT_CS = { higher: 'vyšší', lower: 'nižší', similar: 'podobné' };
   const STAT_FIELDS = [['possession', 'Držení míče (%)'], ['shots', 'Střely'], ['shotsOnTarget', 'Střely na bránu'], ['xg', 'xG']];
   let adviceCtl = null;
 
@@ -150,7 +149,7 @@
       alertsCard.replaceChildren(
         h('h2', { text: 'Upozornění' }),
         list.length
-          ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? h('span', { class: 'chip t-observed', text: 'řečeno nahlas' }) : null))))
+          ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? h('span', { class: 'chip t-observed', text: 'řečeno nahlas' }) : null, h('button', { class: 'btn small', type: 'button', 'data-act': 'explain', text: 'Vysvětlit podrobněji', onclick: () => ((noteInput.value = `Vysvětli podrobněji a poraď: ${a.finding.title}`), ask()) })))))
           : h('p', { class: 'hint', text: 'Zatím nic. Nová upozornění se ukážou tady a podle nastavení se přečtou nahlas.' })
       );
     }
@@ -218,21 +217,7 @@
     }
 
     // ---- změny a jejich vyhodnocení
-    function evalNode(m, ch) {
-      const ev = live.evaluate(m, ch);
-      if (ev.status !== 'ready') {
-        return h('div', null, h('span', { class: 'chip t-unknown', text: 'zatím nelze vyhodnotit' }), h('ul', { class: 'list' }, ev.notes.map((n) => h('li', { text: n }))));
-      }
-      const row = (label, d, unit) => h('div', null, h('span', { text: label }), h('span', { text: `${num(d.before)} → ${num(d.after)}${unit || ''} (${VERDICT_CS[d.verdict] || '–'})` }));
-      return h(
-        'div',
-        null,
-        h('div', { class: 'diag' }, row('Naše střely na 10 min', ev.deltas.mine.shots), row('Naše střely na bránu na 10 min', ev.deltas.mine.shotsOnTarget), row('Naše xG na 10 min', ev.deltas.mine.xg), row('Soupeřovy střely na 10 min', ev.deltas.opp.shots), row('Soupeřovo xG na 10 min', ev.deltas.opp.xg), h('div', null, h('span', { text: 'Změna našeho držení míče' }), h('span', { text: `${num(ev.deltas.possessionChangePp.before)} → ${num(ev.deltas.possessionChangePp.after)} p. b. (${VERDICT_CS[ev.deltas.possessionChangePp.verdict] || '–'})` }))),
-        h('ul', { class: 'list' }, ev.notes.map((n) => h('li', { text: n }))),
-        h('p', { class: 'banner warn', style: 'margin-top:8px', id: 'liveCausality', text: ev.causalityNote }),
-        ui.tierChip(ev.evidenceTier === 'observed' ? 'observed' : 'inferred', ev.evidenceTier === 'observed' ? 'ověřené snímky' : 'neověřené čtení')
-      );
-    }
+    const evalNode = (m, ch) => W.evaluationView(m, ch);
     function drawChanges() {
       const m = getMatch();
       changesCard.replaceChildren(
@@ -289,7 +274,23 @@
     document.addEventListener('paste', onPaste);
     app.onCleanup(() => document.removeEventListener('paste', onPaste));
 
+    // Vazba sdílení na tuhle obrazovku: stavový řádek, překreslení po snímku a konec sdílení.
+    let capStatusText = '';
+    const captureHooks = {
+      onStatus: (txt) => {
+        capStatusText = txt;
+        const el = $('#liveCapStatus');
+        if (el) el.textContent = txt;
+      },
+      onResult: (r) => (report(r), drawAll()),
+      onEnded: () => {
+        $('#pillLive').hidden = true;
+        capStatusText = 'Sdílení skončilo.';
+        drawCapture();
+      },
+    };
     function drawCapture() {
+      if (live.session.capture) live.session.capture.hooks = captureHooks; // sdílení běží dál i po návratu na obrazovku
       const canShare = live.captureAvailable();
       const vision = FM27.ai.available && FM27.ai.imagesSupported;
       const drop = h('div', { class: 'drop', id: 'liveDrop', tabindex: 0, role: 'button', 'aria-label': 'Sem vlož nebo přetáhni snímek obrazovky' }, h('b', { text: 'Vlož snímek: Ctrl+V' }), h('span', { text: 'nebo ho sem přetáhni, nebo vyber soubor' }));
@@ -305,24 +306,21 @@
       const cam = h('input', { type: 'file', id: 'liveCamera', accept: 'image/*', capture: 'environment', hidden: true });
       cam.addEventListener('change', () => (handleFiles(cam.files), (cam.value = '')));
 
-      const capStatus = h('p', { class: 'hint', id: 'liveCapStatus', 'aria-live': 'polite' });
+      const capStatus = h('p', { class: 'hint', id: 'liveCapStatus', 'aria-live': 'polite', text: capStatusText });
       const share = canShare ? h('div', { class: 'actions' },
         h('button', { class: 'btn primary', id: 'liveShare', type: 'button', text: 'Sdílet obrazovku FM27', disabled: !vision, onclick: async () => {
           try {
-            await live.startCapture(app, {
-              onStatus: (t) => (capStatus.textContent = t),
-              onResult: (r) => (report(r), drawAll()),
-              onEnded: () => { $('#pillLive').hidden = true; capStatus.textContent = 'Sdílení skončilo.'; drawCapture(); },
-            });
+            await live.startCapture(app, captureHooks);
             $('#pillLive').hidden = false;
-            capStatus.textContent = 'Sdílení běží. Vyber okno hry; snímky se posílají jen při změně obrazovky.';
+            capStatusText = 'Sdílení běží. Vyber okno hry; snímky se posílají jen při změně obrazovky.';
             drawCapture();
           } catch (e) {
-            capStatus.textContent = e && e.name === 'NotAllowedError' ? 'Sdílení jsi nepovolil, nic se nesleduje.' : (e && e.message) || String(e);
+            capStatusText = e && e.name === 'NotAllowedError' ? 'Sdílení jsi nepovolil, nic se nesleduje.' : (e && e.message) || String(e);
+            capStatus.textContent = capStatusText;
           }
         } }),
         h('button', { class: 'btn', id: 'livePause', type: 'button', text: live.session.capture && live.session.capture.paused ? 'Pokračovat' : 'Pozastavit', disabled: !live.session.capture, onclick: () => { const c = live.session.capture; if (c && c.paused) { live.resumeCapture(); $('#pillLive').hidden = false; } else { live.pauseCapture(); $('#pillLive').hidden = true; } drawCapture(); } }),
-        h('button', { class: 'btn', id: 'liveStopShare', type: 'button', text: 'Zastavit sdílení', disabled: !live.session.capture, onclick: () => { live.stopCapture(); $('#pillLive').hidden = true; capStatus.textContent = 'Sdílení je zastavené.'; drawCapture(); } })
+        h('button', { class: 'btn', id: 'liveStopShare', type: 'button', text: 'Zastavit sdílení', disabled: !live.session.capture, onclick: () => { live.stopCapture(); $('#pillLive').hidden = true; capStatusText = 'Sdílení je zastavené.'; drawCapture(); } })
       ) : null;
       const stats = live.session.gate ? live.session.gate.stats() : null;
       captureCard.replaceChildren(
