@@ -162,7 +162,16 @@
     network_error: 'Spojení se službou se nepovedlo. Zkontroluj připojení k internetu.',
     cancelled: 'Zastaveno.',
   };
-  ai.errorText = (e) => (e && ai.ERROR_COPY[e.code]) || `Neočekávaná chyba (${(e && (e.code || e.message)) || 'neznámá'}).`;
+  /** U vlastního klíče je nejužitečnější hláška samotného adaptéru (česky, bez klíče, s číslem HTTP): řekne, co poskytovatel
+      odmítl. Obecné věty o „stránce v Claude“ by tam mátly. */
+  const OWN_KEY_KINDS = ['anthropic', 'openai', 'openai-compatible'];
+  const OWN_KEY_CODES = ['not_granted', 'rate_limited', 'upstream_error', 'invalid_request', 'prompt_too_large'];
+  ai.errorText = (e) => {
+    if (e && OWN_KEY_KINDS.includes(ai.kind) && OWN_KEY_CODES.includes(e.code) && typeof e.message === 'string' && e.message.trim()) {
+      return e.message.trim().replace(/[.\s]+$/, '') + (e.code === 'not_granted' ? '. Zkontroluj klíč v Nastavení v kartě „Vlastní klíč AI“.' : '.');
+    }
+    return (e && ai.ERROR_COPY[e.code]) || `Neočekávaná chyba (${(e && (e.code || e.message)) || 'neznámá'}).`;
+  };
   /** Po těchto chybách nemá smysl nabízet „Zkusit znovu“. */
   ai.NO_RETRY = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'prompt_too_large', 'session_expired', 'rate_limited'];
 })();

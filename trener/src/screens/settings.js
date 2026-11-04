@@ -27,7 +27,8 @@
       ['Knihy / úryvky', `${lib.books.length} / ${lib.passages.length}`],
       ['Oficiální zdroje FM27 v registru', String([...app.registry.byId.values()].filter((s) => app.registry.isOfficialFm27(s.id)).length)],
       ['Sdílení obrazovky v tomto okně', navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && app.standalone ? 'ano' : 'ne (jen v samostatné verzi)'],
-      ['Hlasový výstup (čeština)', FM27.voice && FM27.voice.available() ? 'ano' : 'ne'],
+      ['Hlasový výstup (čeština)', FM27.voice && FM27.voice.available() ? (FM27.voice.hasCzech() ? 'ano' : 'ano, ale bez české hlasové zásoby') : 'ne'],
+      ['Hlasový vstup (mikrofon)', app.standalone ? (FM27.voice && FM27.voice.recognitionAvailable() ? 'ano' : 'ne: prohlížeč rozpoznávání řeči nemá') : 'ne (jen v samostatné verzi)'],
       ['Verze stránky', build],
     ];
   }
@@ -203,6 +204,9 @@
     );
   }
 
+  // Zpráva ke klíči musí přežít překreslení obrazovky (po uložení se karta kreslí znovu).
+  let keyNote = '';
+
   function keyCard(app) {
     if (app.caps.sample) return null; // v Claude se klíč nepoužívá
     const cfg = FM27.ai.getConfig() || {};
@@ -212,11 +216,11 @@
     const mQuick = ui.input({ id: 'keyQuick', placeholder: 'levný model', value: (cfg.models && cfg.models.quick) || '' });
     const mDefault = ui.input({ id: 'keyDefault', placeholder: 'běžný model', value: (cfg.models && cfg.models.default) || '' });
     const mComplex = ui.input({ id: 'keyComplex', placeholder: 'důkladný model', value: (cfg.models && cfg.models.complex) || '' });
-    const extra = h('div', { id: 'keyExtra' }, ui.field('Adresa API', baseUrl), h('div', { class: 'row' }, ui.field('Levný model', mQuick, { grow: true }), ui.field('Běžný model', mDefault, { grow: true }), ui.field('Důkladný model', mComplex, { grow: true })));
+    const extra = h('div', { id: 'keyExtra' }, ui.field('Adresa API', baseUrl), h('div', { class: 'row' }, ui.field('Levný model', mQuick, { grow: true }), ui.field('Běžný model', mDefault, { grow: true }), ui.field('Důkladný model', mComplex, { grow: true })), h('p', { class: 'hint', id: 'keyOpenAiNote', text: 'Neověřeno: tenhle druh API je zkoušený jen proti napodobenině serveru, ne proti živé službě. Názvy modelů musíš zadat sám (žádný se nevymýšlí) a obrázky nebo JSON režim závisí na zvoleném modelu.' }));
     const sync = () => (extra.hidden = kind.value !== 'openai');
     kind.addEventListener('change', sync);
     sync();
-    const msg = h('p', { class: 'hint', id: 'keyMsg' });
+    const msg = h('p', { class: 'hint', id: 'keyMsg', text: keyNote, 'aria-live': 'polite' });
     return h(
       'section',
       { class: 'card', id: 'keyCard' },
@@ -235,16 +239,16 @@
           text: 'Uložit klíč',
           onclick: async () => {
             const apiKey = key.value.trim() || cfg.apiKey;
-            if (!apiKey) return (msg.textContent = 'Vlož klíč.');
+            if (!apiKey) return (msg.textContent = keyNote = 'Vlož klíč.');
             const next = { kind: kind.value, apiKey };
             if (kind.value === 'openai') {
               next.baseUrl = baseUrl.value.trim() || 'https://api.openai.com/v1';
               next.models = { quick: mQuick.value.trim(), default: mDefault.value.trim(), complex: mComplex.value.trim() };
-              if (!next.models.quick || !next.models.default || !next.models.complex) return (msg.textContent = 'Vyplň názvy všech tří modelů.');
+              if (!next.models.quick || !next.models.default || !next.models.complex) return (msg.textContent = keyNote = 'Vyplň názvy všech tří modelů.');
             }
             FM27.ai.setConfig(next);
             await FM27.ai.init(app);
-            msg.textContent = FM27.ai.available ? 'Klíč je uložený. Zkus „Zkouška spojení“ výš.' : 'Klíč se nepodařilo použít: ' + (FM27.ai.problem || 'neznámý důvod');
+            keyNote = FM27.ai.available ? 'Klíč je uložený. Zkus „Zkouška spojení s Claude“ výš.' : 'Klíč se nepodařilo použít: ' + (FM27.ai.problem || 'neznámý důvod');
             key.value = '';
             app.render();
           },
@@ -252,12 +256,53 @@
         ui.confirmButton('Smazat klíč', 'Opravdu smazat klíč?', async () => {
           FM27.ai.setConfig(null);
           await FM27.ai.init(app);
+          keyNote = 'Klíč je smazaný.';
           toast('Klíč je smazaný.');
           app.render();
         })
       ),
       msg
     );
+  }
+
+  /** Instalace samostatné verze do zařízení (plocha, domovská obrazovka). V Claude se nezobrazuje. */
+  function installCard(app) {
+    if (!app.standalone) return null;
+    const box = h('div', { id: 'installBox' });
+    const installed = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    const draw = () => {
+      box.replaceChildren();
+      if (installed()) return box.append(h('p', { class: 'hint', id: 'installNote', text: 'Aplikace běží jako nainstalovaná.' }));
+      if (FM27.installPrompt) {
+        return box.append(
+          h('button', {
+            class: 'btn primary',
+            id: 'installBtn',
+            type: 'button',
+            text: 'Nainstalovat aplikaci',
+            onclick: async () => {
+              const ev = FM27.installPrompt;
+              if (!ev) return;
+              try {
+                await ev.prompt();
+              } catch (e) {
+                toast('Instalaci se nepodařilo spustit. Použij nabídku prohlížeče.');
+              }
+              FM27.installPrompt = null;
+              draw();
+            },
+          }),
+          h('p', { class: 'hint', text: 'Nainstalovaná aplikace se otevře bez adresního řádku a po prvním otevření funguje i bez připojení (volání AI a čtení PDF ale potřebují internet).' })
+        );
+      }
+      box.append(
+        h('p', { class: 'hint', id: 'installNote', text: 'Prohlížeč zatím instalaci nenabídl. Počítač: v adresním řádku ikona instalace nebo nabídka prohlížeče „Nainstalovat“. Telefon s Androidem: nabídka „Přidat na plochu“. iPhone: Sdílet → Přidat na plochu (v Safari).' })
+      );
+    };
+    draw();
+    const off = FM27.bus.on('installable', draw);
+    app.onCleanup(off);
+    return h('section', { class: 'card', id: 'installCard' }, h('h2', { text: 'Instalace do zařízení' }), box);
   }
 
   function render(root, app) {
@@ -277,6 +322,7 @@
       ),
       usageCard(),
       keyCard(app),
+      installCard(app),
       prefsCard(app),
       dataCard(app),
       h(

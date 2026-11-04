@@ -32,6 +32,8 @@ const fx = (name) => path.join(FIX, name);
 // ------------------------------------------------------------------ předstíraný Claude (běží ve stránce)
 function installMock(config) {
   const mock = (window.__mock = { mode: 'ok', plannerFails: false, noImages: false, declineSave: false, calls: [], prompts: [], saves: [] });
+  // Zkoušky vlastního klíče (scénář 10) berou odpovědi z téhož předstíraného Claude přes falešné HTTP API.
+  mock.reply = (input, opts) => sample(input, opts);
   const err = (code, message, text) => Object.assign({ code, message }, text !== undefined ? { text } : {});
   const TIER = { user_entered: 'user_entered', screenshot_verified: 'observed', ocr_unverified: 'inferred', vision_unverified: 'inferred' };
 
@@ -221,7 +223,7 @@ function installMock(config) {
   const voicesList = [{ lang: 'cs-CZ', name: 'Zkušební čeština', voiceURI: 'test-cs' }];
   Object.defineProperty(window, 'speechSynthesis', {
     configurable: true,
-    value: { speak(u) { window.__spoken.push({ text: u.text, volume: u.volume, rate: u.rate, lang: u.lang }); setTimeout(() => u.onend && u.onend(), 5); }, cancel() {}, getVoices: () => voicesList, addEventListener() {} },
+    value: { speak(u) { window.__spoken.push({ text: u.text, volume: u.volume, rate: u.rate, lang: u.lang, voice: u.voice ? u.voice.voiceURI : null }); setTimeout(() => u.onend && u.onend(), 5); }, cancel() {}, getVoices: () => voicesList, addEventListener() {} },
   });
   window.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
   if (config.captureCanvas) {
@@ -302,6 +304,20 @@ async function newContext(browser, opts) {
     await context.addInitScript(installDbMock, { uid: opts.uid || 'u1' });
   }
   await context.addInitScript(installMock, { noClaude: !!opts.noClaude, noDb: !opts.db, captureCanvas: !!opts.captureCanvas });
+  if (opts.localOrigin) {
+    // Skutečný místní server (scénář 10): stránka, service worker i ikony se berou z něj, všechno ostatní zůstává zablokované.
+    await context.route(opts.localOrigin + '/**', (route) => route.continue());
+  }
+  if (opts.standalone && !opts.localOrigin) {
+    // Zkušební stránka nemá skutečný server, service worker by se nepodařilo stáhnout (to zkouší až scénář 10 na místním serveru).
+    await context.addInitScript(() => {
+      try {
+        Object.defineProperty(navigator.serviceWorker, 'register', { configurable: true, value: () => Promise.resolve(null) });
+      } catch (e) {
+        /* nic */
+      }
+    });
+  }
   const page = await context.newPage();
   page.on('console', (m) => m.type() === 'error' && problems.console.push(m.text()));
   page.on('pageerror', (e) => problems.page.push(String(e)));

@@ -146,6 +146,16 @@ module.exports = async function run(env) {
   check('05 vyhodnocení vždy říká, že časová souvislost není důkaz příčiny', /Časová souvislost není důkaz příčiny/i.test(await text(page, '#liveCausality')), await text(page, '#liveCausality'));
   check('05 vyhodnocení nikdy netvrdí příčinu', !/způsobil|zavinil|díky změně/i.test(ev1), ev1);
 
+  // ---------- „Vysvětlit podrobněji“ u upozornění (zadání § 8: nechat si doporučení vysvětlit podrobněji)
+  const explainBtn = page.locator('#liveAlerts [data-act="explain"]').first();
+  check('05 u upozornění je tlačítko „Vysvětlit podrobněji“', (await explainBtn.count()) === 1);
+  await explainBtn.click();
+  await until(async () => /Vysvětli podrobněji a poraď:/.test(await page.inputValue('#liveNote')));
+  await until(async () => (await page.evaluate(() => window.__mock.prompts)).some((p) => /Vysvětli podrobněji a poraď:/.test(p)));
+  await page.waitForSelector('#liveAdvice .sec', { timeout: 20000 });
+  const explainPrompt = (await page.evaluate(() => window.__mock.prompts)).filter((p) => /Vysvětli podrobněji a poraď:/.test(p)).pop() || '';
+  check('05 „Vysvětlit podrobněji“ pošle trenérovi to konkrétní upozornění i s časovou osou zápasu', /Vysvětli podrobněji a poraď: /.test(explainPrompt) && /Pozorování \(id/.test(explainPrompt) && /- snap-[a-z0-9]+ \| /.test(explainPrompt), explainPrompt.slice(0, 300));
+
   // ---------- obnovení stránky: zápas pokračuje, osa zůstane
   await page.reload();
   await page.waitForFunction(() => window.__trenerReady === true);
