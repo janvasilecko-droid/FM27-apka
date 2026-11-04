@@ -10,7 +10,7 @@ co jí ukážeš: tým, taktiku, screenshoty a průběh zápasu. Co neví, to ř
 | | **Stránka v Claude** (artefakt) | **Samostatná aplikace** (PWA) |
 |---|---|---|
 | Kde běží | claude.ai, soukromý odkaz majitele | prohlížeč, jde nainstalovat na plochu a telefon |
-| AI | schopnost `sample` z tvého účtu Claude, žádný klíč | tvůj vlastní klíč (Anthropic, nebo OpenAI-kompatibilní), uložený jen v tomhle prohlížeči |
+| AI | schopnost `sample` z tvého účtu Claude, žádný klíč | tvůj vlastní klíč (Anthropic, nebo OpenAI-kompatibilní), uložený jen v tomhle prohlížeči (na `github.io` výchozí volba „jen do zavření záložky“) |
 | Data | místně + synchronizace počítač ↔ telefon přes `db` (soukromá část `data/users/<id>`) | jen místně (IndexedDB), přenos zálohou |
 | Snímky obrazovky | vkládáš ručně (Ctrl+V, soubor, foto z telefonu) | navíc **sdílení okna hry** s výslovným souhlasem |
 | Hlas | čtení nahlas | čtení nahlas, **hlasová otázka**, systémové oznámení při skrytém okně |
@@ -48,15 +48,15 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 484 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (11 scénářů, 421 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 509 testů čistých modulů a úložiště |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (11 scénářů, 453 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 484 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 509 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 

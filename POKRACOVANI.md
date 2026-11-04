@@ -9,7 +9,7 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
 - **Dvě sestavení z jednoho kódu**: stránka v Claude (publikovaná, soukromý odkaz majitele
   https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh) a samostatná aplikace (sestavení prochází na serveru GitHubu, **nasazení čeká na
   zapnutí GitHub Pages majitelem**, viz níže).
-- **Zkoušky**: 484 testů jádra, 135 + 11 v Pythonu, 421 kontrol v prohlížeči (11 scénářů). Co z nich dokazuje a co ne:
+- **Zkoušky**: 509 testů jádra, 141 + 11 v Pythonu, 453 kontrol v prohlížeči (11 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
   `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
   skutečné službě ani skutečnému FM27**.
 - Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).
@@ -29,6 +29,10 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
 2. **Zapnout GitHub Pages**: https://github.com/janvasilecko-droid/FM27-apka/settings/pages → Source: **GitHub Actions**; potom
    „Run workflow“: https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml. Až první nasazení projde, přidá se
    spouštění po každém pushi (nyní jen ručně, `.github/workflows/pages.yml`).
+   **Pozor na adresu:** aplikace pak poběží na `https://janvasilecko-droid.github.io/FM27-apka/`. Úložiště prohlížeče (klíč AI, kariéry,
+   knihy) tam sdílí původ se všemi dalšími stránkami na `janvasilecko-droid.github.io`; skript z jiné takové stránky by je mohl číst.
+   Proto aplikace na `github.io` klíč výchozně nepamatuje (jen do zavření záložky) a varuje. Bezpečnější je vlastní adresa
+   (Settings → Pages → Custom domain), nebo klíč nezadávat a aplikaci používat jen se stránkou v Claude.
 3. **Skutečné vzorky z FM27**: tři exporty `.fmf` s předem známým nastavením (`docs/REVIZE_CLAUDE_2026-11-04.md`, část 2) a 3 až 5
    screenshotů (zápas, statistiky, taktika) s tím, co na nich vidí. Bez nich nejde změřit čtení obrazovky ani dekódovat taktiku.
 4. **Vlastní klíč AI** pro samostatnou verzi (volitelné): https://console.anthropic.com/settings/keys, vložit **jen do Nastavení

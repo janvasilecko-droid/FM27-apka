@@ -30,7 +30,7 @@ Značení:
 | 12 | Hlasové upozornění | **Ověřeno v simulaci** | Česky (`cs-CZ`), krátce (do 200 znaků), jen při důležitém (četnost nízká/běžná/častá), nezahlcuje (odstup, limit za 10 minut, žádná duplicita do 5 minut), tichý režim, hlasitost a rychlost, hlasová otázka (samostatná verze), čtení rady nahlas. Zkoušky 05 a 09. | Skutečný hlas a jeho kvalita (zkouška zachycuje, co by se řeklo). V zařízení bez české hlasové zásoby aplikace varuje. | V Nastavení stiskni „Vyzkoušet hlas“. |
 | 13 | Uložení historie zápasu | **Ověřeno v simulaci** | Zápas se průběžně ukládá, po ukončení je v Historii s obdobími, změnami, vyhodnocením i rozborem; přežije obnovení stránky; zkouška 05 a 07. | – | – |
 | 14 | Synchronizace změn s telefonem | **Ověřeno v simulaci** (stránka v Claude) | Kariéry, hráči, taktiky, zápasy, rozbory, pokrok ve škole i nastavení se přenesou mezi dvěma okny (počítač a telefon); smazání se přenese a na serveru po něm nezůstane obsah. Zkoušky 02, 03, 07, 08. Texty knih a lekce z nich se **záměrně nesynchronizují** (zůstávají jen v zařízení). | Skutečné `db` Claude (zpoždění, souběh dvou úprav). Samostatná verze nesynchronizuje. | Změň něco na počítači a podívej se na telefonu. |
-| 15 | Rozlišení ověřeného, odhadu a neznámého | **Ověřeno** | Úrovně důvěry a štítky původu; úroveň tvrzení nepřekročí nejslabší důkaz; úryvek z knihy je jen teorie; žádné vymyšlené mechaniky FM27; vysoká jistota jen ze dvou nezávislých ověřených screenshotů. 92 kontrol ve zkoušce 01, 484 testů jádra, validátor shodný s Pythonem (68 společných případů). | Zda skutečný model někdy najde mezeru, kterou kontrola nechytí (proto jsou dokumentované limity a revize). | – |
+| 15 | Rozlišení ověřeného, odhadu a neznámého | **Ověřeno** | Úrovně důvěry a štítky původu; úroveň tvrzení nepřekročí nejslabší důkaz; úryvek z knihy je jen teorie; žádné vymyšlené mechaniky FM27; vysoká jistota jen ze dvou nezávislých ověřených screenshotů. 95 kontrol ve zkoušce 01, 509 testů jádra, validátor shodný s Pythonem (93 společných případů). Kód prošel nezávislou revizí (`docs/REVIZE_NEZAVISLA_2026-11-04.md`), její nálezy o mezerách v kontrole jsou opravené. | Zda skutečný model někdy najde mezeru, kterou kontrola nechytí (proto jsou dokumentované limity a revize). | – |
 
 ## 2. Etapy ze zadání (§ 16)
 
@@ -60,14 +60,14 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 484 | `node --test trener/test/*.test.mjs` |
-| Serverové jádro v Pythonu (`ai_gateway/`) | 135 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 509 | `node --test trener/test/*.test.mjs` |
+| Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 421 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 453 | viz `trener/README.md` |
 
-Prohlížečové zkoušky: 01 poradce (92), 02 kariéry a synchronizace (23), 03 tým a taktiky (37), 04 laboratoř a soupeř (32),
-05 Live Coach (43), 06 sdílení obrazovky (24), 07 historie a rozbor (21), 08 škola (31), 09 hlas a oznámení (50),
-10 samostatná verze: vlastní klíč, service worker, offline, instalace (43), 11 průchod všemi obrazovkami: zbloudilý text,
+Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
+05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
+10 samostatná verze: vlastní klíč, service worker, offline, instalace (47), 11 průchod všemi obrazovkami: zbloudilý text,
 vodorovné posouvání, čitelnost písma ve světlém i tmavém vzhledu (25).
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
@@ -77,7 +77,9 @@ Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani t
 1. **Vyzkoušet stránku v Claude** (počítač i telefon, stejný účet): https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh
    Claude se při prvním použití zeptá na povolení. Přidej aspoň jednu skutečnou knihu: v aplikaci „Zdroje znalostí“.
 2. **Zapnout GitHub Pages** (jednou), aby šla nainstalovat samostatná verze se sdílením obrazovky a mikrofonem:
-   https://github.com/janvasilecko-droid/FM27-apka/settings/pages, v části „Source“ zvol **GitHub Actions**. Potom spusť nasazení:
+   https://github.com/janvasilecko-droid/FM27-apka/settings/pages, v části „Source“ zvol **GitHub Actions**. Adresa `github.io` sdílí úložiště
+   prohlížeče se všemi dalšími stránkami na tvém `janvasilecko-droid.github.io`: aplikace tam klíč AI výchozně nepamatuje (jen do zavření
+   záložky) a varuje; bezpečnější je vlastní adresa (Custom domain) nebo používat jen stránku v Claude. Potom spusť nasazení:
    https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml (tlačítko „Run workflow“). Sestavení už na serveru
    GitHubu prošlo, nasazení se zastavilo jen proto, že Pages ještě nejsou zapnuté.
 3. **Skutečné vzorky z FM27**: tři exporty `.fmf` a 3 až 5 screenshotů (zápas, statistiky, taktika) s tím, co na nich vidíš.

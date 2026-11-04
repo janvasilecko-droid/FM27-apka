@@ -6,7 +6,7 @@ Zadání (doslova): [`docs/ZADANI_MASTER_PROMPT.md`](./docs/ZADANI_MASTER_PROMPT
 
 ## Stav k 4. 11. 2026
 
-Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (484 testů jádra, 135 + 11 v Pythonu, 421 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). **Z cloudu nejde ověřit
+Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (509 testů jádra, 141 + 11 v Pythonu, 453 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md). **Z cloudu nejde ověřit
 skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu zadání zvlášť napsáno, co je ověřené a co čeká na tebe:
 [`docs/AKCEPTACNI_MATICE.md`](./docs/AKCEPTACNI_MATICE.md).
 
@@ -23,7 +23,7 @@ skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu z
 | Složka | Obsah |
 |---|---|
 | `trener/` | **aplikace** (jedna kódová základna, dvě sestavení: stránka v Claude a samostatná PWA) a její zkoušky |
-| `ai_gateway/` | serverové AI jádro v Pythonu (kontrola poctivosti, čtení obrazovky, náklady); validátor z něj je přeložený do `trener/src/core.js`. 135 testů, živé API neověřeno |
+| `ai_gateway/` | serverové AI jádro v Pythonu (kontrola poctivosti, čtení obrazovky, náklady); validátor z něj je přeložený do `trener/src/core.js`. 141 testů, živé API neověřeno |
 | `fmf_research/` | opravený inspektor souborů `.fmf` (11 testů); originál zůstává beze změny v `reference/` |
 | `docs/` | zadání, architektura, akceptační matice, revize souborů z Cursoru, popis `ai_gateway` |
 | `reference/` | starší soubory z původní složky, jen pro srovnání |
@@ -35,12 +35,12 @@ pokračování toho kódu. Kdyby se kód z Cursoru našel, porovná se s ní, ne
 ## Zkoušky
 
 ```bash
-node --test trener/test/*.test.mjs                     # 484 testů jádra a úložiště
-python3 -m unittest discover -s ai_gateway/tests -t .  # 135 testů (16 se bez doplňkových knihoven přeskočí) a hlídání klíčů v repu
+node --test trener/test/*.test.mjs                     # 509 testů jádra a úložiště
+python3 -m unittest discover -s ai_gateway/tests -t .  # 141 testů (16 se bez doplňkových knihoven přeskočí) a hlídání klíčů v repu
 python3 -m unittest discover -s fmf_research/tests -t . # 11 testů, potřebují `pip install zstandard`
 ```
 
-Zkoušky celé aplikace v Chromiu (421 kontrol, 11 scénářů) a jejich spuštění: `trener/README.md`.
+Zkoušky celé aplikace v Chromiu (453 kontrol, 11 scénářů) a jejich spuštění: `trener/README.md`.
 Zkoušky volají jen zkušební náhražky a zachycený přenos, žádné placené API.
 
 ## Pravidla

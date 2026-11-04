@@ -94,7 +94,7 @@ Settings  {voice{enabled, volume, rate, frequency: 'low'|'normal'|'high', quiet,
 Souřadnice hřiště: `x` 0–100 zleva doprava, `y` 0–100 shora dolů; `y = 0` je branka soupeře, `y = 100` vlastní brankářská čára,
 vlastní tým útočí nahoru (shodně s `reference/codex-2026-11-01/takticky-plan.json`).
 
-Pozorování pro poradce: `{id, label, minute|null, text}` (viz `core.normalizeObservations`). Geometrické nálezy a detektory se do něj převádějí
+Pozorování pro poradce: `{id, label, minute|null, text, scope?}` (viz `core.normalizeObservations`; `scope: 'live'` mají čísla ze sledování zápasu a ta nikdy nedokazují cestu v menu hry; text je v promptu vždy na jednom řádku, `core.oneLine`). Geometrické nálezy a detektory se do něj převádějí
 jako `heuristic_coach`, soupiska a taktika uživatele jako `user_entered`, čtení obrazu jako `vision_unverified`.
 
 ## 5. Kontrakty čistých modulů
@@ -138,7 +138,8 @@ normalizeExtraction(raw, {id, at}) → {snapshot|null, issues[]}   // kontrola �
 makeSnapshot(fields) → Snapshot ; sortTimeline(list) → list
 windowStats(timeline, fromMinute, toMinute, {mySide}) → {minutes, mine{rates na 10 min, share}, opp{…}, snapshots[ids]} | null
 detectProblems(timeline, {mySide, thresholds, now}) → findings[{id, kind, severity:'watch'|'alert', title, text, evidence:[snapshotIds],
-   metrics, evidenceTier:'inferred'|'observed', basis}]       // minimální vzorek: bez dvou snímků ≥ 10 min od sebe nejvýš 'watch'
+   metrics, evidenceTier:'inferred'|'user_entered'|'observed', episode, basis}]   // minimální vzorek: bez dvou snímků ≥ 10 min od sebe nejvýš 'watch'
+   // evidenceTier = nejslabší snímek (ručně zadané údaje nejsou ověřený snímek); episode = trvající stav, hlásí se jednou
    // druhy: possession_without_chances, opponent_chance_dominance, opponent_shots_trend, trailing_without_threat, red_card, rating_drop
 findingsToObservations(findings, {prefix}) → [{id, label:'heuristic_coach', minute, text}]
 evaluateChange(timeline, change, {mySide, thresholds}) → {status:'insufficient_data'|'ready', before, after, deltas, notes[], causalityNote}
@@ -209,6 +210,8 @@ je v akceptační matici označeno výslovně i s kroky pro majitele.
 
 ## 7. Samostatná verze (PWA)
 
+- **Úložiště klíče**: `localStorage` (trvale) nebo `sessionStorage` (jen do zavření záložky); na `*.github.io` je výchozí druhá možnost, protože
+  `github.io` sdílí úložiště prohlížeče se všemi dalšími stránkami téhož účtu.
 - **Poskytovatel AI**: `providers.js`, adaptér Anthropic (`x-api-key`, hlavička `anthropic-dangerous-direct-browser-access`, verze rozhraní z
   konstanty) a OpenAI-kompatibilní (`/chat/completions`, názvy modelů zadává uživatel, v aplikaci označeno jako neověřené). Klíč se zadává
   v Nastavení, ukládá se jen do `localStorage` tohoto prohlížeče a v chybových textech se zakrývá (`makeRedactor`).
