@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Tajemství a lokální data. Repozitář je veřejný, sem se nikdy nic takového nedává.
+.env
+.env.*
+.local/
+
+# Sestavení
+node_modules/
+target/
+dist/
+
+# Systémové
+.DS_Store
+Thumbs.db

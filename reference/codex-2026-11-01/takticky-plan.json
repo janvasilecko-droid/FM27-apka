@@ -1,0 +1,690 @@
+{
+  "format": "fm27-tactical-coach-manual-plan",
+  "version": 1,
+  "club": "Můj klub",
+  "tactic": "Základní 4–3–3",
+  "formation": "4–3–3",
+  "players": [
+    {
+      "id": "p1",
+      "name": "Brankář",
+      "position": "GK",
+      "role": "Brankář",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 50,
+      "y": 91
+    },
+    {
+      "id": "p2",
+      "name": "Pravý obránce",
+      "position": "RB",
+      "role": "Krajní obránce",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 81,
+      "y": 76
+    },
+    {
+      "id": "p3",
+      "name": "Stoper 1",
+      "position": "RCB",
+      "role": "Střední obránce",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 62,
+      "y": 82
+    },
+    {
+      "id": "p4",
+      "name": "Stoper 2",
+      "position": "LCB",
+      "role": "Střední obránce",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 38,
+      "y": 82
+    },
+    {
+      "id": "p5",
+      "name": "Levý obránce",
+      "position": "LB",
+      "role": "Krajní obránce",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 19,
+      "y": 76
+    },
+    {
+      "id": "p6",
+      "name": "Defenzivní záložník",
+      "position": "DM",
+      "role": "Defenzivní záložník",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 50,
+      "y": 65
+    },
+    {
+      "id": "p7",
+      "name": "Střední záložník 1",
+      "position": "RCM",
+      "role": "Střední záložník",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 66,
+      "y": 54
+    },
+    {
+      "id": "p8",
+      "name": "Střední záložník 2",
+      "position": "LCM",
+      "role": "Střední záložník",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 34,
+      "y": 54
+    },
+    {
+      "id": "p9",
+      "name": "Pravé křídlo",
+      "position": "RW",
+      "role": "Křídelní hráč",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 82,
+      "y": 35
+    },
+    {
+      "id": "p10",
+      "name": "Útočník",
+      "position": "ST",
+      "role": "Útočník",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 50,
+      "y": 23
+    },
+    {
+      "id": "p11",
+      "name": "Levé křídlo",
+      "position": "LW",
+      "role": "Křídelní hráč",
+      "foot": "unknown",
+      "attributes": {
+        "pace": null,
+        "stamina": null,
+        "passing": null,
+        "defending": null,
+        "finishing": null
+      },
+      "flags": {
+        "injury": false,
+        "fatigue": false
+      },
+      "x": 18,
+      "y": 35
+    }
+  ],
+  "phaseShapes": {
+    "in": {
+      "formation": "4–3–3",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Brankář",
+          "position": "GK",
+          "role": "Brankář",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 50,
+          "y": 91
+        },
+        {
+          "id": "p2",
+          "name": "Pravý obránce",
+          "position": "RB",
+          "role": "Krajní obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 81,
+          "y": 76
+        },
+        {
+          "id": "p3",
+          "name": "Stoper 1",
+          "position": "RCB",
+          "role": "Střední obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 62,
+          "y": 82
+        },
+        {
+          "id": "p4",
+          "name": "Stoper 2",
+          "position": "LCB",
+          "role": "Střední obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 38,
+          "y": 82
+        },
+        {
+          "id": "p5",
+          "name": "Levý obránce",
+          "position": "LB",
+          "role": "Krajní obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 19,
+          "y": 76
+        },
+        {
+          "id": "p6",
+          "name": "Defenzivní záložník",
+          "position": "DM",
+          "role": "Defenzivní záložník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 50,
+          "y": 65
+        },
+        {
+          "id": "p7",
+          "name": "Střední záložník 1",
+          "position": "RCM",
+          "role": "Střední záložník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 66,
+          "y": 54
+        },
+        {
+          "id": "p8",
+          "name": "Střední záložník 2",
+          "position": "LCM",
+          "role": "Střední záložník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 34,
+          "y": 54
+        },
+        {
+          "id": "p9",
+          "name": "Pravé křídlo",
+          "position": "RW",
+          "role": "Křídelní hráč",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 82,
+          "y": 35
+        },
+        {
+          "id": "p10",
+          "name": "Útočník",
+          "position": "ST",
+          "role": "Útočník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 50,
+          "y": 23
+        },
+        {
+          "id": "p11",
+          "name": "Levé křídlo",
+          "position": "LW",
+          "role": "Křídelní hráč",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 18,
+          "y": 35
+        }
+      ],
+      "instructions": ""
+    },
+    "out": {
+      "formation": "4–3–3",
+      "players": [
+        {
+          "id": "p1",
+          "name": "Brankář",
+          "position": "GK",
+          "role": "Brankář",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 50,
+          "y": 91
+        },
+        {
+          "id": "p2",
+          "name": "Pravý obránce",
+          "position": "RB",
+          "role": "Krajní obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 81,
+          "y": 76
+        },
+        {
+          "id": "p3",
+          "name": "Stoper 1",
+          "position": "RCB",
+          "role": "Střední obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 62,
+          "y": 82
+        },
+        {
+          "id": "p4",
+          "name": "Stoper 2",
+          "position": "LCB",
+          "role": "Střední obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 38,
+          "y": 82
+        },
+        {
+          "id": "p5",
+          "name": "Levý obránce",
+          "position": "LB",
+          "role": "Krajní obránce",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 19,
+          "y": 76
+        },
+        {
+          "id": "p6",
+          "name": "Defenzivní záložník",
+          "position": "DM",
+          "role": "Defenzivní záložník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 50,
+          "y": 65
+        },
+        {
+          "id": "p7",
+          "name": "Střední záložník 1",
+          "position": "RCM",
+          "role": "Střední záložník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 66,
+          "y": 54
+        },
+        {
+          "id": "p8",
+          "name": "Střední záložník 2",
+          "position": "LCM",
+          "role": "Střední záložník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 34,
+          "y": 54
+        },
+        {
+          "id": "p9",
+          "name": "Pravé křídlo",
+          "position": "RW",
+          "role": "Křídelní hráč",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 82,
+          "y": 35
+        },
+        {
+          "id": "p10",
+          "name": "Útočník",
+          "position": "ST",
+          "role": "Útočník",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 50,
+          "y": 23
+        },
+        {
+          "id": "p11",
+          "name": "Levé křídlo",
+          "position": "LW",
+          "role": "Křídelní hráč",
+          "foot": "unknown",
+          "attributes": {
+            "pace": null,
+            "stamina": null,
+            "passing": null,
+            "defending": null,
+            "finishing": null
+          },
+          "flags": {
+            "injury": false,
+            "fatigue": false
+          },
+          "x": 18,
+          "y": 35
+        }
+      ],
+      "instructions": ""
+    }
+  },
+  "activePhase": "in",
+  "currentVariant": null,
+  "variants": [],
+  "defaultPair": {
+    "in": null,
+    "out": null
+  }
+}

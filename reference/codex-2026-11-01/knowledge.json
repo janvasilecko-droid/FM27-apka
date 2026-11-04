@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-11-01",
+  "items": [
+    {
+      "id": "fm27-tactical-effectiveness",
+      "title": "FM27: Training and Tactical Effectiveness",
+      "publisher": "Football Manager / Sports Interactive",
+      "url": "https://www.footballmanager.com/fm27/features/fm27-training-and-tactical-effectiveness",
+      "checked_on": "2026-11-01",
+      "publication_date": null,
+      "version": "FM27 Launch Preview / předvydaná verze",
+      "source_type": "Oficiální produktový článek a FAQ",
+      "trust": "Vysoká pro popis oznámených funkcí; aktuální chování je třeba ověřit ve hře.",
+      "area": "Taktická efektivita, taktická komplexita, trénink, scouting",
+      "caveat": "Článek uvádí, že část předváděného gameplaye pochází z vývojové verze a může se změnit.",
+      "claims": [
+        "Oficiální FAQ popisuje čtyři oblasti Tactical Effectiveness: schopnosti hráčů, informace o příštím zápase, přijetí taktiky hráči a taktické porozumění.",
+        "Tactical Complexity závisí na množství týmových, hráčských a soupeřových instrukcí; článek popisuje kompromis mezi složitostí, schopnostmi kádru a dobou osvojení.",
+        "Gauges Tactical Effectiveness jsou podle článku zobrazované v Tactics, Training a Recruitment."
+      ]
+    },
+    {
+      "id": "fm27-tactical-tweaks-match-engine",
+      "title": "FM27: Tactical Tweaks and Match Engine Upgrades",
+      "publisher": "Football Manager / Sports Interactive",
+      "url": "https://www.footballmanager.com/fm27/features/fm27-tactical-tweaks-and-match-engine-upgrades",
+      "checked_on": "2026-11-01",
+      "publication_date": null,
+      "version": "FM27 Launch Preview / předvydaná verze",
+      "source_type": "Oficiální produktový článek a FAQ",
+      "trust": "Vysoká pro oznámené funkce; přesné obrazovky a dostupnost v konkrétním buildu ověřit prakticky.",
+      "area": "Tactical Tweaks, match engine, heat maps, Action Zones",
+      "caveat": "Jde o oficiální popis funkcí, nikoli ověření jejich dostupnosti na uživatelově obrazovce.",
+      "claims": [
+        "Článek uvádí Tactical Tweaks pro týmové a individuální změny z obrazovky zápasu; jejich dostupnost se může lišit podle konkrétního tweak.",
+        "Oficiální příklady týmových tweaks zahrnují vyšší naléhavost, delší přihrávky, využití šířky a snížení presinku; hráči na křídlech mohou vyměnit strany.",
+        "FAQ říká, že tweaks zůstávají aktivní, dokud je uživatel nezruší; některé mohou být ve vzájemném rozporu.",
+        "Článek oznamuje Heat Maps a Action Zones jako součást rozšířených zápasových dat."
+      ]
+    },
+    {
+      "id": "fm27-navigation",
+      "title": "FM27: Clearer Interface & Smoother Navigation",
+      "publisher": "Football Manager / Sports Interactive",
+      "url": "https://www.footballmanager.com/fm27/features/fm27-clearer-interface-smoother-navigation",
+      "checked_on": "2026-11-01",
+      "publication_date": null,
+      "version": "FM27 Launch Preview / předvydaná verze",
+      "source_type": "Oficiální produktový článek",
+      "trust": "Vysoká pro oficiální popis navigace; názvy a rozložení ověřit v aktuálním buildu.",
+      "area": "Navigace, Squad, Tactics, Training, Recruitment",
+      "caveat": "Článek popisuje zamýšlené rozhraní FM27. Lokální instalace nebo jazyková verze se mohou lišit.",
+      "claims": [
+        "Článek popisuje hlavní navigační sekce Portal, Squad, Tactics, Recruitment, Training a Club.",
+        "Sekce Tactics má podle článku uživatele vést přímo k taktice; podsekce mají mít přepínání přes sekundární navigaci."
+      ]
+    }
+  ]
+}
