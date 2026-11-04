@@ -1,7 +1,8 @@
 # Architektura v2: FM27 Tactical Coach podle původního zadání
 
 Technický plán (zadání § 18: „nejdříve technický plán a architektura“). Stav a ověření jednotlivých částí je v `trener/README.md`
-a v akceptační matici (`docs/AKCEPTACNI_MATICE.md`, vzniká na konci).
+a v akceptační matici (`docs/AKCEPTACNI_MATICE.md`). Tento dokument popisuje, **jak je to postavené**; plán byl psán před implementací
+a po ní doplněn o to, co přibylo (moduly, typy dokumentů, samostatná verze).
 
 ## 1. Rozhodnutí a jejich důvod
 
@@ -16,9 +17,14 @@ a v akceptační matici (`docs/AKCEPTACNI_MATICE.md`, vzniká na konci).
 
 ## 2. Mapa modulů
 
-Čisté moduly (bez DOM, UMD, testované v Node): `core.js` (hotovo), `tactics.js`, `analysis.js`, `school.js`, `providers.js`.
-Rozhraní a data (prohlížeč): `store.js`, `ui.js`, `app.js` (jádro aplikace a směrování) a `screens/*.js` (jedna obrazovka na soubor).
-`build.mjs` všechno slepí; pořadí je v něm výslovně uvedené.
+Čisté moduly (bez DOM, UMD, testované v Node): `core.js` (text, hledání, kontrola poctivosti, prompty), `providers.js`, `tactics.js`,
+`analysis.js`, `school.js`, `alerts.js` (pravidla hlasových upozornění), `opponent.js`, `report.js` (rozbor zápasu), `labexplain.js`
+(vysvětlení rozestavení), `fmfglue.js` (rozbalení prvního rámce zstd).
+Rozhraní a data (prohlížeč): `ui.js`, `store.js` (UMD, testovaný v Node), `library.js` (knihy, pdf.js), `ai.js` (poskytovatel, spotřeba,
+„zeptej se, zkontroluj, jednou oprav“), `context.js` (kontext kariéry a paměť pro AI), `voice.js` (hlasový výstup a vstup, systémová
+oznámení), `widgets.js`, `advice.js` (rada a její vykreslení), `live.js` (relace zápasu a sdílení obrazovky), `app.js` (jádro aplikace a směrování),
+`boot.js`, `standalone.js` (jen samostatná verze) a `screens/*.js` (jedna obrazovka na soubor; `zz_stubs.js` poctivě zachytí sekci
+bez obrazovky). `build.mjs` všechno slepí; pořadí je v něm výslovně uvedené (`PURE`, `UI`, obrazovky podle abecedy, `standalone.js`, `boot.js`).
 
 Hlavní menu (zadání § 13), adresy v `#hash` (ASCII, nikdy `settings`, `downloads`, `customize`, `upgrade`, `sidebar`, `comment-*`):
 
@@ -57,7 +63,11 @@ Vychází z `trener/src/core.js` (zdroj pravdy) a ze zadání § 12, § 16, § 1
 ## 4. Datový model
 
 Každý uložený dokument: `{id, type, careerId?, updatedAt, deleted?, data}`; `type` ∈ `career`, `player`, `tactic`, `match`, `opponent`, `memory`,
-`progress`, `settings`. Id jsou `[a-z0-9]` (kvůli cestám v `db`). Úložiště (`store.js`) řeší lokální uložení a zrcadlení do `db`.
+`progress`, `settings`, `advice`, `source`. Id jsou `[a-z0-9]` (kvůli cestám v `db`). Úložiště (`store.js`) řeší lokální uložení
+(IndexedDB `fm27-data`) a zrcadlení do `db`: jeden dokument na entitu, klíč `type_id`, poslední zápis vyhrává podle `updatedAt`, smazání
+je náhrobek bez dat, dokument nejvýš 240 kB, zápisy se slučují a řadí, vzdálené změny přicházejí jedním `onSnapshot`.
+**Texty knih a lekce z nich se nesynchronizují**: knihy jsou v IndexedDB `fm27-trener` (schéma z první verze se nemění), lekce v `localStorage`
+(`fm27.lessons`). Klíč AI je jen v `localStorage` (`fm27.aiConfig`).
 
 ```text
 Career    {id, club, competition, season, activeTacticId, createdAt}
@@ -74,6 +84,11 @@ Change    {id, at, minute|null, summary, items[advice.change.items], baselineIds
 Opponent  {id, careerId, name, formation, fields{klíč: {value, prov}}, plan|null}
 Memory    {id, careerId, lessons[{id, at, text, source, matchId?}]}               // „zkušenosti z předchozích zápasů“, nejvýš 40
 Progress  {school{lessons{id: {status,bestScore,attempts,lastAt}}}, skills{téma: {rating,seen,correct}}, mistakes[…]}
+Advice    {id, careerId|null, at, question, advice(10 částí), passages{id: {id,title,where}} (bez textů), observations, warnings[], needs_verification,
+           source: 'trener'|'live'}                                          // historie rad, nejvýš 40
+Source    {id, title, url, date, fmVersion, type, category, area, claims, addedAt}   // vlastní zdroj uživatele, vždy neoficiální (nikdy „verified“)
+Settings  {voice{enabled, volume, rate, frequency: 'low'|'normal'|'high', quiet, voiceURI}, live{baseIntervalSec, maxPerHour, maxPerMatch, autoAlerts},
+           notify{enabled}, coach{deep}}
 ```
 
 Souřadnice hřiště: `x` 0–100 zleva doprava, `y` 0–100 shora dolů; `y = 0` je branka soupeře, `y = 100` vlastní brankářská čára,
@@ -160,6 +175,22 @@ chyby jsou objekty {code, message, text?}: not_granted, rate_limited, upstream_e
 extractJson(text) ; withLedger(provider, ledger) ; createLedger({now}) → {record, summary({sinceMs}), toJSON, load} ; estimateTokens(text) ; estimateCostUsd(entry)
 ```
 
+### 5.5 Další čisté moduly (stručně)
+
+```text
+alerts.js     createAlertPolicy() → {decide(alert, settings, now) → {speak, reason, text}, record, reset}
+              // odstup mezi hlášeními podle četnosti (nízká 180 s, běžná 75 s, častá 30 s), naléhavé nejdřív po 15 s, ostatní nejvýš 2/4/8 za 10 minut,
+              // stejné upozornění nejdřív po 5 minutách; důvody ne-mluvení: voice_off, quiet, empty, too_minor, duplicate, gap, rate
+              shortenForSpeech(text, max) → věta nebo dvě
+opponent.js   FIELDS, profileToObservations, buildPlanTurns, searchSeeds, validatePlan, planToText, EXTRACTION_PROMPT, normalizeExtraction
+report.js     buildReportTurns, validateReport (zákaz příčinných slov, povinná opatrná formulace, kontrola změn), reportToText
+labexplain.js buildExplainTurns, validateExplain   // vysvětlení rozestavení: jen z geometrických nálezů, o chování hráčů ve FM27 nic netvrdí
+fmfglue.js    firstFrameContentSize, makeFirstFrameDecompressor   // zstd: první rámec podle deklarované velikosti
+```
+
+Rozhraní AI v prohlížeči (`ai.js`): `FM27.ai.structured({turns, validate, tier, images, signal, purpose, onStep})` → `{status: 'ok'|'needs_more_info', value, verdict}`;
+chyby poskytovatele se vyhazují (`errorText` je převede na českou větu; u vlastního klíče je to hláška adaptéru bez klíče a s číslem HTTP).
+
 ## 6. Etapy a akceptační testy zadání (§ 17)
 
 | Etapa | Obsah | Akceptační testy |
@@ -174,4 +205,19 @@ extractJson(text) ; withLedger(provider, ledger) ; createLedger({now}) → {reco
 | průřezově | historie zápasů | 13 |
 
 Co z cloudu **nelze** ověřit (živé volání Claude, sdílení okna FM27 na Windows, skutečný `.fmf`, skutečná synchronizace mezi zařízeními)
-se v matici označí výslovně a doplní se potřebné kroky pro majitele.
+je v akceptační matici označeno výslovně i s kroky pro majitele.
+
+## 7. Samostatná verze (PWA)
+
+- **Poskytovatel AI**: `providers.js`, adaptér Anthropic (`x-api-key`, hlavička `anthropic-dangerous-direct-browser-access`, verze rozhraní z
+  konstanty) a OpenAI-kompatibilní (`/chat/completions`, názvy modelů zadává uživatel, v aplikaci označeno jako neověřené). Klíč se zadává
+  v Nastavení, ukládá se jen do `localStorage` tohoto prohlížeče a v chybových textech se zakrývá (`makeRedactor`).
+- **Service worker** (`standalone/sw.js`): kostra aplikace se uloží při instalaci; stránka a ostatní soubory ze stejného původu se berou
+  nejdřív ze sítě a při výpadku z mezipaměti; volání AI service worker nechytá. Nová verze se projeví při dalším otevření.
+- **Instalace**: událost `beforeinstallprompt` se zachytí a v Nastavení se nabídne tlačítko; jinak karta radí ruční postup.
+- **Sdílení obrazovky** (`live.js`): `getDisplayMedia` bez zvuku, kontrola změn po 1,5 s, `createFrameGate` rozhoduje, co se pošle (ustálení,
+  rozdíl, limity za hodinu a za zápas). Skryté nebo zakryté okno prohlížeč zpomaluje; aplikace na to upozorní, obejít to neumí.
+- **Hlas a oznámení** (`voice.js`): `speechSynthesis` (česky), `SpeechRecognition` (jen samostatná verze), `Notification` jen při skrytém okně a
+  jen pro důležité upozornění. Oznámení na zavřený telefon (push) nejsou: potřebovala by server.
+- **Nasazení**: `.github/workflows/pages.yml` (ruční spuštění): testy jádra, `STRICT=1` sestavení, nahrání `trener/dist/standalone`, nasazení na Pages.
+

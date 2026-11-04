@@ -1,44 +1,51 @@
 # FM27 Tactical Coach
 
-Osobní AI trenér pro Football Manager 27 (PWA + desktopový capture host). Zadání a pravidla:
-[`PROMPT_CLAUDE_CONTINUE.md`](./PROMPT_CLAUDE_CONTINUE.md) a [`HANDOFF_CLAUDE.md`](./HANDOFF_CLAUDE.md).
+Osobní AI trenér pro Football Manager 27: radí z tvých knih o taktice, zná tvůj tým a taktiku, čte snímky obrazovky,
+sleduje zápas, upozorňuje hlasem, vede historii zápasů a učí taktiku. Co neví, to řekne; **nikdy nepředstírá, že FM27 vidí**.
+Zadání (doslova): [`docs/ZADANI_MASTER_PROMPT.md`](./docs/ZADANI_MASTER_PROMPT.md).
 
-## Stav k 4. 11. 2026 — přečti první
+## Stav k 4. 11. 2026
 
-**Kód aplikace z Cursoru (Wave 76: `serve_local.py`, `app.js`, `sw.js`, `desktop/`, `tests/` …) v tomto repozitáři zatím NENÍ.**
-Je jen v Cursoru a nikam se nenahrál, takže soubory, na které odkazuje `HANDOFF_CLAUDE.md`, tu neexistují.
-Údaje o stavu aplikace (≈ 88 %, 12 z 15 akceptačních testů) jsou převzaté z handoffu a já je neověřil.
+Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (484 testů jádra, 135 + 11 v Pythonu, 421 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). **Z cloudu nejde ověřit
+skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu zadání zvlášť napsáno, co je ověřené a co čeká na tebe:
+[`docs/AKCEPTACNI_MATICE.md`](./docs/AKCEPTACNI_MATICE.md).
 
-| Co | Stav |
+| Co | Kde |
 |---|---|
+| **Stránka v Claude** (hned použitelná, bez klíče) | https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh (soukromý odkaz) |
+| **Samostatná aplikace** (sdílení okna hry, hlasová otázka, instalace; vlastní klíč AI) | čeká na zapnutí GitHub Pages: https://github.com/janvasilecko-droid/FM27-apka/settings/pages (Source: GitHub Actions), pak „Run workflow“ na https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml |
+| Popis aplikace, sestavení, zkoušky | [`trener/README.md`](./trener/README.md) |
+| Architektura a pravidla poctivosti | [`docs/ARCHITEKTURA_V2.md`](./docs/ARCHITEKTURA_V2.md) |
+| Co dál a co potřebuju od tebe | [`POKRACOVANI.md`](./POKRACOVANI.md) |
+
+## Co je v repozitáři
+
+| Složka | Obsah |
+|---|---|
+| `trener/` | **aplikace** (jedna kódová základna, dvě sestavení: stránka v Claude a samostatná PWA) a její zkoušky |
+| `ai_gateway/` | serverové AI jádro v Pythonu (kontrola poctivosti, čtení obrazovky, náklady); validátor z něj je přeložený do `trener/src/core.js`. 135 testů, živé API neověřeno |
+| `fmf_research/` | opravený inspektor souborů `.fmf` (11 testů); originál zůstává beze změny v `reference/` |
+| `docs/` | zadání, architektura, akceptační matice, revize souborů z Cursoru, popis `ai_gateway` |
+| `reference/` | starší soubory z původní složky, jen pro srovnání |
 | `HANDOFF_CLAUDE.md`, `PROMPT_CLAUDE_CONTINUE.md` | předání z Cursoru, beze změn |
-| `reference/codex-2026-11-01/` | starší soubory z původní složky (1. 11.), jen reference, starší než Wave 76 |
-| `trener/` | **nové:** samostatný poradce jako stránka v Claude. Čte tvoje knihy (PDF, TXT), hledá v nich, radí desetibodově a kontroluje poctivost. Popis: [`trener/README.md`](./trener/README.md) |
-| `ai_gateway/` | **nové:** serverový AI trenér (Claude) s kontrolou poctivosti, čtení obrazovky, náklady, úryvky z knih. 135 testů prochází; živé API zatím neověřeno (chybí klíč) |
-| `fmf_research/` | **nové:** opravený inspektor FMF (11 testů). Originál je beze změny v `reference/` |
-| `docs/AI_GATEWAY_V2.md` | jak gateway zapojit a co s klíčem ověřit |
-| `docs/REVIZE_CLAUDE_2026-11-04.md` | kontrola souborů z Cursoru: nálezy, důkazy, návrhy |
-| `docs/ZADANI_MASTER_PROMPT.md` | původní zadání (MASTER PROMPT) doslova a upřesnění ze 4. 11. |
-| `POKRACOVANI.md` | co dál a co od majitele potřebuju |
 
-## Jak sem nahrát kód z Cursoru
+**Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl**, takže aplikace v `trener/` je nová implementace podle původního zadání, ne
+pokračování toho kódu. Kdyby se kód z Cursoru našel, porovná se s ní, nepřepíše se.
 
-1. Na PC otevři `cmd` a spusť `dir /s /b "%USERPROFILE%\serve_local.py"`. Vypíše cestu ke složce s aplikací.
-2. Obsah té složky přetáhni na https://github.com/janvasilecko-droid/FM27-apka/upload/main a dole dej „Commit changes“.
-   Nenahrávej `.git`, `node_modules`, `target` ani žádný `.env`. GitHub bere najednou nejvýš 100 souborů, případně nahraj ve dvou dávkách.
-
-Pokud `dir` nic nenajde, kód je jen v cloudu Cursoru a je potřeba ho odtamtud nejdřív dostat ven.
-Repozitář je **veřejný**: nikdy do něj nedávej klíče (hlídá to test `test_no_secrets`).
-
-## Testy
+## Zkoušky
 
 ```bash
-pip install anthropic zstandard    # volitelné; bez nich se příslušné testy přeskočí
-python3 -m unittest discover -s ai_gateway/tests -t . -v
-python3 -m unittest discover -s fmf_research/tests -t . -v
-node --test trener/test/*.test.mjs     # jádro stránky trenéra (hledání, kontrola poctivosti)
-python3 -m ai_gateway.demo         # ukázka formátu rady (DEMO, žádná AI ani síť)
+node --test trener/test/*.test.mjs                     # 484 testů jádra a úložiště
+python3 -m unittest discover -s ai_gateway/tests -t .  # 135 testů (16 se bez doplňkových knihoven přeskočí) a hlídání klíčů v repu
+python3 -m unittest discover -s fmf_research/tests -t . # 11 testů, potřebují `pip install zstandard`
 ```
 
-Testy volají jen falešného poskytovatele a zachycený HTTP přenos, žádné placené API.
-Skutečné ověření s klíčem: `python3 -m ai_gateway.live_check --yes` (viz `docs/AI_GATEWAY_V2.md`).
+Zkoušky celé aplikace v Chromiu (421 kontrol, 11 scénářů) a jejich spuštění: `trener/README.md`.
+Zkoušky volají jen zkušební náhražky a zachycený přenos, žádné placené API.
+
+## Pravidla
+
+- Repozitář je **veřejný**: nikdy do něj nedávej klíče, tokeny, hesla ani texty knih (hlídá to test `test_no_secrets`).
+- Klíč AI patří jen do Nastavení v aplikaci, nikdy do chatu ani do repozitáře.
+- Nic se nemaže a nehádá; názvy rolí, nastavení a cest v menu FM27 jsou v aplikaci vždy označené jako neověřené, dokud je nepotvrdí
+  tvůj screenshot nebo oficiální zdroj FM27.

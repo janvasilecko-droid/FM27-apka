@@ -1,50 +1,52 @@
-# Pokračování (4. 11. 2026)
+# Pokračování (stav 4. 11. 2026, večer)
 
-Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `HANDOFF_CLAUDE.md` a z `PROMPT_CLAUDE_CONTINUE.md`.
+Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `docs/AKCEPTACNI_MATICE.md`.
 
 ## Kde to stojí
 
-- **Kód aplikace z Cursoru (Wave 76) v repozitáři není.** Majitel ho zatím nenahrál. Bez něj nejde „projít, vylepšit, opravit“
-  samotnou aplikaci; nic jsem nestavěl od nuly (majitel: „škoda začít od nuly“).
-- Z cloudu jsem přidal jen to, co handoff označuje jako prioritu 2 a základ priority 1, bokem a bez zásahu do kódu aplikace:
-  - `ai_gateway/` (126 testů, živé API neověřeno), popis v `docs/AI_GATEWAY_V2.md`;
-  - `fmf_research/` (oprava dvou prokázaných chyb inspektoru, 11 testů);
-  - `docs/REVIZE_CLAUDE_2026-11-04.md` (kontrola souborů, které jsem dostal).
-- Stav aplikace (≈ 88 %, 12 z 15 testů) je z handoffu, **neověřený mnou**.
+- **Aplikace je implementovaná podle původního zadání** (`docs/ZADANI_MASTER_PROMPT.md`): deset sekcí, sedm etap, kontrola poctivosti
+  u všeho, co aplikace říká. Kód je v `trener/`, popis v `trener/README.md`, architektura v `docs/ARCHITEKTURA_V2.md`.
+- **Dvě sestavení z jednoho kódu**: stránka v Claude (publikovaná, soukromý odkaz majitele
+  https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh) a samostatná aplikace (sestavení prochází na serveru GitHubu, **nasazení čeká na
+  zapnutí GitHub Pages majitelem**, viz níže).
+- **Zkoušky**: 484 testů jádra, 135 + 11 v Pythonu, 421 kontrol v prohlížeči (11 scénářů). Co z nich dokazuje a co ne:
+  `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
+  skutečné službě ani skutečnému FM27**.
+- Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).
 
-## Co přibylo 4. 11. odpoledne: samostatný poradce `trener/`
+## Co udělat jako první, když se na tom pracuje dál
 
-Majitel upřesnil, že aplikace má být **samostatný poradce, který s ním řeší problémy, vychází hlavně z jeho knih (teorie)
-a umí hledat kontext**. Původní zadání je teď v `docs/ZADANI_MASTER_PROMPT.md`. Cursorův kód stále není k dispozici,
-a protože nebylo kam navázat, vznikl nezávislý modul, který kód z Cursoru nenahrazuje ani nepřepisuje:
+1. Přečíst `docs/AKCEPTACNI_MATICE.md` (část 1 a 3) a `trener/README.md` (část „Co je ověřeno a co ne“).
+2. Spustit zkoušky (`trener/README.md`, část „Sestavení a zkoušky“). Po změně zdrojů vždy `node trener/build.mjs`.
+3. Publikace stránky v Claude: `Artifact` s `file_path=trener/dist/trener.fragment.html` a `url=https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh`
+   (nejdřív `read`), capabilities `sample` (s obrázky), `downloads`, `db`, `user`.
+4. Pokud majitel pošle skutečné vzorky (níže), nejdřív s nimi změřit čtení screenshotů a dekódování `.fmf`, ne psát další funkce.
 
-- `trener/` je jedna stránka (artefakt v Claude). Knihy se čtou v prohlížeči majitele, hledá se v nich BM25 a Claude
-  skládá desetibodovou radu; JS validátor poctivosti je překlad `advice10.py` (68 společných případů hlídá test).
-- Žádný server, žádný klíč v chatu: stránka volá Claude přes schopnost `sample` z účtu toho, kdo ji otevře.
-- Texty knih zůstávají v IndexedDB prohlížeče a v exportu, který si majitel sám uloží. **Nikdy do gitu.**
-- Publikováno jako soukromý artefakt majitele: https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh (první verze 4. 11. 2026).
-  Aktualizace stejným odkazem: načíst ho (`read`) a publikovat s `url`.
-- Co je ověřené a co ne: viz `trener/README.md`, část „Co je ověřeno“.
+## Co potřebuju od majitele (a kde to udělat)
 
-Dlouhodobá varianta, kdyby stránka přestala stačit: samostatné hostované řešení podle pivovarské bible (vlastní Supabase
-projekt, zpracování knih na serveru, hledání v databázi, náklady na AI). Rozhodnout s majitelem, až vyzkouší stránku.
+1. **Vyzkoušet stránku v Claude** na počítači i telefonu pod stejným účtem: https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh
+   a přidat aspoň jednu skutečnou knihu (sekce „Zdroje znalostí“).
+2. **Zapnout GitHub Pages**: https://github.com/janvasilecko-droid/FM27-apka/settings/pages → Source: **GitHub Actions**; potom
+   „Run workflow“: https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml. Až první nasazení projde, přidá se
+   spouštění po každém pushi (nyní jen ručně, `.github/workflows/pages.yml`).
+3. **Skutečné vzorky z FM27**: tři exporty `.fmf` s předem známým nastavením (`docs/REVIZE_CLAUDE_2026-11-04.md`, část 2) a 3 až 5
+   screenshotů (zápas, statistiky, taktika) s tím, co na nich vidí. Bez nich nejde změřit čtení obrazovky ani dekódovat taktiku.
+4. **Vlastní klíč AI** pro samostatnou verzi (volitelné): https://console.anthropic.com/settings/keys, vložit **jen do Nastavení
+   v aplikaci**, nikdy do chatu. Doporučen samostatný klíč pro aplikaci s měsíčním limitem.
+5. **Zkouška Live Coache na Windows**: samostatná verze v Chrome nebo Edge, sdílet okno FM27, okno aplikace nechat viditelné vedle hry
+   (skryté okno prohlížeč zpomaluje; aplikace na to upozorní).
 
-## Co udělat jako první
+## Neumí / záměrně není
 
-1. Zjistit, jestli je v repozitáři kód Wave 76 (`git ls-remote origin`, `ls`). Pokud ano: přečíst `ARCHITECTURE.md`, spustit testy z handoffu
-   (`python3 -m unittest discover -s tests -v`, `python3 tests/e2e_smoke.py`, `node --test tests/unit_*.mjs`) a sepsat tabulku akceptačních testů s důkazem.
-2. Zapojit `ai_gateway/` do `/api/ai/advise` (snippet v `docs/AI_GATEWAY_V2.md`) a **sladit schéma 10 polí s `docs/AI_GATEWAY.md`**
-   v jediném souboru `ai_gateway/advice10.py`. Nic z toho jsem neviděl, typy uvnitř polí jsou můj návrh.
-3. Nepřepisovat ani nemazat stávající proxy pro OpenAI v `serve_local.py`; adaptér OpenAI v `ai_gateway/` zatím není.
+Klient pro Windows (Tauri) a server s PostgreSQL ze zadání § 1 (nahrazeno webovou aplikací), pole taktiky v `.fmf` (nejsou známá),
+oznámení na zavřený telefon, překryvné okno nad hrou, OCR skenů, ověření OpenAI-kompatibilního rozhraní proti živé službě.
+Seznam s důvody: `docs/AKCEPTACNI_MATICE.md`, část 3.
 
-## Co potřebuju od majitele
+## Možná další rozhodnutí (až majitel stránku vyzkouší)
 
-- Kód z Cursoru v repozitáři (postup v `README.md`, odkaz https://github.com/janvasilecko-droid/FM27-apka/upload/main).
-- Klíč Anthropic **jen v prostředí serveru na jeho PC**, nikdy v chatu ani v repozitáři (postup v `docs/AI_GATEWAY_V2.md`), a pak výstup
-  `python3 -m ai_gateway.live_check --yes`.
-- Skutečný export `.fmf` z FM27 (tři exporty podle `docs/REVIZE_CLAUDE_2026-11-04.md`, část 2) a 3–5 screenshotů FM27 v jazyce hry
-  (zápas, statistiky, taktika) s údaji, které na nich vidí (ověřená pravda pro měření čtení obrazovky).
-- Ověření zachytávání okna FM27 na jeho Windows PC (z cloudu nejde).
+- Hostovaná varianta podle „Pivovarské bible“ (vlastní Supabase projekt, zpracování knih na serveru, hledání v databázi, náklady na AI),
+  kdyby měla aplikace sdílet knihy mezi zařízeními nebo se samostatná verze měla synchronizovat. Do té doby knihy zůstávají v zařízení.
+- Nechat Claude hledat v knihách samo (`tools` ve `sample`) místo jednoho plánu dotazů.
 
 ## Pravidla majitele (platí vždy)
 
@@ -52,9 +54,10 @@ projekt, zpracování knih na serveru, hledání v databázi, náklady na AI). R
 nic nemazat a nehádat; správnost před rychlostí; nepředstírat funkce (demo jen výslovně označené);
 nikdy netvrdit, že aplikace „vidí“ FM27, pokud to nevyplývá z reálného snímku nebo souboru.
 
-## Rozhodnutí z této relace
+## Rozhodnutí z minulých relací
 
-- Repozitář `FM27-apka` je **veřejný** (vytvořil ho majitel). Žádné klíče, žádná osobní data. Případně přepnout na Private:
-  https://github.com/janvasilecko-droid/FM27-apka/settings (dole „Change visibility“). Soukromý repozitář pak čtu jen v relaci, která k němu má přístup.
+- Repozitář `FM27-apka` je **veřejný** (vytvořil ho majitel). Žádné klíče, žádná osobní data, žádný obsah knih. Případně přepnout na
+  Private: https://github.com/janvasilecko-droid/FM27-apka/settings (dole „Change visibility“); soukromý repozitář pak čtu jen v relaci,
+  která k němu má přístup, a GitHub Pages u soukromého repozitáře mohou vyžadovat placený plán (ověř v nastavení účtu).
 - Soubor `fm27-tac-payload.bin` v repozitáři **není** (neznámý binární obsah z osobního exportu; stačí popis v revizi).
 - Vysoká jistota v radě je záměrně těžká na splnění (dva ověřené screenshoty). Je to záměr, ne chyba.

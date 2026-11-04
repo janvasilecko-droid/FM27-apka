@@ -107,7 +107,14 @@ module.exports = async function run(env) {
   await page.waitForSelector('#result .sec', { timeout: 20000 });
   await page.locator('#result [data-act="speak"]').click();
   check('09 tichý režim: rada se nahlas nepřečte a aplikace řekne, jak to změnit', /Tichý režim je zapnutý/.test(await toastText(page)) && (await spokenOf(page)).length === 4, await toastText(page));
-  check('09 nastavení hlasu se synchronizuje (je v uloženém nastavení)', (await voiceSettings(page)).volume === 0.4 && (await voiceSettings(page)).quiet === true, await voiceSettings(page));
+  check('09 nastavení hlasu je v uloženém nastavení', (await voiceSettings(page)).volume === 0.4 && (await voiceSettings(page)).quiet === true, await voiceSettings(page));
+  // nastavení se přenese na telefon (stejný účet, druhé okno)
+  const ph = await newContext(browser, { db: server, uid: 'u1', viewport: { width: 390, height: 844 } });
+  await open(ph.page, 'nastaveni');
+  await until(async () => (await voiceSettings(ph.page)).quiet === true);
+  const pv = await voiceSettings(ph.page);
+  check('09 hlasitost, tichý režim a zapnutý hlas se přenesou na telefon', pv.volume === 0.4 && pv.quiet === true && pv.enabled === true && (await ph.page.isChecked('#setQuiet')), pv);
+  await ph.context.close();
 
   check('09 A: bez chyb ve skriptu', c.problems.page.length === 0, c.problems.page);
   const ce = c.problems.console.filter((m) => !/Failed to load resource/.test(m));
