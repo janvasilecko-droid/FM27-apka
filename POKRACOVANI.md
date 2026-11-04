@@ -22,6 +22,8 @@ a protože nebylo kam navázat, vznikl nezávislý modul, který kód z Cursoru 
   skládá desetibodovou radu; JS validátor poctivosti je překlad `advice10.py` (68 společných případů hlídá test).
 - Žádný server, žádný klíč v chatu: stránka volá Claude přes schopnost `sample` z účtu toho, kdo ji otevře.
 - Texty knih zůstávají v IndexedDB prohlížeče a v exportu, který si majitel sám uloží. **Nikdy do gitu.**
+- Publikováno jako soukromý artefakt majitele: https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh (první verze 4. 11. 2026).
+  Aktualizace stejným odkazem: načíst ho (`read`) a publikovat s `url`.
 - Co je ověřené a co ne: viz `trener/README.md`, část „Co je ověřeno“.
 
 Dlouhodobá varianta, kdyby stránka přestala stačit: samostatné hostované řešení podle pivovarské bible (vlastní Supabase

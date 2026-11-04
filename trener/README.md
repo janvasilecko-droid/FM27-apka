@@ -56,7 +56,9 @@ Po změně `core.js`, `app.js` nebo stylů vždy znovu `node trener/build.mjs`; 
 ## Publikace
 
 Artefakt z `dist/trener.fragment.html` s `capabilities: {sample: {images: true}, downloads: true}`. Obálku `<html>` doplní
-publikace. Aktualizace: znovu publikovat ten samý soubor se stejnou adresou, ať zůstane odkaz.
+publikace. Soukromý odkaz majitele (první verze 4. 11. 2026, sestavení `2026-11-04-f8c175b9`):
+https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh. Aktualizace: v nové relaci načíst artefakt (`action: read`) a publikovat s tímto `url`,
+ať zůstane stejný odkaz.
 
 ## Co je ověřeno a co ne
 
