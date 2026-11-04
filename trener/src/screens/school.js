@@ -275,7 +275,7 @@
         ...Sc.CURRICULUM.groups.map((g) =>
           h('div', { class: 'group' }, h('h3', { text: `${g.id}. ${g.title}` }), h('div', { class: 'books', id: 'schoolList-' + g.id }, g.lessons.map((l) => {
             const pr = state.progress.school.lessons[l.id];
-            return h('div', { class: 'book lesson-row' + (l.id === selectedId ? ' selected' : ''), 'data-id': l.id }, h('div', { class: 'meta' }, h('b', { text: `${l.id} ${l.title}` }), h('span', { class: 'chips' }, ui.tierChip('unknown', LEVEL_CS[l.level]), pr && pr.status === 'done' ? ui.tierChip('observed', `probráno ${pr.bestScore} %`) : null, l.id === rec.lessonId ? ui.tierChip('inferred', 'doporučeno') : null, savedLessons()[l.id] ? ui.tierChip('user_entered', 'lekce složená') : null)), h('button', { class: 'btn small', type: 'button', text: l.id === selectedId ? 'Otevřeno' : 'Otevřít', onclick: () => ((selectedId = l.id), draw()) }));
+            return h('div', { class: 'book lesson-row' + (l.id === selectedId ? ' selected' : ''), 'data-id': l.id }, h('div', { class: 'meta' }, h('b', { text: `${l.id} ${l.title}` }), h('span', { class: 'chips' }, ui.chip('neutral', LEVEL_CS[l.level]), pr && pr.status === 'done' ? ui.chip('good', `probráno ${pr.bestScore} %`) : null, l.id === rec.lessonId ? ui.chip('accent', 'doporučeno') : null, savedLessons()[l.id] ? ui.chip('neutral', 'lekce složená') : null)), h('button', { class: 'btn small', type: 'button', text: l.id === selectedId ? 'Otevřeno' : 'Otevřít', onclick: () => ((selectedId = l.id), draw()) }));
           })))
         )
       );
@@ -293,7 +293,7 @@
             await saveProgress(app, p);
             setProgress(p);
             const row = $(`.lesson-row[data-id="${def.id}"] .chips`);
-            if (row && g.score >= Sc.PASS_SCORE) row.append(ui.tierChip('observed', `probráno ${g.score} %`));
+            if (row && g.score >= Sc.PASS_SCORE) row.append(ui.chip('good', `probráno ${g.score} %`));
           })
         );
       }

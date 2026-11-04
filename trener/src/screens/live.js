@@ -149,7 +149,7 @@
       alertsCard.replaceChildren(
         h('h2', { text: 'Upozornění' }),
         list.length
-          ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? h('span', { class: 'chip t-observed', text: 'řečeno nahlas' }) : null, a.notified ? h('span', { class: 'chip t-observed', text: 'oznámeno systémem' }) : null, h('button', { class: 'btn small', type: 'button', 'data-act': 'explain', text: 'Vysvětlit podrobněji', onclick: () => ((noteInput.value = `Vysvětli podrobněji a poraď: ${a.finding.title}`), ask()) })))))
+          ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? ui.chip('neutral', 'řečeno nahlas') : null, a.notified ? ui.chip('neutral', 'oznámeno systémem') : null, h('button', { class: 'btn small', type: 'button', 'data-act': 'explain', text: 'Vysvětlit podrobněji', onclick: () => ((noteInput.value = `Vysvětli podrobněji a poraď: ${a.finding.title}`), ask()) })))))
           : h('p', { class: 'hint', text: 'Zatím nic. Nová upozornění se ukážou tady a podle nastavení se přečtou nahlas.' })
       );
     }

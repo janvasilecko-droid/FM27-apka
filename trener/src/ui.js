@@ -37,6 +37,18 @@
   };
 
   // ------------------------------------------------------------------ DOM
+  // DOM převádí null a undefined na text „null“ a „undefined“. Obrazovky skládají děti podmíněně (cond ? uzel : null),
+  // proto se tady prázdné děti zahazují u každého append, prepend a replaceChildren v aplikaci.
+  for (const proto of [Element.prototype, DocumentFragment.prototype]) {
+    for (const name of ['append', 'prepend', 'replaceChildren']) {
+      const original = proto[name];
+      if (typeof original !== 'function') continue;
+      proto[name] = function (...nodes) {
+        return original.apply(this, nodes.filter((n) => n !== null && n !== undefined && n !== false));
+      };
+    }
+  }
+
   ui.$ = (sel, root) => (root || document).querySelector(sel);
   ui.$$ = (sel, root) => [...(root || document).querySelectorAll(sel)];
 
@@ -203,5 +215,7 @@
     inferred: 'odhad',
     unknown: 'neznámé',
   };
+  /** Štítek bez významu „důvěra“ (úroveň lekce, stav, příznak): kind = neutral | good | accent | warn | bad. */
+  ui.chip = (kind, text) => ui.h('span', { class: 'chip c-' + kind, text });
   ui.tierChip = (tier, text) => ui.h('span', { class: 'chip t-' + tier, text: text || TIER_CS[tier] || tier });
 })();
