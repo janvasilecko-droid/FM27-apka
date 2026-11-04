@@ -163,9 +163,16 @@ def validate_advice10(
     *,
     observations: Mapping[str, Mapping[str, Any]],
     registry: SourceRegistry | None = None,
+    passages: Mapping[str, Any] | None = None,
     max_changes: int = MAX_CHANGES,
 ) -> ValidationResult:
-    """Zkontroluje poctivost rady. `observations`: id → {"label": …, "text": …}."""
+    """Zkontroluje poctivost rady.
+
+    `observations`: id → {"label": …, "text": …}. `passages`: id úryvků z knih, které se v této žádosti
+    opravdu vyhledaly. Úryvek z knihy podporuje obecnou fotbalovou teorii, ne tvrzení o fungování FM27
+    ani důkaz o aktuálním zápase, takže tvrzení s ním je nejvýš `inferred` a jako důkaz (evidenceA/B) se
+    nepočítá.
+    """
     errors: list[str] = []
     warnings: list[str] = []
     if not isinstance(advice, Mapping):
@@ -183,6 +190,8 @@ def validate_advice10(
     def ref_tier(ref: str) -> str | None:
         if ref in obs_tier:
             return obs_tier[ref]
+        if passages is not None and ref in passages:
+            return "inferred"
         if registry is not None and ref in registry:
             return "verified" if registry.is_official_fm27(ref) else "inferred"
         return None
@@ -209,7 +218,7 @@ def validate_advice10(
         if len(text) < MIN_TEXT:
             errors.append(f"{name}: text je prázdný nebo příliš krátký.")
         if tier not in TIERS:
-            errors.append(f"{name}: neplatná úroveň důvěry {tier!r}.")
+            errors.append(f"{name}: neplatná úroveň důvěry „{tier}“.")
             return None
         if refs is None:
             errors.append(f"{name}: refs musí být seznam textů.")
@@ -308,7 +317,7 @@ def validate_advice10(
         where_tier = item.get("where_tier")
         refs = _str_list(item.get("refs")) or []
         if where_tier not in TIERS:
-            errors.append(f"{name}: neplatná úroveň where_tier {where_tier!r}.")
+            errors.append(f"{name}: neplatná úroveň where_tier „{where_tier}“.")
             continue
         if where_tier == "verified":
             if not refs or not all(registry is not None and registry.is_official_fm27(ref) for ref in refs):

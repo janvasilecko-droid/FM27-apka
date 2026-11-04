@@ -105,6 +105,55 @@ class HappyPath(unittest.TestCase):
         self.assertIn("Brankář", prompt)
 
 
+PASSAGE = {"id": "bk:abc:12:3", "title": "Kniha o taktice", "page": 12, "text": "Teorie o podpoře útočníka."}
+
+
+def cites_passage(advice, pid="bk:abc:12:3"):
+    advice["diagnosis"]["refs"] = ["obs-1", pid]
+    return advice
+
+
+class Passages(unittest.TestCase):
+    def test_passages_reach_the_prompt_and_can_be_cited(self):
+        router, provider = router_for(resp(cites_passage(demo_advice())))
+        result = advise({**demo_request(), "passages": [PASSAGE]}, router=router)
+        self.assertEqual(result["status"], "ok", result["errors"])
+        prompt = provider.calls[0].messages[0]["content"][0]["text"]
+        self.assertIn("bk:abc:12:3 | Kniha o taktice | 12 | Teorie o podpoře útočníka.", prompt)
+        self.assertIn("Jsou to teorie", prompt)
+
+    def test_prompt_admits_when_there_are_no_passages(self):
+        router, provider = router_for(resp(demo_advice()))
+        advise(demo_request(), router=router)
+        self.assertIn("rada nevychází z knih", provider.calls[0].messages[0]["content"][0]["text"])
+
+    def test_citing_a_passage_that_was_not_provided_triggers_repair(self):
+        router, provider = router_for(resp(cites_passage(demo_advice(), "bk:other:1:1")), resp(demo_advice()))
+        result = advise(demo_request(), router=router)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn("neodpovídá", provider.calls[1].messages[2]["content"])
+
+    def test_invalid_passages_are_rejected_before_any_call(self):
+        cases = [
+            [{**PASSAGE, "id": "kniha-1"}],
+            [PASSAGE, PASSAGE],
+            [{**PASSAGE, "id": "bk:" + "x" * 80}],
+            [{**PASSAGE, "id": f"bk:a:{i}:1"} for i in range(13)],
+            [{**PASSAGE, "id": "obs-1"}],
+        ]
+        for passages in cases:
+            router, provider = router_for(resp(demo_advice()))
+            result = advise({**demo_request(), "passages": passages}, router=router)
+            self.assertEqual(result["status"], "error", passages[:1])
+            self.assertEqual(provider.calls, [])
+
+    def test_passage_id_may_not_collide_with_an_observation_id(self):
+        request = {**demo_request(), "observations": [{"id": "bk:abc:12:3", "label": "user_entered", "text": "x"}], "passages": [PASSAGE]}
+        router, provider = router_for(resp(demo_advice()))
+        self.assertEqual(advise(request, router=router)["status"], "error")
+
+
 class Repair(unittest.TestCase):
     def test_one_repair_round_fixes_the_advice(self):
         router, provider = router_for(resp(bad_advice()), resp(demo_advice()))

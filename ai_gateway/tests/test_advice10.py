@@ -282,6 +282,33 @@ class Changes(unittest.TestCase):
         self.assertIn("co je potřeba ověřit", errors_text(result))
 
 
+class BookPassages(unittest.TestCase):
+    PASSAGES = {"bk:abc:12:3": {"title": "Kniha o taktice", "page": 12, "text": "Teorie o šířce a hloubce."}}
+
+    def test_book_passage_supports_theory_at_inferred_level(self):
+        advice = patched(**{"diagnosis.refs": ["obs-1", "bk:abc:12:3"]})
+        result = check(advice, passages=self.PASSAGES)
+        self.assertTrue(result.ok, result.errors)
+
+    def test_book_passage_cannot_make_a_claim_stronger_than_inferred(self):
+        advice = patched(**{"diagnosis.tier": "observed", "diagnosis.refs": ["bk:abc:12:3"]})
+        result = check(advice, passages=self.PASSAGES)
+        self.assertFalse(result.ok)
+        self.assertIn("silnější", errors_text(result))
+
+    def test_book_passage_is_theory_not_evidence_about_the_match(self):
+        advice = patched(**{"evidenceA.refs": ["bk:abc:12:3"], "evidenceA.tier": "inferred"})
+        result = check(advice, passages=self.PASSAGES)
+        self.assertFalse(result.ok)
+        self.assertIn("pozorování", errors_text(result))
+
+    def test_only_retrieved_passages_can_be_cited(self):
+        advice = patched(**{"diagnosis.refs": ["obs-1", "bk:zzz:1:1"]})
+        self.assertIn("neodpovídá", errors_text(check(advice, passages=self.PASSAGES)))
+        cited = patched(**{"diagnosis.refs": ["obs-1", "bk:abc:12:3"]})
+        self.assertFalse(check(cited).ok)  # bez předaných úryvků nelze citovat nic z knih
+
+
 class MeasureRiskReversal(unittest.TestCase):
     def test_measure(self):
         self.assertFalse(check(patched(**{"measure.checks": []})).ok)

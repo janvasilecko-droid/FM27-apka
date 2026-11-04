@@ -38,7 +38,10 @@ MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 INPUT_LABELS = ("heuristic_coach", "ocr_unverified", "vision_unverified", "user_entered", "screenshot_verified")
 IMAGE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+MAX_PASSAGES = 12
+MAX_PASSAGE_TEXT = 1500
 _ID = re.compile(r"^[A-Za-z0-9_.:-]{1,40}$")
+_PASSAGE_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,60}$")
 
 SYSTEM_PROMPT_CS = """Jsi FM27 Tactical Coach, osobní trenér pro Football Manager 27. Uživateli řekneš, co má ve hře změnit, proč a kde. Odpovídáš česky a výhradně jedním JSON objektem podle dodaného schématu (10 sekcí).
 
@@ -50,7 +53,8 @@ Pravidla poctivosti platí bez výjimky:
 5. Nevymýšlej mechaniky FM27 (CA/PA, match engine, skryté atributy, vnitřní fungování). Názvy rolí, nastavení a cest v menu FM27 považuj za neověřené, pokud je nepotvrzuje zdroj z registru nebo pozorování screenshot_verified. Neověřené označ where_tier unknown nebo inferred a do `unknown.items` zapiš, co má uživatel ve hře ověřit.
 6. Žádné obecné rady („zlepši pressing“). Navrhni nejvýš dvě konkrétní změny: komu (hráč nebo „tým“), které nastavení, z jaké hodnoty na jakou a kroky v menu.
 7. Uveď, jak změnu změřit (konkrétní kontroly a kdy znovu vyhodnotit), rizika a jak změnu vrátit zpět.
-8. Když informací nestačí, řekni to: nízká jistota a v `unknown.items` přesně to, co potřebuješ vidět nebo vědět. Raději poctivé „nevím“ než odhad vydávaný za fakt."""
+8. Když informací nestačí, řekni to: nízká jistota a v `unknown.items` přesně to, co potřebuješ vidět nebo vědět. Raději poctivé „nevím“ než odhad vydávaný za fakt.
+9. Úryvky z knih (id začínají `bk:`) jsou teorie obecného fotbalu, ne popis fungování FM27 a ne důkaz o aktuálním zápase. Cituj je v `refs` u `context`, `diagnosis` a `change`, ale nepoužívej je jako evidenceA ani evidenceB a nepřenášej je do tvrzení o tom, jak FM27 funguje. Cituj jen úryvky, které jsi dostal."""
 
 
 def _error(status: str, message: str, **extra: Any) -> dict[str, Any]:
@@ -121,6 +125,22 @@ def normalize_request(request: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("Id „plan“ je vyhrazené pro ruční plán.")
         observations["plan"] = {"label": "user_entered", "text": render_plan(plan), "minute": None}
 
+    passages: dict[str, dict[str, Any]] = {}
+    raw_passages = request.get("passages") or []
+    if len(raw_passages) > MAX_PASSAGES:
+        raise ValueError(f"Příliš mnoho úryvků z knih (max {MAX_PASSAGES}).")
+    for raw in raw_passages:
+        pid = str(raw.get("id") or "")
+        if not _PASSAGE_ID.match(pid) or not pid.startswith("bk:"):
+            raise ValueError(f"Neplatné id úryvku (musí začínat bk:): {pid!r}")
+        if pid in passages or pid in observations:
+            raise ValueError(f"Duplicitní id úryvku: {pid!r}")
+        passages[pid] = {
+            "title": str(raw.get("title") or "").strip()[:200],
+            "page": raw.get("page"),
+            "text": str(raw.get("text") or "").strip()[:MAX_PASSAGE_TEXT],
+        }
+
     images: list[dict[str, str]] = []
     raw_images = request.get("images") or []
     if raw_images and request.get("user_initiated_images") is not True:
@@ -128,7 +148,7 @@ def normalize_request(request: Mapping[str, Any]) -> dict[str, Any]:
         raw_images = []
     for raw in raw_images[:MAX_IMAGES]:
         img_id = str(raw.get("id") or "")
-        if not _ID.match(img_id) or img_id in observations:
+        if not _ID.match(img_id) or img_id in observations or img_id in passages:
             raise ValueError(f"Neplatné nebo duplicitní id obrázku: {img_id!r}")
         if raw.get("media_type") not in IMAGE_TYPES:
             raise ValueError(f"Obrázek {img_id}: nepodporovaný typ {raw.get('media_type')!r}")
@@ -143,7 +163,13 @@ def normalize_request(request: Mapping[str, Any]) -> dict[str, Any]:
     if len(raw_images) > MAX_IMAGES:
         warnings.append(f"Odesláno jen prvních {MAX_IMAGES} obrázků.")
 
-    return {"question": question, "observations": observations, "images": images, "warnings": warnings}
+    return {
+        "question": question,
+        "observations": observations,
+        "passages": passages,
+        "images": images,
+        "warnings": warnings,
+    }
 
 
 def build_user_blocks(norm: Mapping[str, Any], registry: SourceRegistry | None) -> list[dict[str, Any]]:
@@ -157,6 +183,13 @@ def build_user_blocks(norm: Mapping[str, Any], registry: SourceRegistry | None) 
     lines.append("")
     lines.append("Zdroje znalostí, které smíš citovat v `refs`:")
     lines.append(registry.digest() if registry is not None else "(registr zdrojů nebyl předán)")
+    lines.append("")
+    lines.append("Úryvky z knih (id | kniha | strana | text). Jsou to teorie, ne důkaz o aktuálním zápase:")
+    if not norm["passages"]:
+        lines.append("(žádné: knihovna nic relevantního nevrátila nebo je prázdná; rada nevychází z knih, řekni to)")
+    for pid, passage in norm["passages"].items():
+        page = passage["page"] if passage["page"] is not None else "?"
+        lines.append(f"- {pid} | {passage['title']} | {page} | {passage['text']}")
     blocks: list[dict[str, Any]] = [{"type": "text", "text": "\n".join(lines)}]
     for image in norm["images"]:
         blocks.append(
@@ -260,7 +293,9 @@ def advise(
         if advice is None:
             last_errors = ["Odpověď není platný JSON podle schématu."]
         else:
-            result = validate_advice10(advice, observations=norm["observations"], registry=registry)
+            result = validate_advice10(
+                advice, observations=norm["observations"], registry=registry, passages=norm["passages"]
+            )
             if result.ok:
                 return {
                     "status": "ok",
