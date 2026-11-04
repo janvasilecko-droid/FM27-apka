@@ -176,7 +176,7 @@
         h('span', { text: [s.publisher, s.fmVersion ? `FM${s.fmVersion}` : 'verze FM neuvedena', s.releaseState === 'pre_release' ? 'předvydaná verze' : null].filter(Boolean).join(' · ') }),
         s.caveat ? h('span', { text: 'Pozor: ' + s.caveat }) : null,
         s.claims.length ? h('span', { text: `Tvrzení: ${s.claims.slice(0, 3).join(' | ')}${s.claims.length > 3 ? ' …' : ''}` }) : null,
-        s.url ? h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer', class: 'hint', text: s.url }) : null
+        s.url && /^https?:\/\//i.test(String(s.url)) ? h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer', class: 'hint', text: s.url }) : s.url ? h('span', { class: 'hint', text: s.url }) : null
       ),
       h('div', { class: 'row' }, ui.tierChip(verified ? 'verified' : 'inferred', verified ? 'oficiální FM27' : 'jen odhad'), own ? ui.confirmButton('Smazat', 'Opravdu?', () => app.store.remove('source', own.id).then(() => renderSources(app))) : null)
     );
@@ -299,7 +299,7 @@
               app.saveFile('fm27-knihovna.json', new Blob([JSON.stringify(lib.exportData())], { type: 'application/json' }));
             },
           }),
-          h('label', { class: 'btn small', for: 'importLib', style: 'cursor:pointer', text: 'Importovat knihovnu' }),
+          ui.pickButton('Importovat knihovnu', importInput, { class: 'btn small', id: 'importLibBtn' }),
           importInput,
           h('span', { class: 'hint', id: 'libHint' })
         )

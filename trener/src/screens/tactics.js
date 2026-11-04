@@ -259,6 +259,7 @@
     }
     const Tc = T();
     const draw = () => {
+      guard.reset(); // obrazovka se kreslí znovu, takže žádné neuložené úpravy už nejsou
       const career = app.requireCareer(root, 'Taktiky');
       if (!career) return;
       const all = tacticsOf(app);
@@ -312,8 +313,10 @@
       );
       root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, imports);
     };
+    const guard = ui.dirtyGuard(root, app, () => draw());
     draw();
-    app.watch(['tactic', 'player', 'career'], (e) => e && e.origin === 'remote' && draw());
+    // změna z druhého zařízení nesmí smazat rozepsané úpravy editoru
+    app.watch(['tactic', 'player', 'career'], (e) => e && e.origin === 'remote' && guard.onRemote());
   }
 
   FM27.screens.register({ id: 'taktiky', hash: 'taktiky', label: 'Moje taktiky', order: 3, render });

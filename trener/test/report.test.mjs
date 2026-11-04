@@ -129,3 +129,51 @@ test('prompt obsahuje pravidla, tvar a pozorování', () => {
   assert.match(t[0].content, /chg-1 \| heuristic_coach \| 35'/);
   assert.match(t[0].content, /"changesHelped"/);
 });
+
+test('změna musí odkazovat na své vyhodnocení a nemůže být „zadal uživatel“ přes cizí pozorování', () => {
+  const r = good();
+  r.changesHelped[0] = { changeId: 'chg-1', text: 'Po změně se střely zvýšily, nemusí to souviset.', tier: 'user_entered', refs: ['snap-2'] };
+  const e = errorsOf(r);
+  assert.match(e, /musí odkazovat na její vyhodnocení před a po/);
+  const ok = good();
+  ok.changesHelped[0].refs = ['chg-1', 'snap-1'];
+  assert.equal(errorsOf(ok), '');
+});
+
+test('příčinné formulace, které prošly dřív: „díky ní“, „zapříčinila“, „v důsledku změny“, „přinesl“, „pomohla“', () => {
+  const phrases = [
+    'Po změně jsme díky ní dominovali, nemusí to souviset.',
+    'Změna zapříčinila obrat, po změně.',
+    'V důsledku změny jsme po změně vyrovnali.',
+    'Po změně: přechod na 4-4-2 přinesl gól, nemusí to souviset.',
+    'Změna pomohla, po změně víc střel.',
+  ];
+  for (const text of phrases) {
+    const r = good();
+    r.changesHelped[0].text = text;
+    assert.match(errorsOf(r), /časová souvislost není důkaz příčiny/, text);
+  }
+  // opatrná věta bez přisouzení příčiny dál projde
+  const fine = good();
+  fine.changesHelped[0].text = 'Po změně se naše střely na 10 minut zvýšily z 2,0 na 3,5; nemusí to souviset.';
+  assert.equal(errorsOf(fine), '');
+});
+
+test('příčina se hlídá i v doporučení pro příští utkání', () => {
+  const r = good();
+  r.nextMatch.items[0].why = 'Protože změna zapříčinila obrat zápasu.';
+  assert.match(errorsOf(r), /nextMatch\[1\]: časová souvislost není důkaz příčiny/);
+});
+
+test('hráč musí být ve soupisce celým slovem: cizí křestní jméno, část slova ani obecný text neprojdou', () => {
+  for (const name of ['Pavel Novák', 'Nov', 'a', 'hrotový útočník']) {
+    const r = good();
+    r.players[0].name = name;
+    assert.match(errorsOf(r), /není v soupisce/, name);
+  }
+  for (const name of ['Novák', 'Jan Novák', 'Svoboda']) {
+    const r = good();
+    r.players[0].name = name;
+    assert.equal(errorsOf(r), '', name);
+  }
+});

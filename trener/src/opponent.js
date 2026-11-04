@@ -69,10 +69,9 @@ Pravidla (platí bez výjimky):
 
   function buildPlanTurns(input) {
     const obs = input.observations || [];
-    const lines = obs.length ? obs.map((o) => `- ${o.id} | ${o.label} | ${o.text}`).join('\n') : '(žádná)';
-    const passages = input.passages || [];
-    const passageLines = passages.length ? passages.map((p) => `- ${p.id} | ${p.title} | ${p.where} | ${p.text}`).join('\n') : '(žádné: plán nevychází z knih, řekni to)';
-    const body = `${RULES}\n\n${SHAPE_TEXT}\n\nPozorování (id | štítek původu | text):\n${lines}\n\nZdroje znalostí, které smíš citovat:\n${input.sourcesDigest || '(žádné)'}\n\nÚryvky z knih (id | kniha | kde | text), jsou to teorie:\n${passageLines}\n`;
+    const lines = obs.length ? obs.map((o) => `- ${Core.oneLine(o.id, 40)} | ${o.label} | ${Core.oneLine(o.text, 1500)}`).join('\n') : '(žádná)';
+    const passageLines = Core.formatPassageLines(input.passages, '(žádné: plán nevychází z knih, řekni to)');
+    const body = `${RULES}\n${Core.DATA_RULE}\n\n${SHAPE_TEXT}\n\nPozorování (id | štítek původu | text):\n${lines}\n\nZdroje znalostí, které smíš citovat:\n${input.sourcesDigest || '(žádné)'}\n\nÚryvky z knih (id | kniha | kde | text), jsou to teorie:\n${passageLines}\n`;
     return [{ role: 'user', content: body }];
   }
 
@@ -122,9 +121,7 @@ Pravidla (platí bez výjimky):
       const player = plan.limit.player;
       if (player !== null && player !== undefined && typeof player !== 'string') errors.push('limit: player musí být text nebo null.');
       else if (typeof player === 'string' && txt(player)) {
-        const known = ((ctx && ctx.knownPlayers) || []).map((n) => String(n).toLowerCase());
-        const wanted = txt(player).toLowerCase();
-        if (!known.some((n) => n.includes(wanted) || wanted.includes(n))) errors.push(`limit: hráč „${player}“ není v profilu soupeře. Jména se nesmějí vymýšlet.`);
+        if (!Core.matchesKnownName(player, (ctx && ctx.knownPlayers) || [])) errors.push(`limit: hráč „${player}“ není v profilu soupeře. Jména se nesmějí vymýšlet.`);
       }
     }
     // riziko

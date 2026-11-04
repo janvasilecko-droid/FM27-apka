@@ -323,7 +323,7 @@ Odpověz POUZE JSON objektem:
         'div',
         { class: 'actions' },
         h('button', { class: 'btn primary', id: 'plNew', type: 'button', text: 'Přidat hráče', onclick: () => openEditor(app, null, redraw) }),
-        h('label', { class: 'btn', for: 'teamPlan', style: 'cursor:pointer', text: 'Importovat z plánu (.json)' }),
+        ui.pickButton('Importovat z plánu (.json)', planInput, { id: 'teamPlanBtn' }),
         planInput
       ),
       h('p', { class: 'hint', id: 'teamSummary', text: team.length ? `${team.length} ${ui.plural(team.length, 'hráč', 'hráči', 'hráčů')}, ${team.filter((p) => p.flags && p.flags.injury).length} zraněných.` : '' }),

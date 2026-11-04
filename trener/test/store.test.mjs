@@ -163,7 +163,7 @@ test('purgeAll zanechá jen prázdné náhrobky', async () => {
   await s.put('career', { id: 'c1', club: 'K' });
   await s.put('player', { id: 'p1', careerId: 'c1', name: 'Tajné jméno' });
   await settle(s);
-  assert.equal(await s.purgeAll(), 2);
+  assert.deepEqual(await s.purgeAll(), { removed: 2, complete: true });
   await settle(s);
   assert.equal(s.list('player').length + s.list('career').length, 0);
   for (const d of remote.docs.values()) assert.equal(d.data, null);
@@ -178,7 +178,201 @@ test('příliš velký dokument zůstane jen místně a hlásí to', async () =>
   await settle(s);
   assert.equal(remote.docs.has('match_velky'), false);
   assert.equal(s.get('match', 'velky').text.length, 260 * 1024);
-  assert.match(s.status().error, /příliš velký/);
+  assert.deepEqual(s.status().blocked, ['match_velky']);
+  assert.match(s.status().blockedInfo[0].reason, /příliš velký/);
+  // další úspěšný zápis jiného dokumentu upozornění nezruší: dokument se pořád nesynchronizuje
+  await s.put('career', { id: 'c1', club: 'Jiný' });
+  await settle(s);
+  assert.deepEqual(s.status().blocked, ['match_velky']);
+});
+
+test('velikost se měří v bajtech: česká diakritika zabírá dva, takže 130 tisíc znaků je už příliš', async () => {
+  const remote = new MemoryRemote();
+  const s = createStore({ local: new MemoryBackend(), remote, debounceMs: 0 });
+  await s.init();
+  await settle(s);
+  await s.put('match', { id: 'diak', careerId: 'c1', text: 'ě'.repeat(130 * 1024) }); // 130 tisíc znaků = 260 kB v UTF-8
+  await settle(s);
+  assert.equal(remote.docs.has('match_diak'), false);
+  assert.deepEqual(s.status().blocked, ['match_diak']);
+});
+
+test('dokument, který se nesynchronizuje, nepřepíše starší kopie ze serveru (nic se neztratí)', async () => {
+  const c = clock(1000);
+  const remote = new MemoryRemote();
+  const a = createStore({ local: new MemoryBackend(), remote, debounceMs: 0, now: c.now });
+  await a.init();
+  await settle(a);
+  await a.put('match', { id: 'z', careerId: 'c1', timeline: [1] });
+  await settle(a);
+  assert.deepEqual(remote.docs.get('match_z').data.timeline, [1]);
+  // místní verze přeroste limit, na server se nedostane
+  c.tick(10);
+  await a.put('match', { id: 'z', careerId: 'c1', timeline: [1, 2], text: 'x'.repeat(260 * 1024) });
+  await settle(a);
+  assert.deepEqual(remote.docs.get('match_z').data.timeline, [1]);
+  // druhé zařízení upraví starou verzi a pošle ji; první ji nesmí převzít
+  const b = createStore({ local: new MemoryBackend(), remote, debounceMs: 0, now: () => 99999 });
+  await b.init();
+  await settle(b, a);
+  await b.put('match', { id: 'z', careerId: 'c1', timeline: [1], status: 'finished' });
+  await settle(b, a);
+  assert.deepEqual(a.get('match', 'z').timeline, [1, 2], 'místní, větší verze zůstala');
+  assert.ok(a.get('match', 'z').text, 'a nepřišla o data');
+});
+
+test('poškozený dokument v záloze, na serveru ani v místním úložišti nezablokuje seznamy', async () => {
+  const bad = [
+    { key: 'career_a', type: 'career', id: 'a', updatedAt: 5, deleted: false, data: null, careerId: null },
+    { key: 'career_b', type: 'career', id: 'b', updatedAt: 5, deleted: false, data: 'text', careerId: null },
+    { key: 'career_c', type: 'career', id: 'c', updatedAt: 5, deleted: false, data: { id: 'jine', club: 'X' }, careerId: null },
+    { key: 'player_d', type: 'player', id: 'd', updatedAt: 5, deleted: false, data: { id: 'd', careerId: 'k1', name: 'N' }, careerId: 'jine' },
+    { key: 'career_e/x', type: 'career', id: 'e/x', updatedAt: 5, deleted: false, data: { id: 'e/x', club: 'X' }, careerId: null },
+    { key: 'career_f', type: 'career', id: 'f', updatedAt: 5, deleted: 'ano', data: { id: 'f', club: 'X' }, careerId: null },
+    { key: 'career_g', type: 'career', id: 'g', updatedAt: 5, deleted: true, data: { id: 'g' }, careerId: null },
+    { key: 'career_ok', type: 'career', id: 'ok', updatedAt: 5, deleted: false, data: { id: 'ok', club: 'Platný' }, careerId: null },
+  ];
+  const local = new MemoryBackend();
+  for (const d of bad) await local.put(d);
+  const remote = {
+    watch(onDocs) {
+      Promise.resolve().then(() => onDocs(bad, { fromCache: false }));
+      return () => {};
+    },
+    async write() {},
+  };
+  const s = createStore({ local, remote });
+  await s.init();
+  await tick();
+  assert.deepEqual(s.list('career').map((c) => c.id), ['ok']);
+  assert.equal(s.list('player').length, 0);
+  assert.ok(s.list('career').every((c) => c && typeof c === 'object'));
+  // záloha: poškozené se přeskočí a spočítá, platné se přijme
+  const t = createStore({});
+  await t.init();
+  assert.equal(await t.importAll({ format: 'fm27-trener-data', version: 1, docs: bad }), 1);
+  assert.equal(t.lastImport.skipped >= 5, true);
+  assert.deepEqual(t.list('career').map((c) => c.id), ['ok']);
+});
+
+test('klíč __proto__ z cizí zálohy se zahodí a nic nezmění', async () => {
+  const s = createStore({});
+  await s.init();
+  const doc = JSON.parse('{"key":"career_p","type":"career","id":"p","updatedAt":5,"deleted":false,"careerId":null,"data":{"id":"p","club":"X","__proto__":{"zlo":true}}}');
+  assert.equal(await s.importAll({ format: 'fm27-trener-data', version: 1, docs: [doc] }), 1);
+  const c = s.get('career', 'p');
+  assert.equal(c.zlo, undefined);
+  assert.equal({}.zlo, undefined);
+  assert.equal(Object.getPrototypeOf(c), Object.prototype);
+});
+
+test('obnova ze zálohy vrátí i smazané: po smazání jedné kariéry i po smazání všeho, a rozšíří se na druhé zařízení', async () => {
+  const c = clock(1000);
+  const remote = new MemoryRemote();
+  const a = createStore({ local: new MemoryBackend(), remote, debounceMs: 0, now: c.now });
+  await a.init();
+  await a.put('career', { id: 'c1', club: 'Sparta' });
+  await a.put('player', { id: 'p1', careerId: 'c1', name: 'Hráč' });
+  await settle(a);
+  const dump = a.exportAll();
+  const b = createStore({ local: new MemoryBackend(), remote, debounceMs: 0, now: c.now });
+  await b.init();
+  await settle(a, b);
+
+  c.tick(5000);
+  await a.removeCareer('c1');
+  await settle(a, b);
+  assert.equal(b.list('career').length, 0);
+
+  c.tick(5000);
+  assert.equal(await a.importAll(dump), 2, 'záloha obnoví i smazané dokumenty');
+  await settle(a, b);
+  assert.deepEqual(a.list('career').map((x) => x.club), ['Sparta']);
+  assert.deepEqual(b.list('career').map((x) => x.club), ['Sparta'], 'obnovení se dostalo i na druhé zařízení');
+  assert.deepEqual(b.list('player').map((x) => x.name), ['Hráč']);
+
+  // po smazání všeho totéž
+  c.tick(5000);
+  await a.purgeAll();
+  await settle(a, b);
+  assert.equal(b.list('career').length, 0);
+  c.tick(5000);
+  assert.equal(await a.importAll(dump), 2);
+  await settle(a, b);
+  assert.equal(b.list('career').length, 1);
+});
+
+test('živý novější dokument zálohou přepsat nejde (jen náhrobek)', async () => {
+  const c = clock(1000);
+  const a = createStore({ now: c.now });
+  await a.init();
+  await a.put('career', { id: 'c1', club: 'Starý' });
+  const dump = a.exportAll();
+  c.tick(100);
+  await a.put('career', { id: 'c1', club: 'Novější' });
+  assert.equal(await a.importAll(dump), 0);
+  assert.equal(a.get('career', 'c1').club, 'Novější');
+});
+
+test('purgeAll na novém zařízení počká na první stav serveru, jinak by se data vrátila', async () => {
+  let deliver;
+  const server = [{ key: 'career_c1', type: 'career', id: 'c1', updatedAt: 5, deleted: false, data: { id: 'c1', club: 'Ze serveru' }, careerId: null }];
+  const written = [];
+  const remote = {
+    watch(onDocs) {
+      deliver = () => onDocs(server, { fromCache: false });
+      return () => {};
+    },
+    async write(d) {
+      written.push(d);
+    },
+  };
+  const s = createStore({ local: new MemoryBackend(), remote, debounceMs: 0 });
+  await s.init();
+  const purging = s.purgeAll(2000);
+  setTimeout(() => deliver(), 60); // server odpoví až za chvíli
+  const res = await purging;
+  assert.deepEqual(res, { removed: 1, complete: true });
+  assert.equal(s.list('career').length, 0);
+  await settle(s);
+  assert.equal(written.at(-1).deleted, true, 'náhrobek se odeslal i pro dokument, který dorazil až po začátku mazání');
+});
+
+test('purgeAll bez odpovědi serveru smaže místní data a přizná, že server neodpověděl', async () => {
+  const remote = { watch: () => () => {}, async write() {} };
+  const s = createStore({ local: new MemoryBackend(), remote, debounceMs: 0 });
+  await s.init();
+  await s.put('career', { id: 'c1', club: 'K' });
+  const res = await s.purgeAll(80);
+  assert.deepEqual(res, { removed: 1, complete: false });
+});
+
+test('selhání místního zápisu zůstane vidět i po úspěšném zápisu na server', async () => {
+  const remote = new MemoryRemote();
+  let failing = true;
+  const local = {
+    async all() {
+      return [];
+    },
+    async put() {
+      if (failing) throw new Error('quota');
+    },
+    async clear() {},
+  };
+  const s = createStore({ local, remote, debounceMs: 0 });
+  await s.init();
+  await settle(s);
+  await s.put('career', { id: 'c1', club: 'K' });
+  await settle(s);
+  assert.equal(s.status().local, false);
+  assert.match(s.status().localError, /quota/);
+  assert.ok(remote.docs.has('career_c1'));
+  assert.equal(s.status().error, '', 'chyba serveru se nemíchá s chybou místního úložiště');
+  failing = false;
+  await s.put('career', { id: 'c2', club: 'L' });
+  await settle(s);
+  assert.equal(s.status().local, true, 'po úspěšném zápisu se stav vrátí');
+  assert.equal(s.status().localError, '');
 });
 
 test('chyby serveru: plné úložiště se hlásí, přechodná chyba se opakuje', async () => {

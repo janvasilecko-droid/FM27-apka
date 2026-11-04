@@ -113,8 +113,13 @@ test('hráči se nesmějí vymýšlet', () => {
   p.limit.player = 42;
   assert.match(errorsOf(p), /player musí být text nebo null/);
   p = good();
-  p.limit.player = 'nov'; // část jména stačí
+  p.limit.player = 'Novák'; // příjmení stačí, celá slova
   assert.equal(errorsOf(p), '');
+  for (const bad of ['nov', 'a', 'hrotový útočník', 'Pavel Novák']) {
+    p = good();
+    p.limit.player = bad;
+    assert.match(errorsOf(p), /není v profilu soupeře/, `„${bad}“ nesmí projít: část slova, obecný text ani cizí křestní jméno není jméno hráče`);
+  }
 });
 
 test('jistota: high potřebuje dva ověřené údaje, medium aspoň jeden, low vyžaduje, co chybí', () => {

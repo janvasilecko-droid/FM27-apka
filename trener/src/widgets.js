@@ -41,17 +41,24 @@
 
   // ------------------------------------------------------------------ odkazy
   /** ctx: {passages: {id: {title, where, text?}}, observations: {id: {label, text}}} */
+  // Odkazy z uložené rady se vykreslují obranně: jen vlastní klíče objektů (ne „constructor“) a jen texty, ať jedna divná položka neshodí obrazovku.
+  const own = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+  const safeHref = (url) => (/^https?:\/\//i.test(String(url || '')) ? String(url) : null);
   W.refChip = (ref, ctx, app) => {
-    if (ref.startsWith('bk:') && ctx.passages && ctx.passages[ref]) {
-      const p = ctx.passages[ref];
-      return h('button', { class: 'ref', type: 'button', title: 'Otevřít úryvek z knihy', onclick: () => W.openPassage(ref, p), text: `Kniha: ${p.title}, ${p.where}` });
+    const id = typeof ref === 'string' ? ref : String(ref);
+    if (id.startsWith('bk:') && own(ctx.passages, id)) {
+      const p = ctx.passages[id];
+      return h('button', { class: 'ref', type: 'button', title: 'Otevřít úryvek z knihy', onclick: () => W.openPassage(id, p), text: `Kniha: ${p.title}, ${p.where}` });
     }
-    if (ctx.observations && ctx.observations[ref]) return h('span', { class: 'ref', title: ctx.observations[ref].text, text: `Pozorování ${ref}` });
-    const src = app.registry.get(ref);
-    if (src) return h('a', { class: 'ref', href: src.url, target: '_blank', rel: 'noopener noreferrer', title: src.caveat || src.title, text: `Zdroj: ${src.title}` });
-    return h('span', { class: 'ref', text: ref });
+    if (own(ctx.observations, id)) return h('span', { class: 'ref', title: ctx.observations[id].text, text: `Pozorování ${id}` });
+    const src = app.registry.get(id);
+    if (src) {
+      const href = safeHref(src.url);
+      return href ? h('a', { class: 'ref', href, target: '_blank', rel: 'noopener noreferrer', title: src.caveat || src.title, text: `Zdroj: ${src.title}` }) : h('span', { class: 'ref', title: src.caveat || src.title, text: `Zdroj: ${src.title}` });
+    }
+    return h('span', { class: 'ref', text: id });
   };
-  W.refsRow = (refs, ctx, app) => (refs && refs.length ? h('div', { class: 'refs' }, refs.map((r) => W.refChip(r, ctx, app))) : null);
+  W.refsRow = (refs, ctx, app) => (Array.isArray(refs) && refs.length ? h('div', { class: 'refs' }, refs.map((r) => W.refChip(r, ctx, app))) : null);
 
   // ------------------------------------------------------------------ oddíly
   W.sec = (no, title, chip, ...body) => h('div', { class: 'sec' }, h('h3', null, no !== null && no !== undefined ? h('span', { class: 'no', text: String(no).padStart(2, '0') }) : null, title, chip), ...body);
@@ -69,6 +76,8 @@
     String(msg).replace(/^([A-Za-z0-9]+)(?:\[(\d+)\])?:/, (m, key, n) => (SECTION_CS[key] ? `${SECTION_CS[key]}${n ? ' ' + n : ''}:` : m));
 
   // ------------------------------------------------------------------ banner s chybou nebo nepovedenou kontrolou
+  /** Štítek podkladů nálezu nebo vyhodnocení: ověřené snímky, ručně zadané údaje, nebo neověřené čtení z obrazu. */
+  W.evidenceChip = (tier) => (tier === 'observed' ? ui.tierChip('observed', 'ověřené snímky') : tier === 'user_entered' ? ui.tierChip('user_entered', 'zadáno ručně') : ui.tierChip('inferred', 'neověřené čtení'));
   W.retryButton = (onclick) => h('div', { class: 'actions' }, h('button', { class: 'btn small', type: 'button', text: 'Zkusit znovu', onclick }));
   W.errorBanner = (message, onRetry) => h('div', { class: 'banner bad' }, h('b', { text: 'Nepovedlo se' }), h('span', { text: message }), onRetry ? W.retryButton(onRetry) : null);
   W.failedCheckBanner = (verdict, title, onRetry) =>
@@ -98,7 +107,7 @@
       h('div', { class: 'diag' }, row('Naše střely na 10 min', ev.deltas.mine.shots), row('Naše střely na bránu na 10 min', ev.deltas.mine.shotsOnTarget), row('Naše xG na 10 min', ev.deltas.mine.xg), row('Soupeřovy střely na 10 min', ev.deltas.opp.shots), row('Soupeřovo xG na 10 min', ev.deltas.opp.xg), h('div', null, h('span', { text: 'Změna našeho držení míče' }), h('span', { text: `${num(pp.before)} → ${num(pp.after)} p. b. (${VERDICT_CS[pp.verdict] || '–'})` }))),
       h('ul', { class: 'list' }, ev.notes.map((n) => h('li', { text: n }))),
       h('p', { class: 'banner warn', style: 'margin-top:8px', id: 'liveCausality', text: ev.causalityNote }),
-      ui.tierChip(ev.evidenceTier === 'observed' ? 'observed' : 'inferred', ev.evidenceTier === 'observed' ? 'ověřené snímky' : 'neověřené čtení')
+      W.evidenceChip(ev.evidenceTier)
     );
   };
 

@@ -47,6 +47,10 @@ Značení:
 ## 3. Co aplikace záměrně neobsahuje
 
 - Klient pro Windows (Tauri) a server s PostgreSQL ze zadání § 1: nahrazeno jednou webovou aplikací (důvod v `docs/ARCHITEKTURA_V2.md`).
+- **Hledání na internetu za běhu.** „Kontext“ si aplikace bere z tvých knih (hledání v nich), ze zdrojů, které v „Zdrojích znalostí“ přidáš
+  (název, odkaz, datum, verze FM, typ, důvěryhodnost, oblast, tvrzení), a z registru oficiálních článků FM27 (stav k 1. 11. 2026, předvydaná
+  verze, takže jen jako popis oznámených funkcí). Stránka v Claude do internetu nesmí a živé hledání na webu by potřebovalo klíč a ověření
+  na skutečné službě; komunitní zdroje by se navíc musely poctivě označit jako komunitní, ne jako oficiální dokumentace.
 - Dekódování polí taktiky z `.fmf`: není známo, jak jsou uložená, a zadání zakazuje hádání.
 - Oznámení na zavřený telefon (push) a překryvné okno nad hrou (Document Picture-in-Picture).
 - Čtení naskenovaných PDF bez textové vrstvy (OCR).

@@ -9,10 +9,18 @@ const path = require('path');
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
+// Na GitHub Pages běží aplikace pod adresou /<repozitář>/, ne v kořeni. Zkouška to napodobuje, aby odhalila absolutní odkazy.
+const BASE = '/FM27-apka';
+
 function serve(root, port) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://x');
-    const name = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
+    if (url.pathname !== BASE && !url.pathname.startsWith(BASE + '/')) {
+      res.writeHead(404);
+      return res.end('not found');
+    }
+    const rel = url.pathname.slice(BASE.length);
+    const name = rel === '' || rel === '/' ? 'index.html' : rel.replace(/^\/+/, '');
     const file = path.join(root, path.normalize(name));
     if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404);
@@ -40,7 +48,7 @@ module.exports = async function run(env) {
     return fn();
   };
   const openLocal = async (page, hash) => {
-    await page.goto(origin + '/' + (hash ? '#' + hash : ''));
+    await page.goto(origin + BASE + '/' + (hash ? '#' + hash : ''));
     await page.waitForFunction(() => window.__trenerReady === true, null, { timeout: 20000 });
   };
   // Klíče se skládají za běhu, aby v repu nezůstal žádný text podobný klíči. Nejsou skutečné.
@@ -242,17 +250,42 @@ module.exports = async function run(env) {
   check('10 OpenAI-kompatibilní: odmítnutý klíč se nezobrazí a hláška říká, co dělat', /HTTP 401/.test(t401) && !t401.includes(KEY2), t401);
   api.mode = 'ok';
 
+  // klíč jen do zavření záložky: v sessionStorage, ne v localStorage; po obnovení stránky v téže záložce zůstane
+  await nav(page, 'nastaveni');
+  await page.selectOption('#keyKind', 'anthropic');
+  await page.fill('#keyValue', KEY);
+  await page.uncheck('#keyRemember');
+  await page.click('#keySave');
+  await page.waitForFunction(() => /Klíč platí jen do zavření záložky/.test(document.querySelector('#keyMsg').textContent), null, { timeout: 8000 }).catch(() => {});
+  const where = await page.evaluate(() => ({ local: localStorage.getItem('fm27.aiConfig'), session: sessionStorage.getItem('fm27.aiConfig'), kind: window.FM27.ai.kind, where: window.FM27.ai.configWhere() }));
+  check('10 „jen do zavření záložky“: klíč je v sessionStorage a ne v localStorage a AI funguje', where.local === null && !!where.session && where.session.includes(KEY) && where.kind === 'anthropic' && where.where === 'session', { where: where.where, kind: where.kind });
+  await page.reload();
+  await page.waitForFunction(() => window.__trenerReady === true, null, { timeout: 20000 });
+  check('10 po obnovení stránky v téže záložce klíč platí dál', (await page.evaluate(() => window.FM27.ai.kind)) === 'anthropic' && (await page.evaluate(() => window.FM27.ai.configWhere())) === 'session');
+
   // smazání klíče
   await nav(page, 'nastaveni');
   const del = page.locator('#keyCard').getByRole('button', { name: 'Smazat klíč' });
   await del.click();
   await page.locator('#keyCard').getByRole('button', { name: 'Opravdu smazat klíč?' }).click();
   await until(async () => (await page.evaluate(() => localStorage.getItem('fm27.aiConfig'))) === null);
-  check('10 smazání klíče ho odstraní z prohlížeče a AI se vypne', (await page.evaluate(() => localStorage.getItem('fm27.aiConfig'))) === null && (await page.evaluate(() => window.FM27.ai.kind)) === 'none', await page.evaluate(() => window.FM27.ai.kind));
+  check('10 smazání klíče ho odstraní z prohlížeče (localStorage i sessionStorage) a AI se vypne', (await page.evaluate(() => localStorage.getItem('fm27.aiConfig'))) === null && (await page.evaluate(() => sessionStorage.getItem('fm27.aiConfig'))) === null && (await page.evaluate(() => window.FM27.ai.kind)) === 'none', await page.evaluate(() => window.FM27.ai.kind));
   check('10 A: bez chyb ve skriptu', c.problems.page.length === 0, c.problems.page);
   const ce = c.problems.console.filter((m) => !/Failed to load resource/.test(m));
   check('10 A: bez chyb v konzoli', ce.length === 0, ce);
   await c.context.close();
+
+  // ====================================================== A2) adresa github.io sdílí úložiště s dalšími stránkami: varování a výchozí „jen do zavření záložky“
+  const gh = await newContext(browser, { standalone: true, noClaude: true });
+  await gh.context.route('https://zkouska.github.io/FM27-apka/', (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: fs.readFileSync(path.join(root, 'index.html')) }));
+  await gh.page.goto('https://zkouska.github.io/FM27-apka/#nastaveni');
+  await gh.page.waitForFunction(() => window.__trenerReady === true, null, { timeout: 20000 });
+  check('10 na adrese github.io se ukáže varování o sdíleném úložišti a klíč se výchozně nepamatuje trvale', (await gh.page.isVisible('#keySharedWarn')) && /sdílí úložiště prohlížeče s dalšími stránkami na github\.io/.test(await text(gh.page, '#keySharedWarn')) && !(await gh.page.isChecked('#keyRemember')), await text(gh.page, '#keyCard'));
+  await gh.page.fill('#keyValue', KEY);
+  await gh.page.click('#keySave');
+  await gh.page.waitForFunction(() => /Klíč platí jen do zavření záložky/.test(document.querySelector('#keyMsg').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('10 na github.io se klíč bez dalšího zásahu uloží jen do sessionStorage', (await gh.page.evaluate(() => localStorage.getItem('fm27.aiConfig'))) === null && (await gh.page.evaluate(() => !!sessionStorage.getItem('fm27.aiConfig'))), '');
+  await gh.context.close();
 
   // ====================================================== C) PWA: manifest, service worker, offline, instalace
   const p = await newContext(browser, { standalone: true, noClaude: true, localOrigin: origin });
@@ -278,7 +311,7 @@ module.exports = async function run(env) {
     if (!reg) return null;
     return { scope: reg.scope, active: !!reg.active };
   });
-  check('10 service worker se zaregistruje a aktivuje na místním serveru', !!sw && sw.active && sw.scope === origin + '/', sw);
+  check('10 service worker se zaregistruje a aktivuje pod adresou /repozitář/ jako na GitHub Pages', !!sw && sw.active && sw.scope === origin + BASE + '/', sw);
   await pp.reload();
   await pp.waitForFunction(() => window.__trenerReady === true, null, { timeout: 20000 });
   await until(async () => await pp.evaluate(() => !!navigator.serviceWorker.controller));
@@ -288,7 +321,7 @@ module.exports = async function run(env) {
     for (const n of names) for (const r of await (await caches.open(n)).keys()) entries.push(new URL(r.url).pathname);
     return { names, entries };
   });
-  check('10 stránku řídí service worker a jeho mezipaměť má kostru aplikace i ikony', cache.names.length === 1 && /^fm27-coach-/.test(cache.names[0]) && ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'].every((x) => cache.entries.includes(x)), cache);
+  check('10 stránku řídí service worker a jeho mezipaměť má kostru aplikace i ikony', cache.names.length === 1 && /^fm27-coach-/.test(cache.names[0]) && ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'].map((x) => BASE + x).every((x) => cache.entries.includes(x)), cache);
 
   // karta instalace: před nabídkou prohlížeče a po ní
   check('10 před nabídkou prohlížeče karta radí, jak aplikaci nainstalovat ručně', (await pp.isVisible('#installCard')) && /Prohlížeč zatím instalaci nenabídl/.test(await text(pp, '#installNote')) && (await pp.locator('#installBtn').count()) === 0, await text(pp, '#installCard'));

@@ -166,6 +166,7 @@ function installMock(config) {
     if (kind === 'ping') {
       text = '{"ok": true}';
     } else if (kind === 'extract') {
+      if (mock.extractDelayMs) await new Promise((resolve, reject) => { const t = setTimeout(resolve, mock.extractDelayMs); if (opts.signal) opts.signal.addEventListener('abort', () => { clearTimeout(t); reject(err('cancelled', 'aborted')); }); });
       const next = (mock.extractQueue && mock.extractQueue.shift()) || mock.extractReply || { screen: 'stats', minute: 10, score: { home: 0, away: 0 }, teams: { home: null, away: null }, stats: { home: { possession: 50, shots: 1 }, away: { possession: 50, shots: 1 } }, events: [], visibleText: ['Statistiky'], notes: '' };
       if (mock.mode === 'extract-invalid') text = 'to není JSON';
       else text = JSON.stringify(next);
@@ -175,6 +176,7 @@ function installMock(config) {
       text = JSON.stringify(mock.oppReadReply || { formation: '4 2 3 1', roles: ['Křídelník'], keyPlayers: ['Novák – hrot'], strengths: [], weaknesses: ['Pomalá obrana'], notes: 'čitelné' });
     } else if (kind === 'opponent' || kind === 'explain' || kind === 'report' || kind === 'lesson' || kind === 'scenario') {
       const prompt0 = isStr ? input : input[0].content;
+      if (mock.specialDelayMs) await new Promise((resolve) => setTimeout(resolve, mock.specialDelayMs));
       if (mock.mode === 'special-invalid') text = JSON.stringify({ nic: 1 });
       else text = JSON.stringify(specialReply(kind, prompt0));
     } else if (kind === 'planner') {
@@ -184,6 +186,7 @@ function installMock(config) {
       if (mock.mode === 'slow') {
         await new Promise((resolve, reject) => opts.signal.addEventListener('abort', () => reject(err('cancelled', 'aborted'))));
       }
+      if (mock.adviceDelayMs) await new Promise((resolve) => setTimeout(resolve, mock.adviceDelayMs));
       const p = parse(isStr ? prompt : input[0].content);
       if (kind === 'advice') {
         if (mock.mode === 'repair' || mock.mode === 'repair-fail') text = JSON.stringify(advice(p, true));
@@ -220,7 +223,7 @@ function installMock(config) {
   };
   // Hlasový stroj: zachytí, co by se přečetlo nahlas.
   window.__spoken = [];
-  const voicesList = [{ lang: 'cs-CZ', name: 'Zkušební čeština', voiceURI: 'test-cs' }];
+  const voicesList = [{ lang: 'en-US', name: 'Test English', voiceURI: 'test-en' }, { lang: 'cs-CZ', name: 'Zkušební čeština', voiceURI: 'test-cs' }, { lang: 'cs-CZ', name: 'Zkušební čeština 2', voiceURI: 'test-cs-2', localService: false }];
   Object.defineProperty(window, 'speechSynthesis', {
     configurable: true,
     value: { speak(u) { window.__spoken.push({ text: u.text, volume: u.volume, rate: u.rate, lang: u.lang, voice: u.voice ? u.voice.voiceURI : null }); setTimeout(() => u.onend && u.onend(), 5); }, cancel() {}, getVoices: () => voicesList, addEventListener() {} },

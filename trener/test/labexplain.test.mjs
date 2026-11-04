@@ -79,3 +79,26 @@ test('prompt: sloty, fakta, úryvky a pravidla', () => {
   assert.match(out[0].content, /fáze bez míče/);
   assert.match(out[0].content, /\(žádná\)/);
 });
+
+test('konflikt nemůže stát na neutrálním faktu o tvaru (geo-shape-…)', () => {
+  const x = good();
+  x.conflicts[0].refs = ['geo-shape-lines'];
+  assert.match(errorsOf(x), /konflikt musí odkazovat na nález konfliktu/);
+  // s výčtem skutečných konfliktů z aplikace se kontroluje přesně
+  const c = ctx();
+  c.conflictIds = ['geo-overlap-s8-s9'];
+  const ok = good();
+  assert.equal(L.validateExplain(ok, c).errors.join(' | '), '');
+  const bad = good();
+  bad.conflicts[0].refs = ['geo-line-gap-def-mid'];
+  assert.match(L.validateExplain(bad, c).errors.join(' | '), /konflikt musí odkazovat/);
+});
+
+test('sloty musí být seznam textů, ne text nebo čísla', () => {
+  const a = good();
+  a.worksWell[0].slots = 's8';
+  assert.match(errorsOf(a), /slots musí být seznam textů/);
+  const b = good();
+  b.conflicts[0].slots = [8, null];
+  assert.match(errorsOf(b), /slots musí být seznam textů/);
+});

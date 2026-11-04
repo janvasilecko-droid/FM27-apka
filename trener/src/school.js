@@ -1309,8 +1309,9 @@ Pravidla poctivosti platí bez výjimky:
             errors.push(`${name}: musí být objekt {id, text}.`);
             return;
           }
-          const id = typeof opt.id === 'string' ? opt.id.trim() : '';
-          if (!/^[A-Za-z0-9_-]{1,12}$/.test(id)) errors.push(`${name}: id musí být krátký text (například a, b, c).`);
+          // Id se porovnává přesně tak, jak je (obrazovka porovnává volbu uživatele s `best`), takže mezery kolem id jsou chyba.
+          const id = typeof opt.id === 'string' ? opt.id : '';
+          if (!/^[A-Za-z0-9_-]{1,12}$/.test(id)) errors.push(`${name}: id musí být krátký text bez mezer (například a, b, c).`);
           else if (ids.includes(id)) errors.push(`${name}: id „${id}“ se opakuje.`);
           else ids.push(id);
           if (str(opt.text).length < 5) errors.push(`${name}: chybí text možnosti.`);
@@ -1325,7 +1326,7 @@ Pravidla poctivosti platí bez výjimky:
     }
 
     if (present('best') && ids.length) {
-      if (typeof scenario.best !== 'string' || !ids.includes(scenario.best.trim())) {
+      if (typeof scenario.best !== 'string' || !ids.includes(scenario.best)) {
         errors.push(`best: „${clean(scenario.best)}“ není id žádné z možností (${ids.join(', ')}).`);
       }
     } else if (present('best') && typeof scenario.best !== 'string') errors.push('best: musí být id možnosti (text).');

@@ -1224,6 +1224,8 @@ const SCENARIO_DEFECTS = [
   ['krátká nejčastější chyba', (s) => (s.commonMistake = 'Chyba.'), /commonMistake: je prázdné nebo příliš krátké/],
   ['krátký navazující krok', (s) => (s.followUp = ''), /followUp: je prázdné nebo příliš krátké/],
   ['krátká situace', (s) => (s.situation = 'Presink.'), /situation: chybí popis situace/],
+  ['best s mezerou za id (obrazovka porovnává přesně)', (s) => (s.best = 'b '), /best: „b“ není id žádné z možností/],
+  ['id možnosti s mezerou', (s) => (s.options[0].id = ' a'), /options\[1\]: id musí být krátký text bez mezer/],
 ];
 
 for (const [name, mutate, expected] of SCENARIO_DEFECTS) {

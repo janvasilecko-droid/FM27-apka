@@ -164,19 +164,25 @@
             if (answered) return;
             answered = true;
             const correct = o.id === scenario.best;
+            // Hodnotí se jen to, co má oporu v úryvcích z tvých knih. Názor modelu bez opory je jen cvičení: neztrácí se z něj
+            // hodnocení a nic se nezapisuje do pokroku.
+            const gradable = scenario.why.tier !== 'unknown' && Array.isArray(scenario.why.refs) && scenario.why.refs.length > 0;
+            const bestText = (scenario.options.find((x) => x.id === scenario.best) || {}).text || '?';
             for (const b of optionNodes) {
               b.disabled = true;
               if (b.getAttribute('data-option') === scenario.best) b.classList.add('best');
-              else if (b === optionNodes.find((x) => x.getAttribute('data-option') === o.id)) b.classList.add('wrong');
+              else if (gradable && b === optionNodes.find((x) => x.getAttribute('data-option') === o.id)) b.classList.add('wrong');
             }
-            const rated = Sc.recordDecision(progress, { scenarioId: def.id, topic: def.topic, difficulty: def.difficulty, correct, at: Date.now() });
-            setProgress(rated);
+            const rated = gradable ? Sc.recordDecision(progress, { scenarioId: def.id, topic: def.topic, difficulty: def.difficulty, correct, at: Date.now() }) : null;
+            if (rated) setProgress(rated);
             reveal.replaceChildren(
-              h('div', { class: 'banner ' + (correct ? 'ok' : 'warn') }, h('b', { text: correct ? 'Tvoje volba odpovídá doporučenému postupu.' : 'Doporučený postup je jiný.' }), h('span', { text: `Doporučeno: ${scenario.options.find((x) => x.id === scenario.best).text}` })),
+              gradable
+                ? h('div', { class: 'banner ' + (correct ? 'ok' : 'warn') }, h('b', { text: correct ? 'Tvoje volba odpovídá doporučenému postupu.' : 'Doporučený postup je jiný.' }), h('span', { text: `Doporučeno: ${bestText}` }))
+                : h('div', { class: 'banner warn', id: 'scenarioUngraded' }, h('b', { text: 'Tohle doporučení nemá oporu v tvých knihách, takže se nehodnotí.' }), h('span', { text: `Model by zvolil: ${bestText}. Výsledek se nezapočítá do pokroku; ber to jako cvičení k zamyšlení.` })),
               h('div', { class: 'advice' }, W.claim(null, 'Proč', scenario.why, ctx, app), scenario.commonMistake ? W.sec(null, 'Častá chyba', null, h('p', { text: scenario.commonMistake })) : null, scenario.followUp ? W.sec(null, 'Co dál', null, h('p', { text: scenario.followUp })) : null),
               h('p', { class: 'hint', text: scenario.why.refs && scenario.why.refs.length ? '' : 'Vysvětlení nemá oporu v tvých knihách, ber ho jako odhad.' })
             );
-            await saveProgress(app, rated);
+            if (rated) await saveProgress(app, rated);
           },
         })
       );
@@ -261,6 +267,7 @@
     };
 
     const draw = () => {
+      guard.reset(); // obrazovka se kreslí znovu, takže žádné neuložené úpravy už nejsou
       state.progress = loadProgress(app);
       const rec = Sc.recommendNext(state.progress, { now: Date.now() });
       if (!selectedId) selectedId = rec.lessonId || 'A1';
@@ -301,8 +308,10 @@
 
       root.replaceChildren(h('div', { class: 'coach-grid' }, h('div', null, progressCard(app, state.progress), list), h('div', null, lessonCard, scenarioCard(app, getProgress, setProgress))));
     };
+    const guard = ui.dirtyGuard(root, app, () => draw());
     draw();
-    app.watch(['progress'], (e) => e && e.origin === 'remote' && draw());
+    // pokrok z druhého zařízení nesmí zahodit rozpracovaný kvíz
+    app.watch(['progress'], (e) => e && e.origin === 'remote' && guard.onRemote());
     app.onCleanup(() => running && running.abort());
   }
 

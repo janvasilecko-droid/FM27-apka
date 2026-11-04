@@ -101,7 +101,9 @@
   }
 
   // ------------------------------------------------------------------ zápas
-  function matchView(app, redraw) {
+  // `local` je seznam úklidů tohoto pohledu na zápas: pohled se při „Začít“, „Zahodit“ nebo „Pokračovat“ staví znovu uvnitř téže
+  // obrazovky, takže jeho posluchače na dokumentu a odběry změn je nutné odstranit dřív, než vznikne nový pohled.
+  function matchView(app, redraw, local) {
     const live = FM27.live;
     const A_ = A();
     const header = h('section', { class: 'card', id: 'liveHeader' });
@@ -162,7 +164,7 @@
         h('h2', { text: 'Co aplikace vidí v číslech' }),
         h('p', { class: 'hint', text: 'Výpočet z přečtených čísel, ne diagnóza. Odchylka v číslech ještě není taktický problém, proto aplikace potřebuje víc snímků za sebou. Prahy jsou heuristiky aplikace, ne pravidla FM27.' }),
         findings.length
-          ? h('div', { class: 'books' }, findings.map((f) => h('div', { class: 'book finding', 'data-kind': f.kind }, h('div', { class: 'meta' }, h('b', { text: f.title }), h('span', { text: f.text }), h('span', { text: 'Základ: ' + f.basis })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (f.severity === 'alert' ? 'unknown' : 'inferred'), text: f.severity === 'alert' ? 'upozornění' : 'sleduj' }), ui.tierChip(f.evidenceTier === 'observed' ? 'observed' : 'inferred', f.evidenceTier === 'observed' ? 'ověřené snímky' : 'neověřené čtení')))))
+          ? h('div', { class: 'books' }, findings.map((f) => h('div', { class: 'book finding', 'data-kind': f.kind }, h('div', { class: 'meta' }, h('b', { text: f.title }), h('span', { text: f.text }), h('span', { text: 'Základ: ' + f.basis })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (f.severity === 'alert' ? 'unknown' : 'inferred'), text: f.severity === 'alert' ? 'upozornění' : 'sleduj' }), W.evidenceChip(f.evidenceTier)))))
           : h('p', { class: 'hint', id: 'liveNoFindings', text: m.timeline.length ? 'Zatím nic nápadného.' : 'Zatím žádný snímek.' })
       );
     }
@@ -272,7 +274,7 @@
       handleFiles(items.map((i) => i.getAsFile()).filter(Boolean));
     };
     document.addEventListener('paste', onPaste);
-    app.onCleanup(() => document.removeEventListener('paste', onPaste));
+    local.push(() => document.removeEventListener('paste', onPaste));
 
     // Skryté nebo zakryté okno prohlížeč zpomaluje (časovače jedou nejvýš jednou za sekundu, po pěti minutách i jen jednou za minutu).
     // Aplikace to nemůže obejít, jen to říct: ať je okno vidět vedle hry.
@@ -281,7 +283,7 @@
       if (el) el.hidden = !(live.session.capture && document.hidden);
     };
     document.addEventListener('visibilitychange', syncHidden);
-    app.onCleanup(() => document.removeEventListener('visibilitychange', syncHidden));
+    local.push(() => document.removeEventListener('visibilitychange', syncHidden));
 
     // Vazba sdílení na tuhle obrazovku: stavový řádek, překreslení po snímku a konec sdílení.
     let capStatusText = '';
@@ -303,6 +305,12 @@
       const canShare = live.captureAvailable();
       const vision = FM27.ai.available && FM27.ai.imagesSupported;
       const drop = h('div', { class: 'drop', id: 'liveDrop', tabindex: 0, role: 'button', 'aria-label': 'Sem vlož nebo přetáhni snímek obrazovky' }, h('b', { text: 'Vlož snímek: Ctrl+V' }), h('span', { text: 'nebo ho sem přetáhni, nebo vyber soubor' }));
+      drop.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          $('#liveFile').click();
+        }
+      });
       drop.addEventListener('dragover', (e) => (e.preventDefault(), drop.classList.add('over')));
       drop.addEventListener('dragleave', () => drop.classList.remove('over'));
       drop.addEventListener('drop', (e) => {
@@ -342,7 +350,7 @@
         h('div', { class: 'banner warn', id: 'liveHidden', hidden: !(live.session.capture && document.hidden) }, h('b', { text: 'Okno aplikace je teď skryté' }), h('span', { text: 'Prohlížeč skryté nebo zakryté okno zpomaluje, takže sledování může být pomalejší (po pěti minutách i jen jedna kontrola za minutu). Nech aplikaci viditelnou vedle hry: hru v okně, nebo aplikaci na druhém monitoru.' })),
         stats ? h('p', { class: 'hint', id: 'liveGate', text: `Zpracováno ${stats.processed}, odstup ${Math.round(stats.intervalMs / 1000)} s, limity ${stats.limits.perHour}/h a ${stats.limits.perMatch}/zápas.` }) : null,
         vision ? null : h('div', { class: 'banner warn' }, h('b', { text: 'Čtení snímků není dostupné' }), h('span', { text: 'Bez Claude s podporou obrázků se snímky číst nedají. Čísla můžeš zadat ručně níž.' })),
-        h('div', { class: 'row' }, drop, h('div', { class: 'actions', style: 'margin-top:0' }, h('label', { class: 'btn', for: 'liveFile', style: 'cursor:pointer', text: 'Vybrat soubor' }), h('label', { class: 'btn', for: 'liveCamera', style: 'cursor:pointer', text: 'Vyfotit obrazovku' }), file, cam)),
+        h('div', { class: 'row' }, drop, h('div', { class: 'actions', style: 'margin-top:0' }, ui.pickButton('Vybrat soubor', file, { id: 'liveFileBtn' }), ui.pickButton('Vyfotit obrazovku', cam, { id: 'liveCameraBtn' }), file, cam)),
         status,
         h('details', { class: 'manual' }, h('summary', { text: 'Zadat čísla ručně' }), snapshotForm(app, null, async (input) => live.addManual(app, input).then((r) => (r.status === 'added' ? (status.textContent = 'Ruční snímek je přidaný.', r) : r))))
       );
@@ -359,8 +367,8 @@
     drawCapture();
     drawAdviceCard();
     drawAll();
-    app.watch(['match'], () => getMatch() && drawAll());
-    app.onCleanup(() => {
+    local.push(app.watch(['match'], () => getMatch() && drawAll()));
+    local.push(() => {
       if (adviceCtl) adviceCtl.abort();
     });
     return h('div', { class: 'live-grid' }, h('div', null, header, captureCard, timelineCard), h('div', null, alertsCard, findingsCard, adviceCard, changesCard));
@@ -373,7 +381,19 @@
       return;
     }
     if (!app.requireCareer(root, 'Live Coach')) return;
+    const local = [];
+    const cleanLocal = () => {
+      while (local.length) {
+        try {
+          local.pop()();
+        } catch (e) {
+          console.error('Úklid pohledu na zápas selhal', e);
+        }
+      }
+    };
+    app.onCleanup(cleanLocal);
     const draw = () => {
+      cleanLocal();
       let id = FM27.live.session.matchId;
       let m = id ? app.store.get('match', id) : null;
       if (!m || m.status !== 'live' || m.careerId !== app.career().id) {
@@ -386,7 +406,7 @@
         root.replaceChildren(setupCard(app, draw));
         return;
       }
-      root.replaceChildren(matchView(app, draw));
+      root.replaceChildren(matchView(app, draw, local));
     };
     draw();
   }

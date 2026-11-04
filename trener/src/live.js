@@ -14,7 +14,7 @@
   const MATCH_KEY = 'fm27.liveMatch';
 
   const live = (FM27.live = {
-    session: { matchId: null, gate: null, lastGray: null, manualCount: 0, busy: false, seen: new Set(), alerts: [], capture: null, lastResult: null },
+    session: { matchId: null, gate: null, lastGray: null, manualCount: 0, busy: false, active: new Map(), alerts: [], capture: null, lastResult: null },
   });
 
   // ------------------------------------------------------------------ obrázky
@@ -95,19 +95,27 @@
     s.gate = makeGate(app);
     s.lastGray = null;
     s.manualCount = 0;
-    s.seen = new Set();
+    s.active = new Map();
     s.alerts = [];
     s.lastResult = null;
     ui.lsSet(MATCH_KEY, matchId);
     if (FM27.voice) FM27.voice.resetPolicy();
     const m = app.store.get('match', matchId);
     // Nálezy, které už na osě jsou, se nehlásí znovu jako nové.
-    if (m && m.timeline && m.timeline.length && A()) for (const f of A().detectProblems(A().sortTimeline(m.timeline), { mySide: m.mySide, now: Date.now() })) s.seen.add(f.id);
+    if (m && m.timeline && m.timeline.length && A()) for (const f of A().detectProblems(A().sortTimeline(m.timeline), { mySide: m.mySide, now: Date.now() })) s.active.set(f.episode || f.id, f.severity);
   };
   live.end = (app) => {
     live.stopCapture();
     live.session.matchId = null;
     ui.lsSet(MATCH_KEY, null);
+  };
+
+  /** Zahodí všechno, co relace drží v paměti (sdílení, upozornění, bránu); používá se při smazání všech dat. */
+  live.reset = () => {
+    live.stopCapture();
+    const s = live.session;
+    Object.assign(s, { matchId: null, gate: null, lastGray: null, manualCount: 0, busy: false, active: new Map(), alerts: [], lastResult: null });
+    if (FM27.voice) FM27.voice.resetPolicy();
   };
 
   live.createMatch = async (app, f) => {
@@ -132,8 +140,8 @@
     return saved;
   };
 
-  async function saveMatch(app, mutate) {
-    const m = matchOf(app);
+  async function saveMatch(app, mutate, matchId) {
+    const m = matchId ? app.store.get('match', matchId) : matchOf(app);
     if (!m) throw new Error('Žádný zápas se nesleduje.');
     const draft = app.store.draft(m);
     mutate(draft);
@@ -147,15 +155,31 @@
   live.findings = (match) => (A() && match && match.timeline.length ? A().detectProblems(A().sortTimeline(match.timeline), { mySide: match.mySide, now: Date.now() }) : []);
 
   function findingToAlert(f) {
-    return { id: f.id, severity: f.severity === 'alert' ? 'alert' : 'watch', text: `${f.title}. ${f.text}` };
+    return { id: f.episode || f.id, severity: f.severity === 'alert' ? 'alert' : 'watch', text: `${f.title}. ${f.text}` };
   }
+
+  /** Které nálezy jsou nové: nová epizoda (stav, který na předchozím snímku nebyl) nebo zhoršení ze „sleduj“ na upozornění.
+      Trvající stav se na dalších snímcích nehlásí znovu; zmizí-li a vrátí se, je to zase nová epizoda. */
+  function freshFindings(s, findings) {
+    const fresh = [];
+    const next = new Map();
+    for (const f of findings) {
+      const key = f.episode || f.id;
+      if (next.has(key)) continue;
+      next.set(key, f.severity);
+      const was = s.active.get(key);
+      if (was === undefined || (was !== 'alert' && f.severity === 'alert')) fresh.push(f);
+    }
+    s.active = next;
+    return fresh;
+  }
+  live.freshFindings = freshFindings;
 
   /** Nové nálezy: zapíše je do upozornění relace a nechá je přečíst hlasem (podle pravidel četnosti a ztišení). */
   async function announce(app, findings) {
     const s = live.session;
-    const fresh = findings.filter((f) => !s.seen.has(f.id));
+    const fresh = freshFindings(s, findings);
     for (const f of fresh) {
-      s.seen.add(f.id);
       const entry = { at: Date.now(), finding: f, spoken: false, notified: false, reason: '' };
       s.alerts.unshift(entry);
       if (app.settings().live.autoAlerts) {
@@ -164,7 +188,12 @@
           entry.spoken = !!d.speak;
           entry.reason = d.reason;
         }
-        if (FM27.notify) entry.notified = FM27.notify.show(app, f).shown;
+        if (FM27.notify) {
+          const n = FM27.notify.show(app, f);
+          entry.notified = n.shown && n.via !== 'serviceWorker';
+          // Přes service worker (Android) je výsledek znám až za chvíli; štítek „oznámeno“ se doplní, až se oznámení opravdu zobrazí.
+          if (n.shown && n.pending) n.pending.then((ok) => (entry.notified = !!ok));
+        }
       }
     }
     s.alerts = s.alerts.slice(0, 30);
@@ -180,6 +209,9 @@
     const ai = FM27.ai;
     const match = matchOf(app);
     if (!match) return { status: 'error', reason: 'no_match', message: 'Nejdřív začni zápas.' };
+    const matchId = match.id; // snímek patří zápasu, při jehož čtení vznikl, i kdyby se mezitím začal jiný
+    const changed = () => live.session.matchId !== matchId;
+    const changedResult = { status: 'skipped', reason: 'match_changed', message: 'Zápas se mezitím ukončil nebo změnil, snímek se nepřidal.' };
     if (s.busy) return { status: 'skipped', reason: 'busy', message: 'Předchozí snímek se ještě čte.' };
     if (!ai.available || !ai.imagesSupported) return { status: 'error', reason: 'no_vision', message: 'Čtení obrazu tady není dostupné. Zadej údaje ručně.' };
     s.busy = true;
@@ -202,13 +234,18 @@
         signal: o.signal,
         purpose: 'čtení snímku',
       });
+      if (changed()) return changedResult;
       const at = Date.now();
       const { snapshot, issues } = A().normalizeExtraction(raw, { id: 'snap-' + at.toString(36), at });
       if (!snapshot) return { status: 'unreadable', reason: 'unreadable', message: 'Na snímku jsem nic spolehlivě nepřečetl.', issues };
-      const saved = await saveMatch(app, (m) => {
-        m.timeline.push(snapshot);
-        while (m.timeline.length > MAX_TIMELINE) m.timeline.shift();
-      });
+      const saved = await saveMatch(
+        app,
+        (m) => {
+          m.timeline.push(snapshot);
+          while (m.timeline.length > MAX_TIMELINE) m.timeline.shift();
+        },
+        matchId
+      );
       const findings = live.findings(saved);
       const newFindings = await announce(app, findings);
       if (s.gate) s.gate.noteResult({ important: newFindings.some((f) => f.severity === 'alert') });
@@ -297,15 +334,21 @@
         id: s.id,
         label: s.provenance === 'screenshot_verified' ? 'screenshot_verified' : s.provenance === 'user_entered' ? 'user_entered' : 'vision_unverified',
         minute: s.minute,
+        scope: 'live',
         text: `Snímek (${s.screen}), ${score}. Domácí: ${st('home')}. Hosté: ${st('away')}.${match.mySide ? ` Uživatel hraje za ${match.mySide === 'home' ? 'domácí' : 'hosty'}.` : ''}`.slice(0, 400),
       });
     });
     const findings = live.findings(match);
-    for (const [i, o] of A().findingsToObservations(findings, { prefix: 'det' }).entries()) out.push(Object.assign({}, o, { id: `det-${i + 1}` }));
+    for (const [i, o] of A().findingsToObservations(findings, { prefix: 'det' }).entries()) out.push(Object.assign({}, o, { id: `det-${i + 1}`, scope: 'live' }));
     return out;
   };
 
   // ------------------------------------------------------------------ sdílení obrazovky (jen mimo Claude, kde to prohlížeč dovolí)
+  /** Štítek „SLEDUJI“ v hlavičce ukazuje skutečný stav sdílení: zapíná a vypíná ho jen tenhle modul. */
+  live.setPill = (on) => {
+    const el = document.querySelector('#pillLive');
+    if (el) el.hidden = !on;
+  };
   live.captureAvailable = () => !!(FM27.app.standalone && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
 
   /** hooks: {onStatus(text), onResult(result), onEnded()}. Vyžaduje výslovný souhlas uživatele (okno prohlížeče). */
@@ -323,10 +366,10 @@
     // play() se nečeká: u sdíleného proudu může skončit až s prvním snímkem. Smyčka si počká na rozměry videa.
     video.play().catch(() => {});
     // Hooks se čtou při každém použití: po přepnutí obrazovky je nová obrazovka znovu připojí (cap.hooks = …).
-    const cap = { stream, video, timer: 0, paused: false, frames: 0, hooks: h };
+    const cap = { stream, video, timer: 0, paused: false, stopped: false, frames: 0, hooks: h, ctl: new AbortController() };
     const canvas = document.createElement('canvas');
     const tick = async () => {
-      if (cap.paused || s.busy || !video.videoWidth) return;
+      if (cap.paused || cap.stopped || s.busy || !video.videoWidth) return;
       try {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -341,7 +384,8 @@
         }
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
         if (cap.hooks.onStatus) cap.hooks.onStatus('Čtu snímek…');
-        const result = await live.ingest(app, blob, { source: 'screen' });
+        const result = await live.ingest(app, blob, { source: 'screen', signal: cap.ctl.signal });
+        if (cap.stopped) return; // sdílení mezitím skončilo: výsledek se nehlásí obrazovce, která už nesleduje
         if (cap.hooks.onStatus) cap.hooks.onStatus(result.status === 'added' ? 'Snímek přečten.' : result.message || 'Snímek se nepodařilo přečíst.');
         if (cap.hooks.onResult) cap.hooks.onResult(result);
       } catch (e) {
@@ -354,6 +398,7 @@
       if (cap.hooks.onEnded) cap.hooks.onEnded();
     });
     s.capture = cap;
+    live.setPill(true);
     return cap;
   };
   live.pauseCapture = () => {
@@ -361,6 +406,7 @@
     if (c) {
       c.paused = true;
       if (live.session.gate) live.session.gate.pause();
+      live.setPill(false);
     }
   };
   live.resumeCapture = () => {
@@ -368,12 +414,19 @@
     if (c) {
       c.paused = false;
       if (live.session.gate) live.session.gate.resume();
+      live.setPill(true);
     }
   };
   live.stopCapture = () => {
     const s = live.session;
     const c = s.capture;
-    if (!c) return;
+    if (!c) {
+      live.setPill(false);
+      return;
+    }
+    c.stopped = true;
+    c.ctl.abort(); // čtení snímku, které právě běží, se zruší, aby se po Stop nic neuložilo
+    live.setPill(false);
     clearInterval(c.timer);
     try {
       for (const t of c.stream.getTracks()) t.stop();

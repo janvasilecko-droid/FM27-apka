@@ -15,6 +15,8 @@
     } catch (e) {
       voices = [];
     }
+    // Chrome nahlásí hlasy se zpožděním; obrazovka s výběrem hlasu se podle toho překreslí.
+    if (FM27.bus) FM27.bus.emit('voices');
   }
   if (synth) {
     loadVoices();
@@ -70,7 +72,10 @@
         /* nic */
       }
     },
-    resetPolicy: () => policy && policy.reset(),
+    resetPolicy: () => {
+      if (policy) policy.reset();
+      if (notifyPolicy) notifyPolicy.reset();
+    },
 
     /** Tlačítko „Vyzkoušet hlas“ v nastavení: mluví vždy, jen tichý režim ho zastaví. */
     async test(app) {
@@ -119,6 +124,7 @@
   // -------------------------------------------------------------------- systémová oznámení (jen samostatná verze)
   /** Důležité upozornění jako oznámení systému, ale jen když je okno aplikace skryté (jinak by se zdvojilo s textem a hlasem).
       Funguje, dokud je aplikace otevřená (i skrytá za hrou). Oznámení na zavřený telefon vyžaduje server a není součástí aplikace. */
+  const notifyPolicy = A ? A.createAlertPolicy() : null;
   const notify = (FM27.notify = {
     available: () => typeof window.Notification === 'function',
     permission: () => (notify.available() ? window.Notification.permission : 'unsupported'),
@@ -139,13 +145,42 @@
       if (!notify.available() || notify.permission() !== 'granted') return { shown: false, reason: 'no_permission' };
       if (alert.severity !== 'alert') return { shown: false, reason: 'too_minor' };
       if (!document.hidden) return { shown: false, reason: 'visible' };
+      // Stejná pravidla jako u hlasu: tichý režim, odstup mezi hlášeními, žádná duplicita téhož nálezu.
+      const v = app.settings().voice;
+      const id = alert.episode || alert.id;
+      const now = Date.now();
+      const d = notifyPolicy.decide({ id, severity: 'alert', text: alert.text }, { enabled: true, quiet: v.quiet, frequency: v.frequency }, now);
+      if (!d.speak) return { shown: false, reason: d.reason };
+      const body = A ? A.shortenForSpeech(alert.text, 180) : String(alert.text || '').slice(0, 180);
+      const sent = notify.send('FM27 Coach: ' + alert.title, { body, tag: id || undefined });
+      if (sent.ok) notifyPolicy.record({ id }, now);
+      return { shown: sent.ok, reason: sent.ok ? 'ok' : 'error', via: sent.via, pending: sent.pending };
+    },
+
+    /** Pošle oznámení. Počítač ho vytvoří přímo; Chrome na Androidu to neumí (výjimka „Illegal constructor“) a vyžaduje
+        service worker. Vrací {ok, via, pending}: ok je jisté jen u přímého vytvoření, u service workeru dává výsledek `pending`. */
+    send(title, options) {
       try {
-        const body = A ? A.shortenForSpeech(alert.text, 180) : String(alert.text || '').slice(0, 180);
-        new window.Notification('FM27 Coach: ' + alert.title, { body, tag: alert.id || undefined });
-        return { shown: true, reason: 'ok' };
+        new window.Notification(title, options);
+        return { ok: true, via: 'page', pending: Promise.resolve(true) };
       } catch (e) {
-        return { shown: false, reason: 'error' };
+        const sw = navigator.serviceWorker && navigator.serviceWorker.getRegistration;
+        if (!sw) return { ok: false, via: 'none', pending: Promise.resolve(false) };
+        const pending = navigator.serviceWorker
+          .getRegistration()
+          .then((reg) => (reg && reg.showNotification ? reg.showNotification(title, options).then(() => true) : false))
+          .catch(() => false);
+        return { ok: true, via: 'serviceWorker', pending };
       }
+    },
+
+    /** Zkušební oznámení z Nastavení: ukáže, jestli oznámení opravdu dorazí (sama volba v Nastavení to nezaručuje). */
+    async test() {
+      if (!notify.available()) return { ok: false, reason: 'unsupported' };
+      if (notify.permission() !== 'granted') return { ok: false, reason: 'no_permission' };
+      const sent = notify.send('FM27 Coach', { body: 'Zkušební oznámení. Takhle se ukáže důležité upozornění, když je okno aplikace skryté.', tag: 'fm27-test' });
+      const ok = sent.ok ? await sent.pending : false;
+      return { ok: !!ok, reason: ok ? 'ok' : 'error', via: sent.via };
     },
   });
 })();

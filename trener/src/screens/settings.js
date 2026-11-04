@@ -86,7 +86,8 @@
       if (!file) return;
       try {
         const n = await app.store.importAll(JSON.parse(await file.text()));
-        toast(n ? `Obnoveno dokumentů: ${n}.` : 'Nic nového k obnovení.');
+        const skipped = (app.store.lastImport && app.store.lastImport.skipped) || 0;
+        toast((n ? `Obnoveno dokumentů: ${n}.` : 'Nic nového k obnovení.') + (skipped ? ` Poškozených dokumentů přeskočeno: ${skipped}.` : ''), skipped ? 6000 : undefined);
         const all = app.careers();
         if (!app.career() && all.length) app.setCareer(all[0].id);
         else app.render();
@@ -127,7 +128,7 @@
           text: 'Uložit zálohu dat',
           onclick: () => app.saveFile('fm27-data.json', new Blob([JSON.stringify(app.store.exportAll())], { type: 'application/json' })),
         }),
-        h('label', { class: 'btn small', for: 'importData', style: 'cursor:pointer', text: 'Obnovit ze zálohy' }),
+        ui.pickButton('Obnovit ze zálohy', importInput, { class: 'btn small', id: 'importDataBtn' }),
         importInput
       ),
       h('h3', { text: 'Smazání', style: 'margin-top:16px' }),
@@ -136,12 +137,24 @@
         'div',
         { class: 'actions' },
         ui.confirmButton('Smazat všechna data aplikace', 'Opravdu smazat úplně všechno?', async () => {
-          const n = await app.store.purgeAll();
+          if (FM27.live) FM27.live.reset();
+          const { removed, complete } = await app.store.purgeAll();
           app.careerId = null;
           ui.lsSet('fm27.career', null);
-          localStorage.removeItem('fm27.history');
-          localStorage.removeItem('fm27.snap');
-          toast(`Smazáno dokumentů: ${n}. Knihy zůstaly (smažeš je v Zdrojích znalostí).`);
+          // Všechno, co aplikace drží jen v tomto zařízení vedle dokumentů: staré rady, snímek, složené lekce, měření spotřeby, rozehraný zápas.
+          for (const key of ['fm27.history', 'fm27.snap', 'fm27.lessons', 'fm27.ledger', 'fm27.liveMatch', 'fm27.historyMigrated']) {
+            try {
+              localStorage.removeItem(key);
+            } catch (e) {
+              /* nic */
+            }
+          }
+          if (FM27.ai && FM27.ai.ledger) FM27.ai.ledger.clear();
+          toast(
+            `Smazáno dokumentů: ${removed}. Knihy a klíč AI zůstaly (mažou se zvlášť v Zdrojích znalostí a v kartě Vlastní klíč).` +
+              (complete ? '' : ' Synchronizace neodpověděla, takže data na serveru mohla zůstat; smazání zopakuj, až bude připojení.'),
+            complete ? undefined : 8000
+          );
           app.render();
         })
       )
@@ -169,11 +182,34 @@
     const volume = ui.input({ id: 'setVolume', type: 'range', min: 0, max: 1, step: 0.05, value: s.voice.volume });
     const rate = ui.input({ id: 'setRate', type: 'range', min: 0.7, max: 1.4, step: 0.05, value: s.voice.rate });
     const freq = ui.select([['low', 'Jen opravdu důležitá upozornění'], ['normal', 'Běžně'], ['high', 'Častěji']], s.voice.frequency, { id: 'setFreq' });
+    // Výběr hlasu: nabízejí se jen české hlasy zařízení (v Edge bývají k dispozici přirozenější online hlasy). Uložený hlas, který
+    // zařízení nemá (třeba z počítače na telefonu), se tiše nahradí automatickým výběrem.
+    const voiceName = h('select', { id: 'setVoiceName' });
+    const fillVoices = () => {
+      const cz = FM27.voice && FM27.voice.available() ? FM27.voice.czechVoices() : [];
+      const first = cz.length ? 'Automaticky (první česká)' : 'Česká hlasová zásoba v zařízení není';
+      voiceName.replaceChildren(h('option', { value: '', text: first }), ...cz.map((v) => h('option', { value: v.voiceURI, text: v.name + (v.localService === false ? ' (online)' : '') })));
+      voiceName.value = app.settings().voice.voiceURI || '';
+      voiceName.disabled = !cz.length;
+    };
+    fillVoices();
+    app.onCleanup(FM27.bus.on('voices', fillVoices));
+    voiceName.addEventListener('change', () => save({ voice: { voiceURI: voiceName.value } }));
     const voiceOn = h('input', { type: 'checkbox', id: 'setVoiceOn', checked: s.voice.enabled });
     const quiet = h('input', { type: 'checkbox', id: 'setQuiet', checked: s.voice.quiet });
     const notifyAvailable = app.standalone && FM27.notify && FM27.notify.available();
     const notifyOn = h('input', { type: 'checkbox', id: 'setNotify', checked: !!(s.notify && s.notify.enabled) && notifyAvailable && FM27.notify.permission() === 'granted' });
     const notifyMsg = h('p', { class: 'hint', id: 'notifyMsg', 'aria-live': 'polite' });
+    const notifyTest = h('button', {
+      class: 'btn small',
+      id: 'notifyTest',
+      type: 'button',
+      text: 'Zkušební oznámení',
+      onclick: async () => {
+        const r = await FM27.notify.test();
+        notifyMsg.textContent = r.ok ? 'Zkušební oznámení jsem poslal. Když ho nevidíš, oznámení v tomhle prohlížeči nebo systému nejdou (zkontroluj nastavení webu a režim nerušit).' : r.reason === 'no_permission' ? 'Oznámení nejsou povolená.' : 'Oznámení se tady nepodařilo ukázat; důležitá upozornění zůstanou jen v aplikaci.';
+      },
+    });
     notifyOn.addEventListener('change', async () => {
       if (!notifyOn.checked) return save({ notify: { enabled: false } });
       const perm = FM27.notify.permission() === 'granted' ? 'granted' : await FM27.notify.request();
@@ -197,6 +233,26 @@
     interval.addEventListener('change', () => save({ live: { baseIntervalSec: num(interval, 5, 120) } }));
     perHour.addEventListener('change', () => save({ live: { maxPerHour: num(perHour, 5, 300) } }));
     perMatch.addEventListener('change', () => save({ live: { maxPerMatch: num(perMatch, 10, 600) } }));
+    // Změna nastavení z druhého zařízení se promítne do ovládacích prvků na místě (bez překreslení obrazovky a bez zásahu
+    // do prvku, který právě upravuješ), takže se omylem nepřepíše starou hodnotou.
+    const refreshControls = () => {
+      const cur = app.settings();
+      const put = (el, prop, value) => {
+        if (el && document.activeElement !== el && el[prop] !== value) el[prop] = value;
+      };
+      put(volume, 'value', String(cur.voice.volume));
+      put(rate, 'value', String(cur.voice.rate));
+      put(freq, 'value', cur.voice.frequency);
+      put(voiceOn, 'checked', !!cur.voice.enabled);
+      put(quiet, 'checked', !!cur.voice.quiet);
+      put(interval, 'value', String(cur.live.baseIntervalSec));
+      put(perHour, 'value', String(cur.live.maxPerHour));
+      put(perMatch, 'value', String(cur.live.maxPerMatch));
+      // Hlas uložený na jiném zařízení tohle zařízení nemusí mít: pak zůstane „Automaticky“.
+      put(voiceName, 'value', [...voiceName.options].some((o) => o.value === (cur.voice.voiceURI || '')) ? cur.voice.voiceURI || '' : '');
+      if (notifyAvailable) put(notifyOn, 'checked', !!(cur.notify && cur.notify.enabled) && FM27.notify.permission() === 'granted');
+    };
+    app.onCleanup(app.store.on((e) => e.kind === 'change' && e.type === 'settings' && e.origin === 'remote' && refreshControls()));
     const test = h('button', {
       class: 'btn small',
       id: 'voiceTest',
@@ -212,9 +268,11 @@
       h('label', { class: 'checkline' }, voiceOn, h('span', { text: 'Číst upozornění nahlas' })),
       h('label', { class: 'checkline' }, quiet, h('span', { text: 'Tichý režim (jen text na obrazovce)' })),
       notifyAvailable ? h('label', { class: 'checkline' }, notifyOn, h('span', { text: 'Systémové oznámení při důležitém upozornění, když je okno aplikace skryté' })) : null,
+      notifyAvailable ? h('div', { class: 'actions', style: 'margin-top:6px' }, notifyTest) : null,
       notifyAvailable ? notifyMsg : null,
       notifyAvailable ? h('p', { class: 'hint', text: 'Funguje, dokud je aplikace otevřená (i skrytá za hrou). Oznámení na zavřený telefon aplikace neumí, ta by potřebovala vlastní server.' }) : null,
       h('div', { class: 'row' }, ui.field('Hlasitost', volume, { grow: true }), ui.field('Rychlost řeči', rate, { grow: true }), ui.field('Četnost upozornění', freq, { grow: true })),
+      h('div', { class: 'row' }, ui.field('Hlas', voiceName, { grow: true })),
       h('div', { class: 'actions' }, test),
       h('h3', { text: 'Sledování zápasu', style: 'margin-top:16px' }),
       h('div', { class: 'row' }, ui.field('Základní odstup snímků (s)', interval, { width: '190px' }), ui.field('Nejvýš za hodinu', perHour, { width: '150px' }), ui.field('Nejvýš za zápas', perMatch, { width: '150px' })),
@@ -239,13 +297,23 @@
     kind.addEventListener('change', sync);
     sync();
     const msg = h('p', { class: 'hint', id: 'keyMsg', text: keyNote, 'aria-live': 'polite' });
+    // Adresa *.github.io sdílí úložiště prohlížeče se všemi dalšími stránkami na github.io pod stejným účtem: skript z jiné
+    // takové stránky by klíč přečetl. Proto je tam výchozí volba „jen do zavření záložky“ a ve stránce je varování.
+    const shared = /\.github\.io$/i.test(location.hostname);
+    const where = FM27.ai.configWhere();
+    const remember = h('input', { type: 'checkbox', id: 'keyRemember', checked: where === 'local' || (where === 'none' && !shared) });
+    const sharedWarn = shared
+      ? h('div', { class: 'banner warn', id: 'keySharedWarn' }, h('b', { text: 'Tahle adresa sdílí úložiště prohlížeče s dalšími stránkami na github.io' }), h('span', { text: 'Skript na jiné stránce pod stejným účtem na github.io by mohl klíč přečíst. Použij samostatný klíč s nízkým měsíčním limitem a nech výchozí volbu „jen do zavření záložky“. Bezpečnější je spouštět aplikaci z vlastní adresy.' }))
+      : null;
     return h(
       'section',
       { class: 'card', id: 'keyCard' },
       h('h2', { text: 'Vlastní klíč AI' }),
       h('p', { class: 'lead', text: 'Tahle verze aplikace neběží uvnitř Claude, takže potřebuje tvůj vlastní klíč. Klíč zůstane jen v tomto prohlížeči (nesynchronizuje se a není v kódu). Vytvoř si pro aplikaci samostatný klíč s měsíčním limitem výdajů.' }),
+      sharedWarn,
       ui.field('Poskytovatel', kind),
       ui.field('Klíč', key),
+      h('label', { class: 'checkline' }, remember, h('span', { text: 'Zapamatovat klíč v tomto prohlížeči (jinak platí jen do zavření záložky a příště ho zadáš znovu)' })),
       extra,
       h(
         'div',
@@ -264,9 +332,13 @@
               next.models = { quick: mQuick.value.trim(), default: mDefault.value.trim(), complex: mComplex.value.trim() };
               if (!next.models.quick || !next.models.default || !next.models.complex) return (msg.textContent = keyNote = 'Vyplň názvy všech tří modelů.');
             }
-            FM27.ai.setConfig(next);
+            const saved = FM27.ai.setConfig(next, { remember: remember.checked });
             await FM27.ai.init(app);
-            keyNote = FM27.ai.available ? 'Klíč je uložený. Zkus „Zkouška spojení s Claude“ výš.' : 'Klíč se nepodařilo použít: ' + (FM27.ai.problem || 'neznámý důvod');
+            keyNote = !saved
+              ? 'Klíč se nepodařilo uložit (úložiště prohlížeče je zablokované).'
+              : FM27.ai.available
+                ? (remember.checked ? 'Klíč je uložený v tomhle prohlížeči.' : 'Klíč platí jen do zavření záložky.') + ' Zkus „Zkouška spojení s Claude“ výš.'
+                : 'Klíč se nepodařilo použít: ' + (FM27.ai.problem || 'neznámý důvod');
             key.value = '';
             app.render();
           },

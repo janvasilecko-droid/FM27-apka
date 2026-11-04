@@ -306,13 +306,17 @@
     else if (FM27.ai.available) ui.setPill('#pillClaude', 'ok', FM27.ai.kind === 'claude-sample' ? 'Claude: připojeno' : 'AI: ' + FM27.ai.label());
     else ui.setPill('#pillClaude', 'bad', FM27.ai.problem ? 'AI: nedostupné' : 'Claude: nedostupné');
     const st = app.store ? app.store.status() : null;
+    const blocked = (st && st.blocked) || [];
     if (!st) ui.setPill('#pillSync', 'warn', 'Data: načítám…');
+    // Nejhorší stav má přednost: data, která se neukládají vůbec, a pak dokumenty, které se nesynchronizují.
+    else if (!st.local || app.storeNote) ui.setPill('#pillSync', 'bad', 'Data se v tomto zařízení neukládají');
+    else if (blocked.length) ui.setPill('#pillSync', 'warn', `Nesynchronizuje se: ${blocked.length} ${ui.plural(blocked.length, 'dokument', 'dokumenty', 'dokumentů')}`);
     else if (st.remote === 'live') ui.setPill('#pillSync', st.pending ? 'warn' : 'ok', st.pending ? 'Synchronizace: ukládám…' : 'Synchronizace: zapnutá');
     else if (st.remote === 'connecting') ui.setPill('#pillSync', 'warn', 'Synchronizace: připojuji…');
     else if (st.remote === 'error') ui.setPill('#pillSync', 'bad', 'Synchronizace: chyba');
     else ui.setPill('#pillSync', 'warn', 'Data jen v tomto zařízení');
     const pill = $('#pillSync');
-    if (pill && st) pill.title = st.error || app.storeNote || '';
+    if (pill && st) pill.title = [st.localError, app.storeNote, ...((st.blockedInfo || []).map((b) => `Dokument ${b.key} ${b.reason}; zůstává jen v tomto zařízení.`)), st.error].filter(Boolean).join(' ');
   }
   FM27.bus.on('library', renderPills);
 

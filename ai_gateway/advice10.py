@@ -129,9 +129,17 @@ ADVICE10_JSON_SCHEMA: dict[str, Any] = {
 
 _MECHANIC_PATTERNS = (
     re.compile(r"\b(?:CA|PA)\b"),
-    re.compile(r"current ability|potential ability", re.IGNORECASE),
-    re.compile(r"match engine|herní engine|engine hry|zápasov\w+ engine|simulační engine", re.IGNORECASE),
-    re.compile(r"skryt\w+ atribut\w*|hidden attribute\w*", re.IGNORECASE),
+    re.compile(r"\((?:ca|pa)\)", re.IGNORECASE),
+    re.compile(r"current[\s-]?ability|potential[\s-]?ability", re.IGNORECASE),
+    re.compile(r"(?:současn|potenciáln|aktuáln)\w+ schopnost\w*", re.IGNORECASE),
+    re.compile(
+        r"match[\s-]?engine|herní (?:engine|motor)|engine hry|zápasov\w+ (?:engine|motor)|simulační (?:engine|motor)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"skryt\w+ (?:atribut|hodnot|vlastnost|parametr|statistik)\w*|hidden (?:attribute|stat|value|rating)\w*",
+        re.IGNORECASE,
+    ),
 )
 _VAGUE_TARGET = re.compile(
     r"^(?:více|víc|méně|míň|vyšší|nižší|větší|menší|lepší|horší|silnější|slabší|širší|užší|hlubší|"
@@ -186,6 +194,8 @@ def validate_advice10(
 
     obs_tier = {oid: LABEL_TO_TIER[obs["label"]] for oid, obs in observations.items()}
     obs_label = {oid: obs["label"] for oid, obs in observations.items()}
+    # Pozorování ze sledování zápasu (scope "live") jsou čísla ze statistik. Nikdy neukazují nabídku ani nastavení hry.
+    obs_scope = {oid: obs.get("scope") for oid, obs in observations.items()}
 
     def ref_tier(ref: str) -> str | None:
         if ref in obs_tier:
@@ -208,7 +218,7 @@ def validate_advice10(
                 )
                 return
 
-    def tiered(name: str, section: Any, *, need_observation: bool = False) -> dict[str, Any] | None:
+    def tiered(name: str, section: Any, *, need_observation: bool = False, evidence: bool = False) -> dict[str, Any] | None:
         if not isinstance(section, Mapping):
             errors.append(f"{name}: sekce musí být objekt.")
             return None
@@ -237,12 +247,14 @@ def validate_advice10(
                 )
         if need_observation and tier != "unknown" and not any(ref in obs_tier for ref in good):
             errors.append(f"{name}: důkaz musí odkazovat alespoň na jedno pozorování (id).")
+        if evidence and passages is not None and any(ref in passages and ref not in obs_tier for ref in good):
+            errors.append(f"{name}: úryvek z knihy tu nemůže být důkaz; je to teorie, ne pozorování.")
         mechanic_scan(name, text, tier)
         return {"tier": tier, "refs": good}
 
     tiered("context", advice["context"])
-    ev_a = tiered("evidenceA", advice["evidenceA"], need_observation=True)
-    ev_b = tiered("evidenceB", advice["evidenceB"], need_observation=True)
+    ev_a = tiered("evidenceA", advice["evidenceA"], need_observation=True, evidence=True)
+    ev_b = tiered("evidenceB", advice["evidenceB"], need_observation=True, evidence=True)
     tiered("diagnosis", advice["diagnosis"])
 
     # --- jistota -------------------------------------------------------------------------
@@ -252,6 +264,8 @@ def validate_advice10(
         errors.append("confidence: level musí být low, medium nebo high.")
     if not _text(conf.get("text") if isinstance(conf, Mapping) else None):
         errors.append("confidence: chybí zdůvodnění.")
+    else:
+        mechanic_scan("confidence", _text(conf.get("text")))
     obs_a = {ref for ref in (ev_a or {}).get("refs", []) if ref in obs_tier}
     obs_b = {ref for ref in (ev_b or {}).get("refs", []) if ref in obs_tier}
     a_known = bool(ev_a and ev_a["tier"] != "unknown")
@@ -265,16 +279,16 @@ def validate_advice10(
             and tier_rank(ev_a["tier"]) >= tier_rank("observed")  # type: ignore[index]
             and tier_rank(ev_b["tier"]) >= tier_rank("observed")  # type: ignore[index]
         )
-        if not (verified_both and len(obs_a | obs_b) >= 2):
+        if not (verified_both and (obs_a - obs_b) and (obs_b - obs_a)):
             errors.append(
-                "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA a evidenceB s různými "
-                "pozorováními screenshot_verified), ne jen neověřené strojové čtení (ocr_unverified / "
-                "vision_unverified) nebo tvrzení uživatele."
+                "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno "
+                "pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení "
+                "(ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
             )
     elif level == "medium" and not (a_known or b_known):
         errors.append("confidence: medium vyžaduje alespoň jeden důkaz.")
-    if a_known and b_known and obs_a and obs_a == obs_b:
-        warnings.append("evidenceA a evidenceB stojí na stejném pozorování, nejsou nezávislé.")
+    if a_known and b_known and obs_a and obs_b and (obs_a <= obs_b or obs_b <= obs_a):
+        warnings.append("evidenceA a evidenceB nejsou nezávislé: jedno z nich stojí jen na pozorováních, která použilo i druhé.")
 
     # --- unknown (potřebujeme ho znát dřív než změny) ---------------------------------------
     unknown = advice["unknown"]
@@ -315,19 +329,30 @@ def validate_advice10(
         if not steps or not all(steps):
             errors.append(f"{name}: where musí obsahovat alespoň jeden neprázdný krok v menu.")
         where_tier = item.get("where_tier")
-        refs = _str_list(item.get("refs")) or []
+        raw_refs = item.get("refs")
+        refs = [] if raw_refs is None else _str_list(raw_refs)
+        if refs is None:
+            errors.append(f"{name}: refs musí být seznam textů.")
+            refs = []
+        for ref in refs:
+            if ref_tier(ref) is None:
+                errors.append(f"{name}: odkaz „{ref}“ neodpovídá žádnému pozorování ani zdroji.")
         if where_tier not in TIERS:
             errors.append(f"{name}: neplatná úroveň where_tier „{where_tier}“.")
             continue
+        if where_tier not in ("verified", "observed"):
+            # Jména nastavení a kroky v menu jsou text modelu: tvrzení o interní mechanice FM27 v nich neprojde bez ověřeného zdroje.
+            mechanic_scan(name, " ; ".join([setting, before, after, *(steps or [])]))
         if where_tier == "verified":
             if not refs or not all(registry is not None and registry.is_official_fm27(ref) for ref in refs):
                 errors.append(
                     f"{name}: navigace označená jako verified musí odkazovat na oficiální zdroj FM27 z registru."
                 )
         elif where_tier == "observed":
-            if not any(obs_label.get(ref) == "screenshot_verified" for ref in refs):
+            if not any(obs_label.get(ref) == "screenshot_verified" and obs_scope.get(ref) != "live" for ref in refs):
                 errors.append(
-                    f"{name}: navigace označená jako observed musí odkazovat na pozorování screenshot_verified."
+                    f"{name}: navigace označená jako observed musí odkazovat na ověřené pozorování (screenshot_verified), "
+                    "které ukazuje nabídku nebo nastavení; čísla ze sledování zápasu to nedokazují."
                 )
         else:
             needs_verification = True

@@ -16,7 +16,19 @@
   const TYPES = ['career', 'player', 'tactic', 'match', 'opponent', 'memory', 'progress', 'settings', 'advice', 'source'];
   const MAX_REMOTE_BYTES = 240 * 1024; // `db` bere dokument nejvýš 256 KiB; nechávám rezervu
   const keyOf = (type, id) => `${type}_${id}`;
-  const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
+  // Hlubokou kopii dělá JSON (zahodí funkce a nepodporované hodnoty); klíč __proto__ se zahodí, aby cizí záloha nemohla měnit prototypy.
+  const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v), (k, val) => (k === '__proto__' ? undefined : val)));
+  const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  /** Velikost v bajtech UTF-8 (limit `db` je v bajtech, česká diakritika zabírá dva). */
+  function byteLength(str) {
+    if (typeof TextEncoder === 'function') return new TextEncoder().encode(str).length;
+    let n = 0;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      n += c < 0x80 ? 1 : c < 0x800 ? 2 : c >= 0xd800 && c <= 0xdbff ? (i++, 4) : 3;
+    }
+    return n;
+  }
 
   function deepFreeze(o) {
     if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -35,8 +47,14 @@
     return id;
   }
 
+  /** Dokument musí mít celý tvar: jedna poškozená položka ze zálohy nebo ze synchronizace nesmí zablokovat start aplikace.
+      Id smí obsahovat jen znaky povolené v cestách `db`; živý dokument má objekt s týmž id a careerId, náhrobek má data null. */
   function validDoc(d) {
-    return !!d && typeof d === 'object' && typeof d.key === 'string' && TYPES.includes(d.type) && typeof d.id === 'string' && Number.isFinite(d.updatedAt) && d.key === keyOf(d.type, d.id);
+    if (!isPlain(d) || typeof d.key !== 'string' || !TYPES.includes(d.type) || typeof d.id !== 'string' || !Number.isFinite(d.updatedAt) || d.key !== keyOf(d.type, d.id)) return false;
+    if (!/^[A-Za-z0-9_.~:@+-]{1,64}$/.test(d.id)) return false;
+    if (d.deleted !== undefined && typeof d.deleted !== 'boolean') return false;
+    if (d.deleted) return d.data === null || d.data === undefined;
+    return isPlain(d.data) && d.data.id === d.id && (d.careerId || null) === (d.data.careerId || null);
   }
 
   // ---------------------------------------------------------------- backendy
@@ -162,7 +180,14 @@
     const remoteSeen = new Map(); // key → updatedAt, co o dokumentu ví server
     const listeners = new Set();
     const queue = new Map();
-    const status = { local: !!o.local, remote: o.remote ? 'connecting' : 'off', pending: 0, lastRemoteAt: null, error: '' };
+    // error = přechodná chyba synchronizace; localError = místní zápis selhal; blocked = klíče dokumentů, které se na server nedostanou
+    // (příliš velké nebo je server odmítl). Zablokovaný dokument se nepřepisuje starší kopií ze serveru, aby se nic neztratilo.
+    const status = { local: !!o.local, remote: o.remote ? 'connecting' : 'off', pending: 0, lastRemoteAt: null, error: '', localError: '', blocked: [], blockedInfo: [] };
+    const blocked = new Map(); // key → důvod
+    const syncBlocked = () => {
+      status.blocked = [...blocked.keys()];
+      status.blockedInfo = [...blocked].map(([key, reason]) => ({ key, reason }));
+    };
     let flushTimer = null;
     let flushing = null;
     let unwatch = null;
@@ -188,9 +213,14 @@
       if (!o.local) return;
       try {
         await o.local.put(doc);
+        if (!status.local || status.localError) {
+          status.local = true;
+          status.localError = '';
+          emitStatus();
+        }
       } catch (e) {
         status.local = false;
-        status.error = 'Místní úložiště se nepodařilo zapsat: ' + (e && e.message ? e.message : e);
+        status.localError = 'Místní úložiště se nepodařilo zapsat: ' + (e && e.message ? e.message : e);
         emitStatus();
       }
     }
@@ -199,15 +229,20 @@
       if (!o.remote) return;
       let size = 0;
       try {
-        size = JSON.stringify(doc).length;
+        size = byteLength(JSON.stringify(doc));
       } catch (e) {
         size = Infinity;
       }
       if (size > MAX_REMOTE_BYTES) {
-        status.error = `Dokument ${doc.key} je příliš velký na synchronizaci; zůstává jen v tomto zařízení.`;
+        // Nesynchronizuje se a nesmí ho přepsat starší kopie ze serveru. Stav zůstane vidět, dokud dokument nezmenšíš.
+        blocked.set(doc.key, `je příliš velký na synchronizaci (${Math.round(size / 1024)} kB, nejvýš ${Math.round(MAX_REMOTE_BYTES / 1024)} kB)`);
+        queue.delete(doc.key);
+        syncBlocked();
+        status.pending = queue.size;
         emitStatus();
         return;
       }
+      if (blocked.delete(doc.key)) syncBlocked();
       queue.set(doc.key, doc);
       status.pending = queue.size;
       clearTimeout(flushTimer);
@@ -227,6 +262,7 @@
             await o.remote.write(doc);
             remoteSeen.set(key, Math.max(remoteSeen.get(key) || 0, doc.updatedAt));
             status.error = '';
+            if (blocked.delete(key)) syncBlocked();
           } catch (e) {
             const code = e && e.code;
             if (code === 'unavailable' || code === 'resource_exhausted') {
@@ -235,10 +271,10 @@
               failed = true;
               break;
             }
-            status.error =
-              code === 'quota_exceeded'
-                ? 'Úložiště synchronizace je plné. Data zůstávají v tomto zařízení.'
-                : `Synchronizace ${key} se nepovedla (${code || 'chyba'}). Data zůstávají v tomto zařízení.`;
+            // Server dokument odmítl (plné úložiště, neplatný tvar…): zůstává jen tady a starší kopie ze serveru ho nepřepíše.
+            blocked.set(key, code === 'quota_exceeded' ? 'se nevešel do úložiště synchronizace' : `server ho odmítl (${code || 'chyba'})`);
+            syncBlocked();
+            status.error = code === 'quota_exceeded' ? 'Úložiště synchronizace je plné. Data zůstávají v tomto zařízení.' : `Synchronizace ${key} se nepovedla (${code || 'chyba'}). Data zůstávají v tomto zařízení.`;
           }
           status.pending = queue.size;
         }
@@ -259,6 +295,7 @@
       remoteSeen.set(doc.key, Math.max(remoteSeen.get(doc.key) || 0, doc.updatedAt));
       const cur = mem.get(doc.key);
       if (cur && cur.updatedAt >= doc.updatedAt) return false;
+      if (blocked.has(doc.key)) return false; // místní verze se na server nedostala; starší kopie ze serveru ji nesmí přepsat
       const copy = clone(doc);
       setDoc(copy, 'remote');
       persistLocal(copy);
@@ -299,7 +336,7 @@
             for (const d of await o.local.all()) if (validDoc(d)) mem.set(d.key, deepFreeze(d));
           } catch (e) {
             status.local = false;
-            status.error = 'Místní úložiště se nepodařilo přečíst: ' + (e && e.message ? e.message : e);
+            status.localError = 'Místní úložiště se nepodařilo přečíst: ' + (e && e.message ? e.message : e);
           }
         }
         if (o.remote) startRemote();
@@ -317,7 +354,7 @@
       },
       list(type, pred) {
         const out = [];
-        for (const d of mem.values()) if (d.type === type && !d.deleted && (!pred || pred(d.data))) out.push(d.data);
+        for (const d of mem.values()) if (d.type === type && !d.deleted && isPlain(d.data) && (!pred || pred(d.data))) out.push(d.data);
         return out;
       },
       /** Zapíše dokument. `data.id` se doplní, pokud chybí. Vrací uloženou (zmrazenou) podobu. */
@@ -356,32 +393,50 @@
         }
         return n;
       },
-      /** Smaže všechna uživatelská data (zůstanou jen prázdné náhrobky, aby se smazání rozneslo). */
-      async purgeAll() {
-        let n = 0;
-        for (const d of [...mem.values()]) if (!d.deleted && (await store.remove(d.type, d.id))) n++;
-        return n;
+      /** Smaže všechna uživatelská data (zůstanou jen prázdné náhrobky, aby se smazání rozneslo).
+          Na novém zařízení nejdřív počká na první úplný stav ze serveru (nejdéle `waitMs`), jinak by dokumenty, které
+          dorazí až po smazání, data vrátily. Vrací {removed, complete}: complete=false znamená, že server neodpověděl
+          a na něm mohla data zůstat. */
+      async purgeAll(waitMs) {
+        let complete = !o.remote || firstDefinitive;
+        if (!complete) {
+          const end = o.now() + (waitMs === undefined ? 8000 : waitMs);
+          while (!firstDefinitive && status.remote !== 'error' && o.now() < end) await new Promise((r) => setTimeout(r, 50));
+          complete = firstDefinitive;
+        }
+        let removed = 0;
+        for (const d of [...mem.values()]) if (!d.deleted && (await store.remove(d.type, d.id))) removed++;
+        return { removed, complete };
       },
       /** Úplný export (záloha). */
       exportAll() {
         return { format: 'fm27-trener-data', version: 1, exportedAt: new Date(o.now()).toISOString(), docs: [...mem.values()].filter((d) => !d.deleted).map((d) => clone(d)) };
       },
-      /** Import zálohy; nový dokument přepíše stávající jen když je novější. Vrací počet přijatých dokumentů. */
+      /** Import zálohy. Živý dokument se přepíše jen novějším. Smazaný dokument (náhrobek) záloha vrátí vždy: uživatel o obnovu
+          výslovně požádal, a aby ji přijala i druhá zařízení, dostane dokument novější čas než náhrobek.
+          Vrací počet přijatých dokumentů; počty přijatých a přeskočených (poškozených) zůstanou v `lastImport`. */
       async importAll(data) {
         if (!data || data.format !== 'fm27-trener-data' || !Array.isArray(data.docs)) throw new Error('Tohle není záloha dat FM27 Tactical Coach.');
         let n = 0;
+        let skipped = 0;
         for (const d of data.docs) {
-          if (!validDoc(d) || d.deleted) continue;
+          if (!validDoc(d) || d.deleted) {
+            if (!(isPlain(d) && d.deleted === true)) skipped++;
+            continue;
+          }
           const cur = mem.get(d.key);
-          if (cur && cur.updatedAt >= d.updatedAt) continue;
+          if (cur && !cur.deleted && cur.updatedAt >= d.updatedAt) continue;
           const copy = clone(d);
+          if (cur) copy.updatedAt = Math.max(o.now(), cur.updatedAt + 1, copy.updatedAt);
           setDoc(copy, 'local');
           await persistLocal(copy);
           enqueue(copy);
           n++;
         }
+        store.lastImport = { accepted: n, skipped };
         return n;
       },
+      lastImport: { accepted: 0, skipped: 0 },
       draft: clone,
       flush,
       makeId,

@@ -61,6 +61,7 @@
   async function runCoach(app, opts) {
     opts = opts || {};
     if (!FM27.ai.available) return toast('Claude není dostupný.');
+    if (run) return toast('Rada se právě připravuje. Počkej na ni, nebo ji zastav.');
     const question = ($('#question') && $('#question').value.trim()) || draft.question.trim();
     draft.question = question;
     const ctl = new AbortController();
@@ -83,6 +84,16 @@
     if (res.status === 'cancelled') {
       stepsUi.set('advice', 'fail', 'zastaveno');
       toast('Zastaveno.');
+      return;
+    }
+    // Uživatel mezitím odešel z obrazovky: hotová rada se uloží do historie, ale nemá se kam vykreslit.
+    if (!$('#result')) {
+      if (res.status === 'ok') {
+        await FM27.advice.save(app, { question, advice: res.advice, ctx: res.ctx, verdict: res.verdict, source: 'trener' });
+        toast('Rada je hotová a uložená v historii rad (Osobní trenér).', 5000);
+      } else if (res.status === 'error') toast('Rada se nepovedla: ' + res.message, 5000);
+      else toast('Rada neprošla kontrolou poctivosti, otevři Osobní trenér a zkus to znovu.', 5000);
+      draft.spoken = false;
       return;
     }
     if (res.status === 'error' && !res.retry && /Napiš, co řešíš/.test(res.message || '')) {
@@ -287,9 +298,13 @@
       h('div', { id: 'result' })
     );
 
-    stepsUi.el.hidden = true;
-    stepsUi.el.replaceChildren();
+    // Běží-li rada z dřívějška (odešel jsi a vrátil ses), průběh zůstane vidět a „Poradit“ zůstane vypnuté.
+    if (!run) {
+      stepsUi.el.hidden = true;
+      stepsUi.el.replaceChildren();
+    }
     root.replaceChildren(h('div', { class: 'coach-grid' }, left, right));
+    setBusy(!!run);
     renderObs();
     migrateOldHistory(app)
       .catch(() => {})

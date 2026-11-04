@@ -153,8 +153,8 @@ module.exports = async function run(env) {
   await ask(page, 'Co s pravým obráncem?');
   const prompts = await page.evaluate(() => window.__mock.prompts);
   const adv = prompts.filter((p) => /Pozorování \(id/.test(p)).pop() || '';
-  check('03 do rady jde soupiska zadaná uživatelem', /- squad \| user_entered \| - \| Soupiska \(zadal uživatel, 13 hráčů\)/.test(adv) && /Jan Novák \| RB\/RWB \| role: Krajní obránce \(podpora\)/.test(adv), adv.slice(adv.indexOf('Pozorování'), adv.indexOf('Pozorování') + 700));
-  check('03 do rady jde aktivní taktika s rolemi a instrukcemi', /- tactic \| user_entered/.test(adv) && /Taktika „Hlavní 4-3-3“/.test(adv) && /Týmové instrukce: Hrát přes střed; Vysoký presink/.test(adv) && /role: Brankář \(hraje nohama\)/.test(adv), '');
+  check('03 do rady jde soupiska zadaná uživatelem', /- squad \| user_entered \| - \| Soupiska \(zadal uživatel, 13 hráčů\)/.test(adv) && /Jan Novák \[RB\/RWB, role Krajní obránce \(podpora\), věk 24, atributy: Pace 16, Finishing 14, zraněný\]/.test(adv), adv.slice(adv.indexOf('Pozorování'), adv.indexOf('Pozorování') + 700));
+  check('03 do rady jde aktivní taktika s rolemi a instrukcemi', /- tactic \| user_entered/.test(adv) && /Taktika „Hlavní 4-3-3“/.test(adv) && /Týmové instrukce: Hrát přes střed; Vysoký presink/.test(adv) && /role Brankář \(hraje nohama\)/.test(adv), '');
   check('03 rada s kontextem kariéry prošla kontrolou', /prošla kontrolou/.test(await text(page, '#result .banner')), await text(page, '#result .banner'));
 
   // ---------- synchronizace soupisky a taktik na telefon
@@ -164,6 +164,29 @@ module.exports = async function run(env) {
   check('03 telefon: soupiska se synchronizovala', (await phone.page.locator('#playerList .player').count()) === 13, await phone.page.locator('#playerList .player').count());
   await nav(phone.page, 'taktiky');
   check('03 telefon: taktiky se synchronizovaly', (await phone.page.locator('#tacSelect option').count()) === 2, await phone.page.locator('#tacSelect option').count());
+
+  // ---------- nález revize: změna z druhého zařízení nesmí smazat rozepsané úpravy editoru
+  await nav(page, 'taktiky');
+  await page.waitForSelector('#tacMent');
+  const oldName = await page.inputValue('#tacName');
+  const shownId = await page.inputValue('#tacSelect');
+  await page.fill('#tacMent', 'Rozepsaná mentalita, ještě neuložená');
+  await phone.page.evaluate((id) => {
+    const t = window.FM27.app.store.get('tactic', id);
+    return window.FM27.app.store.put('tactic', Object.assign(window.FM27.app.store.draft(t), { name: 'Přejmenováno jinde' }));
+  }, shownId);
+  await page.waitForSelector('#remoteNotice', { timeout: 8000 }).catch(() => {});
+  check('03 změna z jiného zařízení při rozepsaných úpravách: aplikace upozorní a nepřekreslí', (await page.isVisible('#remoteNotice')) && (await page.inputValue('#tacMent')) === 'Rozepsaná mentalita, ještě neuložená' && (await page.inputValue('#tacName')) === oldName, { notice: await page.isVisible('#remoteNotice'), ment: await page.inputValue('#tacMent') });
+  await page.getByRole('button', { name: 'Načíst novou verzi' }).click();
+  await page.waitForSelector('#tacName');
+  check('03 „Načíst novou verzi“ zobrazí změněnou taktiku a upozornění zmizí', (await page.inputValue('#tacName')) === 'Přejmenováno jinde' && !(await page.isVisible('#remoteNotice').catch(() => false)), await page.inputValue('#tacName'));
+  // bez rozepsaných úprav se obrazovka překreslí sama
+  await phone.page.evaluate((id) => {
+    const t = window.FM27.app.store.get('tactic', id);
+    return window.FM27.app.store.put('tactic', Object.assign(window.FM27.app.store.draft(t), { name: 'Podruhé přejmenováno' }));
+  }, shownId);
+  await page.waitForFunction(() => document.querySelector('#tacName') && document.querySelector('#tacName').value === 'Podruhé přejmenováno', null, { timeout: 8000 }).catch(() => {});
+  check('03 bez rozepsaných úprav se změna z jiného zařízení projeví sama', (await page.inputValue('#tacName')) === 'Podruhé přejmenováno', await page.inputValue('#tacName'));
 
   for (const x of [c, phone]) {
     check('03 bez chyb ve skriptu', x.problems.page.length === 0, x.problems.page);

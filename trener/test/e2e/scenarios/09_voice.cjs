@@ -56,6 +56,19 @@ module.exports = async function run(env) {
   sp = await spokenOf(page);
   check('09 hlasitost a rychlost z nastavení se opravdu použijí', sp.length === 2 && sp[1].volume === 0.4 && sp[1].rate === 1.2, sp);
 
+  // ---------- výběr hlasu: jen české hlasy, uložený hlas se použije
+  const choices = await page.evaluate(() => [...document.querySelectorAll('#setVoiceName option')].map((o) => ({ v: o.value, t: o.textContent })));
+  check('09 výběr hlasu nabízí jen české hlasy zařízení (anglický se nenabízí) a automatickou volbu', choices.length === 3 && choices[0].v === '' && choices.some((c) => c.v === 'test-cs') && choices.some((c) => c.v === 'test-cs-2' && /online/.test(c.t)) && !choices.some((c) => c.v === 'test-en'), choices);
+  await page.selectOption('#setVoiceName', 'test-cs-2');
+  await until(async () => (await voiceSettings(page)).voiceURI === 'test-cs-2');
+  await page.click('#voiceTest');
+  await until(async () => (await spokenOf(page)).length === 3);
+  sp = await spokenOf(page);
+  check('09 zvolený hlas se opravdu použije', sp[2].voice === 'test-cs-2', sp[2]);
+  await page.selectOption('#setVoiceName', '');
+  await until(async () => (await voiceSettings(page)).voiceURI === '');
+  await page.evaluate(() => window.__spoken.splice(2)); // zkouška výběru se do dalšího počítání hlášení nezapočítává
+
   // ---------- pravidla upozornění (stejný kód jako v Live Coachi): vypnuto → ticho → četnost → odstup → duplicita
   const A1 = { id: 'a1', severity: 'alert', text: 'Pozor, soupeř opakovaně využívá prostor za pravým obráncem. Doporučuji změnit jeho povinnost na obranu.' };
   let d = await decide(page, A1);
@@ -275,10 +288,16 @@ module.exports = async function run(env) {
   ns = await show(FINDING);
   const sent = await notes();
   check('09 důležité upozornění při skrytém okně přijde jako oznámení s krátkým textem', ns.shown === true && sent.length === 1 && sent[0].title === 'FM27 Coach: Soupeř tlačí po křídle' && sent[0].body.length <= 180 && sent[0].tag === 'det-1', { ns, sent });
+  // zkušební oznámení z Nastavení a omezení opakování: stejný nález podruhé hned po sobě se neposílá
+  ns = await show(FINDING);
+  check('09 stejné upozornění se hned podruhé jako oznámení neposílá (duplicita)', ns.shown === false && ns.reason === 'duplicate' && (await notes()).length === 1, ns);
+  await fp.click('#notifyTest');
+  await until(async () => (await notes()).length === 2);
+  check('09 „Zkušební oznámení“ opravdu pošle oznámení a řekne, co dělat, když ho uživatel nevidí', /Zkušební oznámení jsem poslal/.test(await text(fp, '#notifyMsg')) && (await notes())[1].title === 'FM27 Coach', await text(fp, '#notifyMsg'));
   await fp.uncheck('#setNotify');
   await until(async () => (await fp.evaluate(() => window.FM27.app.settings().notify.enabled)) === false);
   ns = await show(FINDING);
-  check('09 po vypnutí se oznámení neposílají', ns.shown === false && ns.reason === 'off' && (await notes()).length === 1, ns);
+  check('09 po vypnutí se oznámení neposílají', ns.shown === false && ns.reason === 'off' && (await notes()).length === 2, ns);
   await fp.evaluate(() => {
     window.__notePerm = 'default';
     window.__noteAnswer = 'denied';
@@ -288,6 +307,40 @@ module.exports = async function run(env) {
   check('09 zakázané oznámení se nezapne a aplikace řekne, kde je povolit', !(await fp.isChecked('#setNotify')) && (await fp.evaluate(() => window.FM27.app.settings().notify.enabled)) === false && /Povol je v nastavení webu/.test(await text(fp, '#notifyMsg')), await text(fp, '#notifyMsg'));
   check('09 E: bez chyb ve skriptu', f.problems.page.length === 0, f.problems.page);
   await f.context.close();
+
+  // Chrome na Androidu: `new Notification` vyhodí výjimku, oznámení jde jen přes service worker
+  const droid = await newContext(browser, { standalone: true });
+  await droid.context.addInitScript(NOTE);
+  await droid.context.addInitScript(() => {
+    const Original = window.Notification;
+    window.Notification = class extends Original {
+      constructor() {
+        throw new TypeError("Failed to construct 'Notification': Illegal constructor. Use ServiceWorkerRegistration.showNotification() instead.");
+      }
+    };
+    window.Notification.requestPermission = Original.requestPermission;
+    Object.defineProperty(window.Notification, 'permission', { get: () => window.__notePerm });
+    window.__swNotes = [];
+    navigator.serviceWorker.getRegistration = async () => ({
+      showNotification: async (title, options) => {
+        window.__swNotes.push({ title, body: options && options.body, tag: options && options.tag });
+      },
+    });
+  });
+  await open(droid.page, 'nastaveni');
+  await droid.page.check('#setNotify');
+  await until(async () => (await droid.page.evaluate(() => window.FM27.app.settings().notify.enabled)) === true);
+  await droid.page.evaluate(() => (window.__hidden = true));
+  const viaSw = await droid.page.evaluate(async (x) => {
+    const r = window.FM27.notify.show(window.FM27.app, x);
+    return { shown: r.shown, via: r.via, ok: await r.pending };
+  }, FINDING);
+  const swNotes = await droid.page.evaluate(() => window.__swNotes);
+  check('09 na Androidu (konstruktor vyhodí výjimku) se oznámení pošle přes service worker', viaSw.shown === true && viaSw.via === 'serviceWorker' && viaSw.ok === true && swNotes.length === 1 && swNotes[0].title === 'FM27 Coach: Soupeř tlačí po křídle', { viaSw, swNotes });
+  await droid.page.click('#notifyTest');
+  await until(async () => (await droid.page.evaluate(() => window.__swNotes.length)) === 2);
+  check('09 zkušební oznámení jde na Androidu také přes service worker', /Zkušební oznámení jsem poslal/.test(await text(droid.page, '#notifyMsg')), await text(droid.page, '#notifyMsg'));
+  await droid.context.close();
 
   // ====================================================== D) zařízení bez české hlasové zásoby
   const e = await newContext(browser, {});

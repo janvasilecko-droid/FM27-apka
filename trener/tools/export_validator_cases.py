@@ -228,6 +228,62 @@ add("úryvek není důkaz o zápase", patched(**{"evidenceA.refs": [PASSAGE], "e
 add("necitovaný úryvek", patched(**{"diagnosis.refs": ["obs-1", "bk:zzz:1:1"]}), passages=PASSAGES)
 add("úryvek bez předaných úryvků", patched(**{"diagnosis.refs": ["obs-1", PASSAGE]}))
 
+# --- nálezy nezávislé revize (4. 11. 2026) -----------------------------------------------------------------
+OBS2 = {
+    **OBS,
+    "shot-3": {"label": "screenshot_verified", "text": "DEMO ověřený screenshot 3"},
+    "snap-1": {"label": "screenshot_verified", "text": "DEMO statistiky ze sledování zápasu", "scope": "live"},
+}
+nav_observed = {"change.items.0.where_tier": "observed"}
+add("observed navigace z čísel ze sledování zápasu", patched(**nav_observed, **{"change.items.0.refs": ["snap-1"]}), obs=OBS2)
+add("observed navigace z ověřeného screenshotu (jsou i čísla ze sledování)", patched(**nav_observed, **{"change.items.0.refs": ["shot-1"]}), obs=OBS2)
+add("observed navigace z čísel i ze screenshotu", patched(**nav_observed, **{"change.items.0.refs": ["snap-1", "shot-1"]}), obs=OBS2)
+
+
+def high(a_refs, b_refs, **more):
+    return patched(
+        **{
+            "evidenceA": {"text": "Ověřené screenshoty ukazují vzdálenost řad.", "tier": "observed", "refs": a_refs},
+            "evidenceB": {"text": "Další ověřené screenshoty ukazují totéž.", "tier": "observed", "refs": b_refs},
+            "diagnosis": {"text": "Záložní řada je opakovaně daleko od útočníka.", "tier": "observed", "refs": a_refs},
+            "confidence.level": "high",
+            **more,
+        }
+    )
+
+
+add("high: oba důkazy na týchž dvou pozorováních", high(["shot-1", "shot-2"], ["shot-1", "shot-2"]), obs=OBS2)
+add("high: druhý důkaz je jen podmnožina prvního", high(["shot-1", "shot-2"], ["shot-1"]), obs=OBS2)
+add("high: první důkaz je jen podmnožina druhého", high(["shot-1"], ["shot-1", "shot-2"]), obs=OBS2)
+add("high: každý důkaz má vlastní pozorování i sdílené", high(["shot-1", "shot-3"], ["shot-2", "shot-3"]), obs=OBS2)
+add("medium: druhý důkaz je podmnožina prvního jen varuje", high(["shot-1", "shot-2"], ["shot-1"], **{"confidence.level": "medium"}), obs=OBS2)
+add(
+    "úryvek z knihy mezi důkazy vedle pozorování",
+    patched(**{"evidenceA.refs": ["obs-1", PASSAGE], "evidenceA.tier": "inferred"}),
+    passages=PASSAGES,
+)
+add("odkazy u změny jsou text", patched(**{"change.items.0.refs": "shot-1"}))
+add("odkazy u změny nejsou texty", patched(**{"change.items.0.refs": [42, None]}))
+add("odkaz u změny neexistuje", patched(**{"change.items.0.refs": ["neexistuje"]}))
+add("odkaz u změny na pozorování", patched(**{"change.items.0.refs": ["obs-1"]}))
+add("mechanika v názvu nastavení", patched(**{"change.items.0.setting": "Skryté atributy: Konzistence"}))
+add("mechanika v cílové hodnotě", patched(**{"change.items.0.to": "CA nad 150"}))
+add("mechanika v krocích menu", patched(**{"change.items.0.where": ["Taktika", "Match engine"]}))
+add("mechanika ve zdůvodnění jistoty", patched(**{"confidence.text": "Jistota vychází ze současné schopnosti hráče."}))
+for index, phrase in enumerate(
+    [
+        "match-engine ve FM27 upřednostňuje křídla",
+        "matchengine favorizuje dlouhé míče",
+        "herní motor zvýhodňuje rychlé útočníky",
+        "skryté hodnoty hráčů rozhodují",
+        "Hidden stats like consistency matter",
+        "potenciál (pa) hráče je vysoký",
+        "aktuální schopnost hráče je nízká",
+    ]
+):
+    add(f"jiné vyjádření mechaniky {index + 1}", patched(**{"context.text": phrase}))
+add("závorka s pasivní není mechanika", patched(**{"risk.items": ["Riziko: (pasivní) obrana nekryje prostor za zády"]}))
+
 out = ROOT / "trener" / "test" / "fixtures" / "validator_cases.json"
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps(cases, ensure_ascii=False, indent=1), encoding="utf-8")

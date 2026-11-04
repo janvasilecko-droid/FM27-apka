@@ -113,6 +113,25 @@ module.exports = async function run(env) {
   await page.click('#liveStopShare');
   check('06 sdílení jde po návratu zastavit', !(await page.isVisible('#pillLive')) && !(await page.evaluate(() => !!window.FM27.live.session.capture)), '');
 
+  // ---------- nález revize: zahození zápasu při sdílení vypne i štítek SLEDUJI a zruší čtení, které právě běží
+  await page.click('#liveShare');
+  await page.waitForSelector('#pillLive:not([hidden])');
+  await page.evaluate(() => (window.__mock.extractDelayMs = 4000));
+  await page.evaluate((r) => (window.__mock.extractQueue = [r]), reply(70, 6));
+  await page.evaluate(() => window.__screen.draw(7));
+  await until(async () => (await page.evaluate(() => window.FM27.live.session.busy)) === true, 14000);
+  await page.locator('#liveHeader').getByRole('button', { name: 'Zahodit zápas' }).click();
+  await page.locator('#liveHeader').getByRole('button', { name: 'Opravdu zahodit?' }).click();
+  await page.waitForSelector('#liveStart');
+  check('06 po zahození zápasu při sdílení zmizí štítek SLEDUJI a sdílení se zastaví', !(await page.isVisible('#pillLive')) && !(await page.evaluate(() => !!window.FM27.live.session.capture)), await page.isVisible('#pillLive'));
+  await page.fill('#liveOpp', 'Jiný soupeř');
+  await page.click('#liveStart');
+  await page.waitForSelector('#liveCapture');
+  await page.waitForTimeout(1500);
+  const snaps = await page.evaluate(() => window.FM27.app.store.list('match').filter((m) => m.status === 'live').map((m) => ({ opp: m.opponent, n: m.timeline.length })));
+  check('06 čtení snímku, které běželo při zahození zápasu, se nezapsalo do nového zápasu', snaps.length === 1 && snaps[0].opp === 'Jiný soupeř' && snaps[0].n === 0, snaps);
+  await page.evaluate(() => (window.__mock.extractDelayMs = 0));
+
   check('06 bez chyb ve skriptu', c.problems.page.length === 0, c.problems.page);
   await c.context.close();
 };

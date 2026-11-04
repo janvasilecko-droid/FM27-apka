@@ -99,6 +99,7 @@ module.exports = async function run(env) {
 
   // ---------- smazání všech dat
   await nav(pc.page, 'nastaveni');
+  await pc.page.evaluate(() => localStorage.setItem('fm27.lessons', '{"A1":{"zkouska":true}}')); // složené lekce zůstávají jen v zařízení
   const purge = pc.page.getByRole('button', { name: 'Smazat všechna data aplikace' });
   await purge.click();
   await pc.page.getByRole('button', { name: 'Opravdu smazat úplně všechno?' }).click();
@@ -107,6 +108,35 @@ module.exports = async function run(env) {
   await until(() => [...server.docs.values()].every((d) => d.data === null));
   const leftovers = [...server.docs.values()].filter((d) => d.data !== null);
   check('02 na serveru nezůstal žádný obsah uživatele', leftovers.length === 0, leftovers.map((d) => d.key));
+  check('02 smazání všeho odstranilo i složené lekce, které jsou jen v zařízení', (await pc.page.evaluate(() => localStorage.getItem('fm27.lessons'))) === null);
+
+  // ---------- záloha po smazání všeho: obnova kariéru vrátí i na druhém zařízení (nález revize: náhrobky obnovu blokovaly)
+  await nav(pc.page, 'nastaveni');
+  await pc.page.setInputFiles('#importData', { name: 'fm27-data.json', mimeType: 'application/json', buffer: Buffer.from(saves[0].text) });
+  await pc.page.waitForFunction(() => document.querySelector('#careerSelect') && /Sparta/.test(document.querySelector('#careerSelect').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('02 záloha po smazání všeho vrátí kariéru (ne „Nic nového k obnovení“)', (await careerOptions(pc.page)).some((t) => /Sparta/.test(t)), await careerOptions(pc.page));
+  check('02 obnova po smazání se přenese i na telefon', await phone.page.waitForFunction(() => document.querySelector('#careerSelect') && /Sparta/.test(document.querySelector('#careerSelect').textContent), null, { timeout: 8000 }).then(() => true, () => false), await careerOptions(phone.page));
+
+  // ---------- poškozený dokument v záloze nezablokuje aplikaci
+  const bad = {
+    format: 'fm27-trener-data',
+    version: 1,
+    docs: [
+      { key: 'career_zly', type: 'career', id: 'zly', updatedAt: 5, deleted: false, careerId: null, data: null },
+      { key: 'career_dobry', type: 'career', id: 'dobry', updatedAt: 6, deleted: false, careerId: null, data: { id: 'dobry', club: 'Dobrý klub', createdAt: 1 } },
+    ],
+  };
+  await solo.page.setInputFiles('#importData', { name: 'poskozena.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
+  await solo.page.waitForFunction(() => /Poškozených dokumentů přeskočeno: 1/.test(document.querySelector('#toast').textContent), null, { timeout: 5000 }).catch(() => {});
+  check('02 záloha s jedním poškozeným dokumentem: platný se přijme, poškozený se přeskočí a aplikace řekne kolik', /Obnoveno dokumentů: 1\. Poškozených dokumentů přeskočeno: 1/.test(await text(solo.page, '#toast')), await text(solo.page, '#toast'));
+  await solo.page.reload();
+  await solo.page.waitForFunction(() => window.__trenerReady === true, null, { timeout: 15000 });
+  check('02 po obnovení stránky se aplikace s tou zálohou normálně spustí a kariéra je na místě', (await careerOptions(solo.page)).some((t) => /Dobrý klub/.test(t)) && !(await solo.page.evaluate(() => window.__trenerError)), await careerOptions(solo.page));
+
+  // ---------- dokument, který se nevejde do synchronizace, je vidět (ne jen v nápovědě) a nepřepíše se
+  await pc.page.evaluate(() => window.FM27.app.store.put('match', { id: 'velky', careerId: window.FM27.app.careerId, opponent: 'X', status: 'finished', timeline: [], changes: [], notes: 'ě'.repeat(130 * 1024) }));
+  await pc.page.waitForFunction(() => /Nesynchronizuje se/.test(document.querySelector('#pillSync').textContent), null, { timeout: 5000 }).catch(() => {});
+  check('02 příliš velký dokument je vidět ve stavu synchronizace a vysvětlený', /Nesynchronizuje se: 1 dokument/.test(await text(pc.page, '#pillSync')) && /příliš velký na synchronizaci[\s\S]*zůstává jen v tomto zařízení/.test(await pc.page.getAttribute('#pillSync', 'title')), await pc.page.getAttribute('#pillSync', 'title'));
 
   for (const c of [pc, phone, other, solo]) {
     check('02 bez chyb ve skriptu', c.problems.page.length === 0, c.problems.page);

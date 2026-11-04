@@ -204,6 +204,46 @@
     if (value !== undefined && value !== null) el.value = value;
     return el;
   };
+  /** Obrazovka s formulářem se po změně z druhého zařízení nesmí překreslit pod rukama, když má uživatel neuložené úpravy.
+      guard = ui.dirtyGuard(root, app, draw): v `draw` zavolej guard.reset(), při vzdálené změně guard.onRemote() (bez úprav
+      překreslí, s úpravami ukáže upozornění s volbou „Načíst novou verzi“). */
+  ui.dirtyGuard = (root, app, draw) => {
+    let dirty = false;
+    let notice = null;
+    const mark = (e) => {
+      const t = e.target;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && t.type !== 'file') dirty = true;
+    };
+    root.addEventListener('input', mark, true);
+    root.addEventListener('change', mark, true);
+    if (app && app.onCleanup)
+      app.onCleanup(() => {
+        root.removeEventListener('input', mark, true);
+        root.removeEventListener('change', mark, true);
+      });
+    return {
+      reset() {
+        dirty = false;
+        notice = null;
+      },
+      isDirty: () => dirty,
+      onRemote() {
+        if (!dirty) return draw();
+        if (notice && notice.isConnected) return;
+        notice = ui.h(
+          'div',
+          { class: 'banner warn', id: 'remoteNotice' },
+          ui.h('b', { text: 'Tahle část se změnila na jiném zařízení' }),
+          ui.h('span', { text: 'Máš tu neuložené úpravy, proto se obrazovka nepřekreslila. Ulož je (přepíšou novější verzi), nebo načti novou verzi (úpravy se zahodí).' }),
+          ui.h('div', { class: 'actions' }, ui.h('button', { class: 'btn small', type: 'button', text: 'Načíst novou verzi', onclick: () => draw() }))
+        );
+        root.prepend(notice);
+      },
+    };
+  };
+
+  /** Tlačítko, které otevře výběr souboru skrytého inputu. Štítek k skrytému inputu nejde zaměřit klávesnicí, tlačítko ano. */
+  ui.pickButton = (text, input, props) => ui.h('button', Object.assign({ type: 'button', class: 'btn', text, onclick: () => input.click() }, props));
   ui.card = (title, ...kids) => ui.h('section', { class: 'card' }, title ? ui.h('h2', { text: title }) : null, ...kids);
   ui.emptyState = (title, text, ...actions) =>
     ui.h('div', { class: 'empty' }, ui.h('b', { text: title }), text ? ui.h('p', { class: 'hint', text }) : null, actions.length ? ui.h('div', { class: 'actions' }, ...actions) : null);

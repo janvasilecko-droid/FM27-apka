@@ -34,11 +34,11 @@ Pravidla (platí bez výjimky):
   function buildExplainTurns(input) {
     const t = input.tactic;
     const names = input.playerNames || {};
-    const slotLines = (t.slots || []).map((s) => `- ${s.key} | ${s.pos} | ${s.playerId && names[s.playerId] ? names[s.playerId] : 'bez hráče'} | role: ${s.role || '?'}${s.duty ? ' (' + s.duty + ')' : ''} | x=${Math.round(input.phase === 'out' ? s.ox : s.x)}, y=${Math.round(input.phase === 'out' ? s.oy : s.y)}`).join('\n');
-    const facts = (input.facts || []).map((o) => `- ${o.id} | ${o.text}`).join('\n') || '(žádná)';
-    const passages = input.passages || [];
-    const passageLines = passages.length ? passages.map((p) => `- ${p.id} | ${p.title} | ${p.where} | ${p.text}`).join('\n') : '(žádné: vysvětlení nevychází z knih, řekni to)';
-    const body = `${RULES}\n\n${SHAPE_TEXT}\n\nTaktika „${t.name}“, formace ${t.formation}, fáze ${input.phase === 'out' ? 'bez míče' : 's míčem'}. Sloty (klíč | pozice | hráč | role a povinnost podle uživatele | souřadnice):\n${slotLines}\n\nFakta o rozložení (id | text):\n${facts}\n\nZdroje znalostí:\n${input.sourcesDigest || '(žádné)'}\n\nÚryvky z knih (id | kniha | kde | text), teorie:\n${passageLines}\n`;
+    const one = Core.oneLine;
+    const slotLines = (t.slots || []).map((s) => `- ${one(s.key, 20)} | ${one(s.pos, 10)} | ${s.playerId && names[s.playerId] ? one(names[s.playerId], 80) : 'bez hráče'} | role: ${one(s.role, 80) || '?'}${s.duty ? ' (' + one(s.duty, 40) + ')' : ''} | x=${Math.round(input.phase === 'out' ? s.ox : s.x)}, y=${Math.round(input.phase === 'out' ? s.oy : s.y)}`).join('\n');
+    const facts = (input.facts || []).map((o) => `- ${one(o.id, 60)} | ${one(o.text, 600)}`).join('\n') || '(žádná)';
+    const passageLines = Core.formatPassageLines(input.passages, '(žádné: vysvětlení nevychází z knih, řekni to)');
+    const body = `${RULES}\n${Core.DATA_RULE}\n\n${SHAPE_TEXT}\n\nTaktika „${one(t.name, 80)}“, formace ${one(t.formation, 20)}, fáze ${input.phase === 'out' ? 'bez míče' : 's míčem'}. Sloty (klíč | pozice | hráč | role a povinnost podle uživatele | souřadnice):\n${slotLines}\n\nFakta o rozložení (id | text):\n${facts}\n\nZdroje znalostí:\n${input.sourcesDigest || '(žádné)'}\n\nÚryvky z knih (id | kniha | kde | text), teorie:\n${passageLines}\n`;
     return [{ role: 'user', content: body }];
   }
 
@@ -64,10 +64,15 @@ Pravidla (platí bez výjimky):
         const name = `${key}[${i + 1}]`;
         errors.push(...Core.checkClaim(name, item, ctx, opts).errors);
         if (!isObject(item)) return;
-        const slots = Array.isArray(item.slots) ? item.slots : [];
+        const rawSlots = item.slots === undefined || item.slots === null ? [] : item.slots;
+        if (!Array.isArray(rawSlots) || !rawSlots.every((v) => typeof v === 'string')) errors.push(`${name}: slots musí být seznam textů (klíčů slotů).`);
+        const slots = Array.isArray(rawSlots) ? rawSlots.filter((v) => typeof v === 'string') : [];
         if (!slots.length) warnings.push(`${name}: bez uvedených slotů.`);
         for (const s of slots) if (!slotKeys.has(s)) errors.push(`${name}: slot „${s}“ v rozložení není.`);
-        if (key === 'conflicts' && !(Array.isArray(item.refs) && item.refs.some((r) => /^geo-/.test(r)))) errors.push(`${name}: konflikt musí odkazovat na nález (geo-…), nevymýšlej nové.`);
+        // Konflikt musí stát na nálezu konfliktu nebo přetížení, ne na neutrálním faktu o tvaru (geo-shape-…).
+        const conflictIds = ctx && ctx.conflictIds ? new Set(ctx.conflictIds) : null;
+        const isConflictRef = (r) => (conflictIds ? conflictIds.has(r) : /^geo-(?!shape-)/.test(r));
+        if (key === 'conflicts' && !(Array.isArray(item.refs) && item.refs.some((r) => typeof r === 'string' && isConflictRef(r)))) errors.push(`${name}: konflikt musí odkazovat na nález konfliktu (např. geo-line-gap-…), ne na neutrální fakt o tvaru; nevymýšlej nové.`);
       });
     }
     const u = x.unknown;

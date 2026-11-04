@@ -84,6 +84,16 @@
     const Tc = T();
     let work = null; // pracovní kopie taktiky A, mění se při přesouvání
     let saveTimer = 0;
+    // Změna z druhého zařízení se nepromítne uprostřed přesouvání hráče ani před uložením úpravy: počká se na uložení.
+    let busy = false;
+    let pendingRemote = false;
+    const settle = () => {
+      busy = false;
+      if (pendingRemote) {
+        pendingRemote = false;
+        build();
+      }
+    };
     const names = () => Object.fromEntries(FM27.context.players(app).map((p) => [p.id, p.name]));
 
     const build = () => {
@@ -218,6 +228,7 @@
         const g = ev.target.closest && ev.target.closest('.pl');
         if (!g) return;
         drag = { key: g.getAttribute('data-key') };
+        busy = true;
         try {
           svgEl.setPointerCapture(ev.pointerId);
         } catch (e) {
@@ -242,6 +253,7 @@
         saveTimer = setTimeout(async () => {
           await app.store.put('tactic', work);
           toast('Rozestavení je uložené.');
+          settle();
         }, 150);
       };
       svgEl.addEventListener('pointerup', endDrag);
@@ -263,7 +275,11 @@
         const again = svgEl.querySelector(`[data-key="${s.key}"]`);
         if (again) again.focus();
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => app.store.put('tactic', work), 400);
+        busy = true;
+        saveTimer = setTimeout(async () => {
+          await app.store.put('tactic', work);
+          settle();
+        }, 400);
       });
 
       // ---- vysvětlení od modelu
@@ -300,7 +316,7 @@
           const turns = E.buildExplainTurns({ tactic: work, phase: state.phase, facts: observations, passages: Object.values(passageCtx), playerNames: names(), sourcesDigest: app.registry.digest() });
           const result = await ai.structured({
             turns,
-            validate: (x) => E.validateExplain(x, { observations: obsMap, passages: new Set(Object.keys(passageCtx)), registry: app.registry, slotKeys: work.slots.map((s) => s.key) }),
+            validate: (x) => E.validateExplain(x, { observations: obsMap, passages: new Set(Object.keys(passageCtx)), registry: app.registry, slotKeys: work.slots.map((s) => s.key), conflictIds: observations.filter((o) => !/^geo-shape-/.test(o.id)).map((o) => o.id) }),
             tier: 'default',
             signal: ctl.signal,
             purpose: 'vysvětlení rozložení',
@@ -351,7 +367,11 @@
     };
 
     build();
-    app.watch(['tactic', 'player', 'career'], (e) => e && e.origin === 'remote' && build());
+    app.watch(['tactic', 'player', 'career'], (e) => {
+      if (!(e && e.origin === 'remote')) return;
+      if (busy) pendingRemote = true;
+      else build();
+    });
     app.onCleanup(() => {
       if (running) running.abort();
     });

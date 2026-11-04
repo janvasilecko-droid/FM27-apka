@@ -112,6 +112,18 @@ module.exports = async function run(env) {
   check('08 telefon: škola bez vodorovného posouvání', o.sw <= o.cw, o);
   await phone.context.close();
 
+  // ---------- nález revize: vysvětlení bez opory v knihách se nehodnotí a nezapisuje do pokroku
+  const nb = await newContext(browser, { uid: 'u9' });
+  await open(nb.page, 'skola');
+  await nb.page.click('#scenarioNext');
+  await nb.page.waitForSelector('#scenarioSituation', { timeout: 20000 });
+  await nb.page.locator('#scenarioBox .option[data-option="a"]').click();
+  await nb.page.waitForSelector('#scenarioReveal .banner');
+  const ungraded = await nb.page.evaluate(() => ({ banner: !!document.querySelector('#scenarioUngraded'), progress: window.FM27.app.store.get('progress', 'progress') }));
+  check('08 bez knih se scénář nehodnotí: aplikace to řekne a výsledek nezapočítá', ungraded.banner && /nemá oporu v tvých knihách, takže se nehodnotí/.test(await text(nb.page, '#scenarioReveal')) && /nezapočítá/.test(await text(nb.page, '#scenarioReveal')), await text(nb.page, '#scenarioReveal'));
+  check('08 nehodnocený scénář nic nezapsal do pokroku ani mezi chyby', !ungraded.progress || (ungraded.progress.mistakes.length === 0 && Object.values(ungraded.progress.skills || {}).every((x) => !x.seen)), ungraded.progress);
+  await nb.context.close();
+
   check('08 bez chyb ve skriptu', c.problems.page.length === 0, c.problems.page);
   const consoleErrors = c.problems.console.filter((m) => !/Failed to load resource/.test(m));
   check('08 bez chyb v konzoli', consoleErrors.length === 0, consoleErrors);

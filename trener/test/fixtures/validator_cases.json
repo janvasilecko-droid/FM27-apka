@@ -1775,7 +1775,7 @@
   "expected": {
    "ok": false,
    "errors": [
-    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA a evidenceB s různými pozorováními screenshot_verified), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified) nebo tvrzení uživatele."
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
    ],
    "warnings": [
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
@@ -2003,7 +2003,7 @@
   "expected": {
    "ok": false,
    "errors": [
-    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA a evidenceB s různými pozorováními screenshot_verified), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified) nebo tvrzení uživatele."
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
    ],
    "warnings": [
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
@@ -2229,7 +2229,7 @@
   "expected": {
    "ok": false,
    "errors": [
-    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA a evidenceB s různými pozorováními screenshot_verified), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified) nebo tvrzení uživatele."
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
    ],
    "warnings": [
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
@@ -2344,7 +2344,7 @@
   "expected": {
    "ok": false,
    "errors": [
-    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA a evidenceB s různými pozorováními screenshot_verified), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified) nebo tvrzení uživatele."
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
    ],
    "warnings": [
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
@@ -2908,7 +2908,7 @@
    "ok": true,
    "errors": [],
    "warnings": [
-    "evidenceA a evidenceB stojí na stejném pozorování, nejsou nezávislé.",
+    "evidenceA a evidenceB nejsou nezávislé: jedno z nich stojí jen na pozorováních, která použilo i druhé.",
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
    ],
    "needs_verification": true
@@ -4778,7 +4778,7 @@
   "expected": {
    "ok": false,
    "errors": [
-    "change[1]: navigace označená jako observed musí odkazovat na pozorování screenshot_verified."
+    "change[1]: navigace označená jako observed musí odkazovat na ověřené pozorování (screenshot_verified), které ukazuje nabídku nebo nastavení; čísla ze sledování zápasu to nedokazují."
    ],
    "warnings": [],
    "needs_verification": false
@@ -7394,7 +7394,8 @@
   "expected": {
    "ok": false,
    "errors": [
-    "evidenceA: důkaz musí odkazovat alespoň na jedno pozorování (id)."
+    "evidenceA: důkaz musí odkazovat alespoň na jedno pozorování (id).",
+    "evidenceA: úryvek z knihy tu nemůže být důkaz; je to teorie, ne pozorování."
    ],
    "warnings": [
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
@@ -7628,6 +7629,2961 @@
    "errors": [
     "diagnosis: odkaz „bk:abc:12:3“ neodpovídá žádnému pozorování ani zdroji."
    ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "observed navigace z čísel ze sledování zápasu",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "observed",
+      "refs": [
+       "snap-1"
+      ]
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: navigace označená jako observed musí odkazovat na ověřené pozorování (screenshot_verified), které ukazuje nabídku nebo nastavení; čísla ze sledování zápasu to nedokazují."
+   ],
+   "warnings": [],
+   "needs_verification": false
+  }
+ },
+ {
+  "name": "observed navigace z ověřeného screenshotu (jsou i čísla ze sledování)",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "observed",
+      "refs": [
+       "shot-1"
+      ]
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": true,
+   "errors": [],
+   "warnings": [],
+   "needs_verification": false
+  }
+ },
+ {
+  "name": "observed navigace z čísel i ze screenshotu",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "observed",
+      "refs": [
+       "snap-1",
+       "shot-1"
+      ]
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": true,
+   "errors": [],
+   "warnings": [],
+   "needs_verification": false
+  }
+ },
+ {
+  "name": "high: oba důkazy na týchž dvou pozorováních",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Ověřené screenshoty ukazují vzdálenost řad.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "evidenceB": {
+    "text": "Další ověřené screenshoty ukazují totéž.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Záložní řada je opakovaně daleko od útočníka.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
+   ],
+   "warnings": [
+    "evidenceA a evidenceB nejsou nezávislé: jedno z nich stojí jen na pozorováních, která použilo i druhé.",
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "high: druhý důkaz je jen podmnožina prvního",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Ověřené screenshoty ukazují vzdálenost řad.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "evidenceB": {
+    "text": "Další ověřené screenshoty ukazují totéž.",
+    "tier": "observed",
+    "refs": [
+     "shot-1"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Záložní řada je opakovaně daleko od útočníka.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
+   ],
+   "warnings": [
+    "evidenceA a evidenceB nejsou nezávislé: jedno z nich stojí jen na pozorováních, která použilo i druhé.",
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "high: první důkaz je jen podmnožina druhého",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Ověřené screenshoty ukazují vzdálenost řad.",
+    "tier": "observed",
+    "refs": [
+     "shot-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Další ověřené screenshoty ukazují totéž.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Záložní řada je opakovaně daleko od útočníka.",
+    "tier": "observed",
+    "refs": [
+     "shot-1"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "confidence: high vyžaduje dva nezávislé ověřené důkazy (evidenceA i evidenceB mají každé aspoň jedno pozorování screenshot_verified, které druhé nepoužívá), ne jen neověřené strojové čtení (ocr_unverified / vision_unverified), tvrzení uživatele nebo dvě pozorování sdílená oběma důkazy."
+   ],
+   "warnings": [
+    "evidenceA a evidenceB nejsou nezávislé: jedno z nich stojí jen na pozorováních, která použilo i druhé.",
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "high: každý důkaz má vlastní pozorování i sdílené",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Ověřené screenshoty ukazují vzdálenost řad.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-3"
+    ]
+   },
+   "evidenceB": {
+    "text": "Další ověřené screenshoty ukazují totéž.",
+    "tier": "observed",
+    "refs": [
+     "shot-2",
+     "shot-3"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Záložní řada je opakovaně daleko od útočníka.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-3"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": true,
+   "errors": [],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "medium: druhý důkaz je podmnožina prvního jen varuje",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Ověřené screenshoty ukazují vzdálenost řad.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "evidenceB": {
+    "text": "Další ověřené screenshoty ukazují totéž.",
+    "tier": "observed",
+    "refs": [
+     "shot-1"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Záložní řada je opakovaně daleko od útočníka.",
+    "tier": "observed",
+    "refs": [
+     "shot-1",
+     "shot-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   },
+   "shot-3": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 3"
+   },
+   "snap-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO statistiky ze sledování zápasu",
+    "scope": "live"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": true,
+   "errors": [],
+   "warnings": [
+    "evidenceA a evidenceB nejsou nezávislé: jedno z nich stojí jen na pozorováních, která použilo i druhé.",
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "úryvek z knihy mezi důkazy vedle pozorování",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "bk:abc:12:3"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": [
+   "bk:abc:12:3"
+  ],
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "evidenceA: úryvek z knihy tu nemůže být důkaz; je to teorie, ne pozorování."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "odkazy u změny jsou text",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": "shot-1"
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: refs musí být seznam textů."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "odkazy u změny nejsou texty",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": [
+       42,
+       null
+      ]
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: refs musí být seznam textů."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "odkaz u změny neexistuje",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": [
+       "neexistuje"
+      ]
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: odkaz „neexistuje“ neodpovídá žádnému pozorování ani zdroji."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "odkaz u změny na pozorování",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": [
+       "obs-1"
+      ]
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": true,
+   "errors": [],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "mechanika v názvu nastavení",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "Skryté atributy: Konzistence",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: tvrzení o interní mechanice FM27 („Skryté atributy“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "mechanika v cílové hodnotě",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "CA nad 150",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: tvrzení o interní mechanice FM27 („CA“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "mechanika v krocích menu",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Taktika",
+       "Match engine"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "change[1]: tvrzení o interní mechanice FM27 („Match engine“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "mechanika ve zdůvodnění jistoty",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Jistota vychází ze současné schopnosti hráče."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "confidence: tvrzení o interní mechanice FM27 („současné schopnosti“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 1",
+  "advice": {
+   "context": {
+    "text": "match-engine ve FM27 upřednostňuje křídla",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („match-engine“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 2",
+  "advice": {
+   "context": {
+    "text": "matchengine favorizuje dlouhé míče",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („matchengine“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 3",
+  "advice": {
+   "context": {
+    "text": "herní motor zvýhodňuje rychlé útočníky",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („herní motor“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 4",
+  "advice": {
+   "context": {
+    "text": "skryté hodnoty hráčů rozhodují",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („skryté hodnoty“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 5",
+  "advice": {
+   "context": {
+    "text": "Hidden stats like consistency matter",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („Hidden stats“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 6",
+  "advice": {
+   "context": {
+    "text": "potenciál (pa) hráče je vysoký",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („(pa)“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "jiné vyjádření mechaniky 7",
+  "advice": {
+   "context": {
+    "text": "aktuální schopnost hráče je nízká",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Volný prostor za záložníkem po ztrátě míče"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": false,
+   "errors": [
+    "context: tvrzení o interní mechanice FM27 („aktuální schopnost“) bez ověřeného zdroje; přepiš jako otevřenou otázku do sekce unknown."
+   ],
+   "warnings": [
+    "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
+   ],
+   "needs_verification": true
+  }
+ },
+ {
+  "name": "závorka s pasivní není mechanika",
+  "advice": {
+   "context": {
+    "text": "Uživatel hlásí, že útočník je od 25. minuty bez podpory záložníků.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "evidenceA": {
+    "text": "Strojově vyčtené statistiky ukazují převahu ve střelách (11:3) a držení míče (62 %); samy o sobě izolaci útočníka nedokazují.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1"
+    ]
+   },
+   "evidenceB": {
+    "text": "Uživatel popisuje izolovaného útočníka od 25. minuty.",
+    "tier": "user_entered",
+    "refs": [
+     "obs-2"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "text": "Dva různé zdroje (strojové čtení a popis uživatele), ale žádný ověřený screenshot pozic hráčů."
+   },
+   "diagnosis": {
+    "text": "Možná příčina: záložní řada zůstává hluboko. Je to hypotéza, kterou je nutné ověřit na obrazovce s průměrnými pozicemi.",
+    "tier": "inferred",
+    "refs": [
+     "obs-1",
+     "obs-2"
+    ]
+   },
+   "change": {
+    "text": "Jedna cílená změna u středního záložníka, aby nabízel útočníkovi blízkou podporu.",
+    "items": [
+     {
+      "player": "střední záložník (vyber ve hře)",
+      "setting": "role nebo povinnost (přesný název ověř ve své verzi hry)",
+      "from": "současná povinnost (zjisti ve hře)",
+      "to": "útočnější povinnost ze seznamu, který hra nabízí",
+      "where": [
+       "Otevři obrazovku Taktika",
+       "Vyber konkrétního středního záložníka",
+       "Zkontroluj jeho aktuální roli a povinnost"
+      ],
+      "where_tier": "unknown",
+      "refs": []
+     }
+    ]
+   },
+   "measure": {
+    "text": "Po změně sleduj, jestli se záložníci přiblížili k útočníkovi a přibylo přihrávek do útočné třetiny.",
+    "checks": [
+     "Průměrné pozice záložníků vůči útočníkovi",
+     "Počet přihrávek do útočné třetiny"
+    ],
+    "recheck_after_minutes": 15
+   },
+   "risk": {
+    "text": "Záložník postoupí výš a za ním může vzniknout volný prostor.",
+    "items": [
+     "Riziko: (pasivní) obrana nekryje prostor za zády"
+    ]
+   },
+   "reversal": {
+    "text": "Vrať původní roli a povinnost, kterou sis zapsal v kroku „Zkontroluj aktuální roli“."
+   },
+   "unknown": {
+    "text": "Neověřeno ve hře.",
+    "items": [
+     "Přesný název role a povinnosti a cesta v menu ve tvé verzi FM27 (pošli screenshot obrazovky Taktika)",
+     "Průměrné pozice hráčů (pošli screenshot statistik zápasu)"
+    ]
+   }
+  },
+  "observations": {
+   "obs-1": {
+    "label": "ocr_unverified",
+    "text": "DEMO strojové čtení"
+   },
+   "obs-2": {
+    "label": "user_entered",
+    "text": "DEMO zadal uživatel"
+   },
+   "obs-3": {
+    "label": "ocr_unverified",
+    "text": "DEMO druhé strojové čtení"
+   },
+   "shot-1": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 1"
+   },
+   "shot-2": {
+    "label": "screenshot_verified",
+    "text": "DEMO ověřený screenshot 2"
+   }
+  },
+  "registry": "knowledge",
+  "passages": null,
+  "max_changes": null,
+  "expected": {
+   "ok": true,
+   "errors": [],
    "warnings": [
     "change[1]: název nastavení a navigace nejsou ověřené ve hře; ověř je, než změnu provedeš."
    ],

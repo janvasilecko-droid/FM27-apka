@@ -348,6 +348,73 @@ class MechanicsGuard(unittest.TestCase):
         self.assertTrue(check(advice).ok)
 
 
+class ReviewHardening(unittest.TestCase):
+    """Nálezy nezávislé revize z 4. 11. 2026: mezery, kterými procházelo tvrzení silnější, než unesou důkazy."""
+
+    OBS2 = {
+        **OBS,
+        "shot-3": {"label": "screenshot_verified", "text": "DEMO ověřený screenshot 3"},
+        "snap-1": {"label": "screenshot_verified", "text": "Statistiky ze sledování zápasu", "scope": "live"},
+    }
+    PASSAGES = {"bk:abc:12:3": {"title": "Kniha", "page": 12, "text": "Teorie."}}
+
+    def high(self, a_refs, b_refs):
+        return patched(
+            **{
+                "evidenceA": {"text": "Ověřené screenshoty ukazují vzdálenost řad.", "tier": "observed", "refs": a_refs},
+                "evidenceB": {"text": "Další ověřené screenshoty ukazují totéž.", "tier": "observed", "refs": b_refs},
+                "diagnosis": {"text": "Záložní řada je opakovaně daleko od útočníka.", "tier": "observed", "refs": a_refs},
+                "confidence.level": "high",
+            }
+        )
+
+    def test_observed_navigation_is_not_proven_by_numbers_from_live_tracking(self):
+        bad = check(patched(**{"change.items.0.where_tier": "observed", "change.items.0.refs": ["snap-1"]}), obs=self.OBS2)
+        self.assertFalse(bad.ok)
+        self.assertIn("nabídku nebo nastavení", errors_text(bad))
+        good = check(patched(**{"change.items.0.where_tier": "observed", "change.items.0.refs": ["shot-1"]}), obs=self.OBS2)
+        self.assertTrue(good.ok, good.errors)
+
+    def test_high_needs_each_evidence_to_have_its_own_verified_observation(self):
+        for a_refs, b_refs in ((["shot-1", "shot-2"], ["shot-1", "shot-2"]), (["shot-1", "shot-2"], ["shot-1"]), (["shot-1"], ["shot-1", "shot-2"])):
+            result = check(self.high(a_refs, b_refs), obs=self.OBS2)
+            self.assertFalse(result.ok, (a_refs, b_refs))
+            self.assertIn("nezávislé ověřené důkazy", errors_text(result))
+        self.assertTrue(check(self.high(["shot-1", "shot-3"], ["shot-2", "shot-3"]), obs=self.OBS2).ok)
+
+    def test_book_passage_is_never_part_of_the_evidence(self):
+        advice = patched(**{"evidenceA.refs": ["obs-1", "bk:abc:12:3"], "evidenceA.tier": "inferred"})
+        result = check(advice, passages=self.PASSAGES)
+        self.assertFalse(result.ok)
+        self.assertIn("úryvek z knihy", errors_text(result))
+
+    def test_change_item_refs_must_be_known_texts(self):
+        for bad in ("shot-1", [42, None], ["neexistuje"]):
+            self.assertFalse(check(patched(**{"change.items.0.refs": bad})).ok, bad)
+
+    def test_mechanics_are_caught_in_change_fields_and_confidence_text(self):
+        for path, value in (
+            ("change.items.0.setting", "Skryté atributy: Konzistence"),
+            ("change.items.0.to", "CA nad 150"),
+            ("change.items.0.where", ["Taktika", "Match engine"]),
+            ("confidence.text", "Jistota vychází ze současné schopnosti hráče."),
+        ):
+            self.assertIn("mechanice", errors_text(check(patched(**{path: value}))), path)
+
+    def test_other_phrasings_of_invented_mechanics(self):
+        for phrase in (
+            "match-engine ve FM27 upřednostňuje křídla",
+            "matchengine favorizuje dlouhé míče",
+            "herní motor zvýhodňuje rychlé útočníky",
+            "skryté hodnoty hráčů rozhodují",
+            "Hidden stats like consistency matter",
+            "potenciál (pa) hráče je vysoký",
+            "aktuální schopnost hráče je nízká",
+        ):
+            self.assertFalse(check(patched(**{"context.text": phrase})).ok, phrase)
+        self.assertTrue(check(patched(**{"risk.items": ["Riziko: (pasivní) obrana nekryje prostor za zády"]})).ok)
+
+
 class Rendering(unittest.TestCase):
     def test_ten_numbered_lines_with_tier_labels(self):
         text = render_text_cs(demo_advice())

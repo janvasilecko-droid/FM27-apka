@@ -437,15 +437,23 @@
   };
   const mergeThresholds = (o) => Object.assign({}, DEFAULT_THRESHOLDS, o && o.thresholds);
 
-  /** 'observed' jen když jsou VŠECHNY podkladové snímky screenshot_verified nebo user_entered; jinak 'inferred'. */
+  /** Úroveň podkladů je úroveň nejslabšího snímku: 'observed' jen když jsou VŠECHNY snímky screenshot_verified,
+      'user_entered' když jsou ověřené nebo zadané ručně a aspoň jeden je zadaný ručně (číslo, které uživatel napsal, není
+      ověřený snímek), jinak 'inferred' (strojové čtení nebo neznámý původ). */
   function tierOf(snaps) {
     if (!snaps.length) return 'inferred';
-    const ok = snaps.every((s) => {
+    let weakest = 'observed';
+    for (const s of snaps) {
       const t = core.LABEL_TO_TIER[s.provenance];
-      return t === 'observed' || t === 'user_entered';
-    });
-    return ok ? 'observed' : 'inferred';
+      if (t === 'user_entered') weakest = 'user_entered';
+      else if (t !== 'observed') return 'inferred';
+    }
+    return weakest;
   }
+  const TIER_ORDER = { inferred: 0, user_entered: 1, observed: 2 };
+  const weakerTier = (a, b) => (TIER_ORDER[a] <= TIER_ORDER[b] ? a : b);
+  /** Věta o podkladech nálezu pro model (pozorování): co přesně se na čísla dívalo. */
+  const TIER_BASIS_CS = { observed: 'podloženo ověřenými snímky', user_entered: 'podloženo údaji zadanými ručně (ne ověřeným snímkem)', inferred: 'podloženo neověřeným čtením z obrazu' };
 
   /** Tempo a podíly v okně [fromMinute, toMinute] z rozdílu prvního a posledního snímku se statistikami v okně.
       Okno začínající v minutě ≤ 0 používá jako výchozí stav začátek zápasu (kumulativní součty jsou tam nula),
@@ -536,6 +544,8 @@
         : sampleNote(snaps, c.T);
     return {
       id: parts.id || `${kind}:${last.id}`,
+      // Epizoda: tentýž trvající stav na dalších snímcích je pořád jeden nález (hlásí se jednou, ne při každém snímku).
+      episode: parts.episode || parts.id || kind,
       kind,
       severity: alert ? 'alert' : 'watch',
       title: parts.title,
@@ -718,9 +728,15 @@
   function collectEvents(snaps) {
     const map = new Map();
     for (const s of snaps) {
+      // Stejná událost se v dalších snímcích přečte jinými slovy („Novák červená“ × „Novák (červená karta)“), proto se
+      // porovnává minuta, druh a tým; dvě události téhož druhu v jedné minutě rozliší pořadí v rámci snímku.
+      const ordinal = new Map();
       for (const e of Array.isArray(s.events) ? s.events : []) {
         if (!isObj(e)) continue;
-        const key = `${isNum(e.minute) ? e.minute : ''}|${e.type}|${e.team || ''}|${core.fold(e.text || '')}`;
+        const base = `${isNum(e.minute) ? e.minute : ''}|${e.type}|${e.team || ''}`;
+        const nth = ordinal.get(base) || 0;
+        ordinal.set(base, nth + 1);
+        const key = `${base}|${nth}`;
         let rec = map.get(key);
         if (!rec) {
           rec = { minute: isNum(e.minute) ? e.minute : s.minute, type: e.type, team: asSide(e.team), text: e.text || '', seenIn: [] };
@@ -789,6 +805,7 @@
     return found.slice(0, 3).map((f) =>
       makeFinding(c, 'rating_drop', [f.base.s, f.cur.s], f.long, {
         id: `rating_drop:${f.key}:${f.cur.s.id}`,
+        episode: `rating_drop:${f.key}`,
         title: `Pokles hodnocení: ${f.name}`,
         text:
           `Hodnocení hráče ${f.name} kleslo z ${fmt(f.base.rating)} (${f.base.s.minute}. min) na ${fmt(f.cur.rating)} (${f.cur.s.minute}. min), tedy o ${fmt(f.drop)}. ` +
@@ -832,7 +849,7 @@
         label: 'heuristic_coach',
         minute: isNum(f.minute) ? Math.trunc(f.minute) : null,
         text: clip(
-          `[${f.severity === 'alert' ? 'upozornění' : 'sledovat'}; ${f.evidenceTier === 'observed' ? 'podloženo ověřenými snímky' : 'podloženo neověřeným čtením z obrazu'}] ` +
+          `[${f.severity === 'alert' ? 'upozornění' : 'sledovat'}; ${TIER_BASIS_CS[f.evidenceTier] || TIER_BASIS_CS.inferred}] ` +
             `${f.title || ''}. ${f.text || ''} Základ: ${f.basis || ''}`,
           1500
         ),
@@ -927,7 +944,7 @@
       opp: sideDeltas('opp'),
       possessionChangePp: { before: before.possessionChangePp, after: after.possessionChangePp, diff: ppDiff, verdict: verdictAbs(ppDiff, T.similarPp) },
     };
-    result.evidenceTier = bw.evidenceTier === 'observed' && aw.evidenceTier === 'observed' ? 'observed' : 'inferred';
+    result.evidenceTier = weakerTier(bw.evidenceTier, aw.evidenceTier);
 
     notes.push(`Tempo je na 10 minut; verdikt je jen popis rozdílu (higher/lower/similar, pásmo ±${Math.round(T.similarBand * 100)} %), ne hodnocení změny.`);
     for (const [label, w] of [['před změnou', before], ['po změně', after]]) {
@@ -942,6 +959,7 @@
       notes.push(`Plánované vyhodnocení bylo za ${result.recheckAfterMinutes} min po změně; poslední snímek je ${after.toMinute - minute} min po ní.`);
     }
     if (result.evidenceTier === 'inferred') notes.push('Podkladové snímky nejsou všechny ověřené uživatelem: hodnoty ber jako odhad z čtení obrazu.');
+    else if (result.evidenceTier === 'user_entered') notes.push('Část hodnot jsi zadal ručně: jsou to tvoje údaje, ne ověřené snímky.');
     for (const w of [bw, aw]) for (const msg of w.warnings) notes.push(msg);
     return result;
   }

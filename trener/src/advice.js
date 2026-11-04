@@ -34,12 +34,12 @@
       return { status: 'error', message: e.message, retry: false, ctx: { notes } };
     }
     const obsMap = {};
-    for (const x of observations) obsMap[x.id] = { label: x.label, text: x.text };
+    for (const x of observations) obsMap[x.id] = { label: x.label, text: x.text, scope: x.scope };
     if (o.includeCareer !== false) {
       for (const x of FM27.context.observations(FM27.app)) {
         if (obsMap[x.id]) continue;
         observations.push(x);
-        obsMap[x.id] = { label: x.label, text: x.text };
+        obsMap[x.id] = { label: x.label, text: x.text, scope: x.scope };
       }
     }
     const images = ai.imagesSupported && o.images ? o.images.slice() : [];
@@ -205,7 +205,9 @@
             type: 'button',
             text: 'Poradit znovu s doplněním',
             onclick: () => {
-              const given = answers.filter(([, input]) => input.value.trim()).map(([item, input]) => `${item} → ${input.value.trim()}`);
+              // Pozorování nese jen to, co uživatel řekl: otázka je uvedená jako kontext a vždy s jeho odpovědí, takže tvrzení modelu
+              // se samo nestane „zadal uživatel“.
+              const given = answers.filter(([, input]) => input.value.trim()).map(([item, input]) => `Na otázku „${item}“ uživatel odpověděl: „${input.value.trim()}“.`);
               if (!given.length) return toast('Doplň aspoň jednu odpověď.');
               o.onFollowUp(given, C.adviceToText(a));
             },

@@ -39,7 +39,8 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
 ## Neumí / záměrně není
 
 Klient pro Windows (Tauri) a server s PostgreSQL ze zadání § 1 (nahrazeno webovou aplikací), pole taktiky v `.fmf` (nejsou známá),
-oznámení na zavřený telefon, překryvné okno nad hrou, OCR skenů, ověření OpenAI-kompatibilního rozhraní proti živé službě.
+oznámení na zavřený telefon, překryvné okno nad hrou, OCR skenů, hledání na internetu za běhu (kontext je z knih, přidaných zdrojů a
+registru oficiálních článků FM27), ověření OpenAI-kompatibilního rozhraní proti živé službě.
 Seznam s důvody: `docs/AKCEPTACNI_MATICE.md`, část 3.
 
 ## Možná další rozhodnutí (až majitel stránku vyzkouší)

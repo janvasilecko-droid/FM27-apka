@@ -112,5 +112,6 @@ obsah knih, klíče ani osobní data nesmí do gitu, testů ani záznamů; testo
 
 - Rada vychází z teorie v knihách a z toho, co jí řekneš nebo ukážeš. Názvy nastavení FM27 jsou vždy neověřené.
 - Hledání je lexikální (BM25), ne sémantické. Pro velké knihovny by se hodil hostovaný index (varianta podle „Pivovarské bible“).
-- Neumí: `.fmf` pole taktiky, OCR skenů, oznámení na zavřený telefon, překryvné okno nad hrou, klienta pro Windows (viz akceptační matice).
+- Neumí: hledání na internetu za běhu (kontext je z knih, přidaných zdrojů a registru oficiálních článků FM27), `.fmf` pole taktiky, OCR skenů,
+  oznámení na zavřený telefon, překryvné okno nad hrou, klienta pro Windows (viz akceptační matice).
 - Možné rozšíření: nechat Claude hledat v knihách samo přes `tools` ve `sample`, hostovaná databáze se serverovým zpracováním knih.

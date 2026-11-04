@@ -146,15 +146,33 @@ module.exports = async function run(env) {
   await nav(page, 'soupere');
   check('04 uložený plán je po obnovení stránky vidět', /Uložený plán z/.test(await text(page, '#oppPlan')), await text(page, '#oppPlan'));
 
+  // nález revize: úprava profilu uložená během přípravy plánu se po dokončení plánu nesmí ztratit
+  const planBefore = await page.evaluate(() => window.FM27.app.store.list('opponent')[0].planAt);
+  await page.evaluate(() => (window.__mock.specialDelayMs = 1800));
+  await page.click('#oppPlanBtn');
+  await page.fill('#oppF-keyPlayers', 'Novák – hrot\nHorák – křídlo');
+  await page.click('#oppSave');
+  await until(async () => /Horák/.test(await page.evaluate(() => window.FM27.app.store.list('opponent')[0].fields.keyPlayers.value)));
+  await until(async () => (await page.evaluate(() => window.FM27.app.store.list('opponent')[0].planAt)) !== planBefore, 12000);
+  const after = await page.evaluate(() => window.FM27.app.store.list('opponent')[0]);
+  check('04 plán dokončený po úpravě profilu úpravu nesmazal (profil i plán jsou uložené)', /Horák/.test(after.fields.keyPlayers.value) && !!after.plan && after.planAt !== planBefore, { kp: after.fields.keyPlayers, planAt: after.planAt });
+  await page.evaluate(() => (window.__mock.specialDelayMs = 0));
+  await nav(page, 'laborator');
+  await nav(page, 'soupere');
+
   // čtení screenshotu soupeře
   await page.setInputFiles('#oppShot', fx('screenshot.png'));
   await page.click('#oppRead');
   await page.waitForSelector('#oppProposals .book', { timeout: 15000 });
   check('04 čtení screenshotu soupeře je jen návrh (nic se nepřepíše samo)', /jen návrh/.test(await text(page, '#oppShotStatus')) && (await page.inputValue('#oppF-formation')) === '4-2-3-1', await text(page, '#oppShotStatus'));
   await page.evaluate(() => (window.__mock.oppReadReply = { formation: '3 5 2', roles: [], keyPlayers: [], strengths: [], weaknesses: [], notes: '' }));
+  const proposalsBefore = await page.locator('#oppProposals .book').count();
+  await page.fill('#oppF-strengths', 'Rozepsaný text, který ještě není uložený');
   await page.locator('#oppProposals .book', { hasText: 'Rozestavení' }).getByRole('button', { name: /Použít/ }).click();
   await until(async () => (await page.inputValue('#oppF-formation')) !== '4-2-3-1');
   check('04 použitá hodnota ze screenshotu je označená jako neověřená', (await page.inputValue('#oppP-formation')) === 'vision_unverified' && (await page.inputValue('#oppF-formation')) === '4-2-3-1' || (await page.inputValue('#oppP-formation')) === 'vision_unverified', await page.inputValue('#oppP-formation'));
+
+  check('04 použití jednoho návrhu neprepíše rozepsaný text jinde v profilu a ostatní návrhy zůstanou', (await page.inputValue('#oppF-strengths')) === 'Rozepsaný text, který ještě není uložený' && (await page.locator('#oppProposals .book').count()) === proposalsBefore && proposalsBefore >= 2 && /Použito/.test(await text(page, '#oppProposals .book')), { before: proposalsBefore, after: await page.locator('#oppProposals .book').count() });
 
   // plán, který neprojde kontrolou
   await page.evaluate(() => (window.__mock.mode = 'special-invalid'));

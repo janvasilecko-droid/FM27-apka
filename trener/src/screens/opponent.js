@@ -77,7 +77,10 @@
       });
       const ctx = { passages: passageCtx, observations: obsMap };
       if (result.status === 'ok') {
-        const saved = await app.store.put('opponent', Object.assign(app.store.draft(opp), { plan: result.value, planAt: Date.now(), planPassages: Object.fromEntries(Object.entries(passageCtx).map(([id, p]) => [id, { id, title: p.title, where: p.where }])), planObservations: obsMap }));
+        // Profil se mezitím mohl upravit (třeba „Uložit profil“ během čtení plánu): k plánu se přidává do aktuální verze, ne do kopie ze začátku.
+        const latest = app.store.get('opponent', opp.id);
+        if (!latest) return toast('Soupeř mezitím zmizel, plán se neuložil.');
+        const saved = await app.store.put('opponent', Object.assign(app.store.draft(latest), { plan: result.value, planAt: Date.now(), planPassages: Object.fromEntries(Object.entries(passageCtx).map(([id, p]) => [id, { id, title: p.title, where: p.where }])), planObservations: obsMap }));
         renderPlan(app, box, saved.plan, ctx, result.verdict.warnings.join(' '));
       } else {
         box.append(W.failedCheckBanner(result.verdict, 'Plán neprošel kontrolou poctivosti', () => runPlan(app, opp, box, steps, button)));
@@ -122,7 +125,17 @@
                 'div',
                 { class: 'book' },
                 h('div', { class: 'meta' }, h('b', { text: O.FIELD_LABEL[key] }), h('span', { text: fields[key] })),
-                h('button', { class: 'btn small', type: 'button', text: 'Použít (neověřené)', onclick: () => applyFields({ [key]: fields[key] }) })
+                h('button', {
+                  class: 'btn small',
+                  type: 'button',
+                  text: 'Použít (neověřené)',
+                  onclick: async (ev) => {
+                    const btn = ev.currentTarget;
+                    btn.disabled = true;
+                    await applyFields({ [key]: fields[key] });
+                    btn.textContent = 'Použito';
+                  },
+                })
               )
             );
           }
@@ -169,7 +182,7 @@
         redraw();
       },
     });
-    return h(
+    const section = h(
       'section',
       { class: 'card' },
       h('h2', { text: 'Profil soupeře' }),
@@ -184,6 +197,13 @@
       })),
       msg
     );
+    // Použití návrhu ze screenshotu přepíše jen to jedno pole; ostatní rozepsané úpravy v profilu zůstanou.
+    section.applyField = (key, value) => {
+      if (!controls[key]) return;
+      controls[key].area.value = value;
+      controls[key].prov.value = 'vision_unverified';
+    };
+    return section;
   }
 
   // ------------------------------------------------------------------ obrazovka
@@ -193,6 +213,7 @@
       return;
     }
     const draw = () => {
+      guard.reset(); // obrazovka se kreslí znovu, takže žádné neuložené úpravy už nejsou
       const career = app.requireCareer(root, 'Soupeři');
       if (!career) return;
       const all = listOpponents(app);
@@ -233,21 +254,22 @@
         steps.el,
         planBox
       );
+      let editorSection = null;
       const applyFields = async (patch) => {
         const cur = app.store.draft(app.store.get('opponent', opp.id));
         cur.fields = cur.fields || {};
         for (const [k, v] of Object.entries(patch)) cur.fields[k] = { value: v, prov: 'vision_unverified' };
         await app.store.put('opponent', cur);
+        if (editorSection) for (const [k, v] of Object.entries(patch)) editorSection.applyField(k, v);
         toast('Hodnota je použitá, označená jako neověřená.');
-        draw();
       };
-      root.replaceChildren(picker, h('div', { class: 'coach-grid' }, h('div', null, editor(app, opp, draw), screenshotCard(app, opp, applyFields)), planCard));
+      editorSection = editor(app, opp, draw);
+      root.replaceChildren(picker, h('div', { class: 'coach-grid' }, h('div', null, editorSection, screenshotCard(app, opp, applyFields)), planCard));
     };
+    const guard = ui.dirtyGuard(root, app, () => draw());
     draw();
-    app.watch(['opponent'], (e) => {
-      // vlastní zápisy překreslují samy, tady jen změny z druhého zařízení
-      if (e && e.origin === 'remote') draw();
-    });
+    // vlastní zápisy překreslují samy, tady jen změny z druhého zařízení (a ty nesmí smazat rozepsané úpravy)
+    app.watch(['opponent'], (e) => e && e.origin === 'remote' && guard.onRemote());
     app.onCleanup(() => running && running.abort());
   }
 

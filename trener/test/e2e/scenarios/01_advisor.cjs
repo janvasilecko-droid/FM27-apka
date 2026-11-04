@@ -253,6 +253,28 @@ module.exports = async function run(env) {
     check('A16 ruční volba tématu přebije systém v obou směrech', bgLight === 'rgb(242, 245, 239)' && bgDark === 'rgb(11, 17, 24)', { bgLight, bgDark });
     await page.evaluate(() => delete document.documentElement.dataset.theme);
 
+    // A17: rada, která běží, přežije odchod z obrazovky (nález revize: po návratu se „Poradit“ znovu zapnulo a Stop rušil jen druhé volání)
+    await nav(page, 'trener');
+    await setMode(page, { mode: 'ok' });
+    await page.evaluate(() => (window.__mock.adviceDelayMs = 1800));
+    await page.fill('#question', 'Co když odejdu během rady?');
+    await page.click('#askBtn');
+    await page.waitForSelector('#stopBtn:not([hidden])');
+    await nav(page, 'nastaveni');
+    await nav(page, 'trener');
+    check('A17 po návratu na obrazovku je „Poradit“ vypnuté a „Zastavit“ vidět, dokud rada běží', (await page.isDisabled('#askBtn')) && (await page.isVisible('#stopBtn')), { ask: await page.isDisabled('#askBtn'), stop: await page.isVisible('#stopBtn') });
+    await page.waitForSelector('#result .sec', { timeout: 20000 });
+    await waitIdle(page);
+    check('A17 hotová rada se vykreslí na vrácené obrazovce a tlačítka se vrátí do základu', (await page.locator('#result .sec').count()) === 10 && (await page.isEnabled('#askBtn')) && !(await page.isVisible('#stopBtn')));
+    const adviceBefore = await page.evaluate(() => window.FM27.app.store.list('advice').length);
+    await page.fill('#question', 'Odejdu a nevrátím se.');
+    await page.click('#askBtn');
+    await page.waitForSelector('#stopBtn:not([hidden])');
+    await nav(page, 'nastaveni');
+    await page.waitForFunction(() => /uložená v historii rad/.test(document.querySelector('#toast').textContent), null, { timeout: 20000 });
+    check('A17 rada dokončená, když uživatel odešel, se uloží do historie rad a nic nespadne', (await page.evaluate(() => window.FM27.app.store.list('advice').length)) === adviceBefore + 1, await text(page, '#toast'));
+    await page.evaluate(() => (window.__mock.adviceDelayMs = 0));
+
     check('A99 žádná chyba ve skriptu za celou dobu', problems.page.length === 0, problems.page);
     const consoleErrors = problems.console.filter((m) => !/Failed to load resource/.test(m));
     check('A99 žádná chyba v konzoli za celou dobu', consoleErrors.length === 0, consoleErrors);

@@ -144,6 +144,8 @@ module.exports = async function run(env) {
   const ev1 = await text(page, '#liveChanges');
   check('05 po dalších snímcích se změna vyhodnotí před a po', /Naše střely na 10 min/.test(ev1) && /Soupeřovy střely na 10 min/.test(ev1) && /→/.test(ev1), ev1);
   check('05 vyhodnocení vždy říká, že časová souvislost není důkaz příčiny', /Časová souvislost není důkaz příčiny/i.test(await text(page, '#liveCausality')), await text(page, '#liveCausality'));
+  const episodes = await page.evaluate(() => window.FM27.live.session.alerts.map((a) => a.finding.episode + ':' + a.finding.severity));
+  check('05 trvající stav se hlásí jednou za epizodu, ne při každém dalším snímku', episodes.length >= 1 && new Set(episodes).size === episodes.length, episodes);
   check('05 vyhodnocení nikdy netvrdí příčinu', !/způsobil|zavinil|díky změně/i.test(ev1), ev1);
 
   // ---------- „Vysvětlit podrobněji“ u upozornění (zadání § 8: nechat si doporučení vysvětlit podrobněji)
@@ -204,6 +206,48 @@ module.exports = async function run(env) {
   await page.locator('#liveHeader').getByRole('button', { name: 'Opravdu zahodit?' }).click();
   await page.waitForSelector('#liveStart');
   check('05 zahozený zápas zmizí a vrátí se nabídka nového', await page.isVisible('#liveStart'));
+
+  // ---------- nález revize: snímek, který se čte, když se zápas zahodí, nepatří do jiného zápasu
+  const startMatch = async (opp) => {
+    await page.fill('#liveOpp', opp);
+    await page.click('#liveStart');
+    await page.waitForSelector('#liveCapture');
+  };
+  const discard = async () => {
+    await page.locator('#liveHeader').getByRole('button', { name: 'Zahodit zápas' }).click();
+    await page.locator('#liveHeader').getByRole('button', { name: 'Opravdu zahodit?' }).click();
+    await page.waitForSelector('#liveStart');
+  };
+  await startMatch('Plzeň');
+  await page.evaluate(() => (window.__mock.extractDelayMs = 1500));
+  await page.evaluate((r) => (window.__mock.extractQueue = [r]), snap(10, { pos: 50, shots: 1 }, { shots: 1 }));
+  await page.setInputFiles('#liveFile', fx('screenshot.png'));
+  await until(async () => (await page.evaluate(() => window.FM27.live.session.busy)) === true);
+  await discard();
+  await startMatch('Brno');
+  await page.waitForTimeout(2300);
+  const pinned = await page.evaluate(() => window.FM27.app.store.list('match').filter((m) => m.status === 'live').map((m) => ({ opp: m.opponent, snaps: m.timeline.length })));
+  check('05 snímek čtený při zahození zápasu se nepřidá do jiného zápasu', pinned.length === 1 && pinned[0].opp === 'Brno' && pinned[0].snaps === 0, pinned);
+  await page.evaluate(() => (window.__mock.extractDelayMs = 0));
+
+  // ---------- nález revize: po opakovaném „Zahodit“ a „Začít“ se nehromadí posluchače (jedno Ctrl+V = jeden snímek, žádné „ještě se čte“)
+  await discard();
+  await startMatch('Ostrava');
+  await discard();
+  await startMatch('Olomouc');
+  await page.evaluate((r) => (window.__mock.extractQueue = [r]), snap(12, { pos: 50, shots: 2 }, { shots: 2 }));
+  const callsBefore = (await calls()).filter((x) => x.kind === 'extract').length;
+  const png = require('fs').readFileSync(fx('screenshot2.png')).toString('base64');
+  await page.evaluate((data) => {
+    const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+    const dt = new DataTransfer();
+    dt.items.add(new File([bytes], 'vlozeny.png', { type: 'image/png' }));
+    document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, png);
+  await until(async () => (await timelineCount()) === 1);
+  await page.waitForTimeout(400);
+  check('05 vložení obrázku po opakovaném zahození zápasu: jedno čtení, jeden snímek, stav neříká „ještě se čte“', (await calls()).filter((x) => x.kind === 'extract').length === callsBefore + 1 && !/ještě čte/.test(await text(page, '#liveStatus')) && /přečten/.test(await text(page, '#liveStatus')), await text(page, '#liveStatus'));
+  await discard();
 
   check('05 bez chyb ve skriptu', c.problems.page.length === 0, c.problems.page);
   const consoleErrors = c.problems.console.filter((m) => !/Failed to load resource/.test(m));

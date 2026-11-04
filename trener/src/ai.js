@@ -17,10 +17,47 @@
     problem: '',
     limitsInfo: null,
 
-    /** Samostatná verze uloží nastavení poskytovatele sem; v artefaktu se nepoužije (tam je `sample`). */
-    getConfig: () => lsGet(CONFIG_KEY, null),
-    setConfig(cfg) {
-      return cfg ? lsSet(CONFIG_KEY, cfg) : (localStorage.removeItem(CONFIG_KEY), true);
+    /** Samostatná verze uloží nastavení poskytovatele sem; v artefaktu se nepoužije (tam je `sample`).
+        Klíč je buď trvale v tomto prohlížeči (localStorage), nebo jen do zavření záložky (sessionStorage). */
+    getConfig() {
+      try {
+        const raw = sessionStorage.getItem(CONFIG_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        /* sessionStorage nemusí být dostupné */
+      }
+      return lsGet(CONFIG_KEY, null);
+    },
+    /** Kde je klíč uložen: 'session' (jen do zavření záložky), 'local' (trvale v prohlížeči) nebo 'none'. */
+    configWhere() {
+      try {
+        if (sessionStorage.getItem(CONFIG_KEY)) return 'session';
+      } catch (e) {
+        /* nic */
+      }
+      return lsGet(CONFIG_KEY, null) ? 'local' : 'none';
+    },
+    /** opts.remember === false: klíč se uloží jen do sessionStorage (zmizí se zavřením záložky). */
+    setConfig(cfg, opts) {
+      const remember = !opts || opts.remember !== false;
+      try {
+        sessionStorage.removeItem(CONFIG_KEY);
+      } catch (e) {
+        /* nic */
+      }
+      try {
+        localStorage.removeItem(CONFIG_KEY);
+      } catch (e) {
+        /* nic */
+      }
+      if (!cfg) return true;
+      if (remember) return lsSet(CONFIG_KEY, cfg);
+      try {
+        sessionStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+        return true;
+      } catch (e) {
+        return false;
+      }
     },
 
     async init(app) {

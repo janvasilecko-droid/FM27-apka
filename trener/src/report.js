@@ -13,8 +13,24 @@
   const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const txt = (v) => (typeof v === 'string' ? v.trim() : '');
 
-  // Silné příčinné vazby, které časová souvislost sama neunese.
-  const CAUSAL = /způsobil[aoiy]?|zavinil[aoiy]?|byl[aoi]? příčinou|díky (?:této |té )?změně|kvůli (?:této |té )?změně|změna vedla k|za to může/i;
+  // Silné příčinné vazby, které časová souvislost sama neunese. Základ platí pro každý text zprávy.
+  const CAUSAL_CORE = [
+    'způsobil[aoiy]?',
+    'zavinil[aoiy]?',
+    'zapříčinil[aoiy]?',
+    'byl[aoi]? příčinou',
+    'za to může',
+    'díky (?:této |té )?změně',
+    'díky (?:ní|němu|jí|tomu)',
+    'kvůli (?:této |té )?změně',
+    'v důsledku (?:této |té )?(?:změny|toho)',
+    'výsledkem (?:této |té )?změny',
+    'změna (?:\\w+ )?(?:vedla|přinesla|pomohla|zlepšila|zhoršila|vyřešila|odstranila|rozhodla)',
+    'změna vedla k',
+  ];
+  const CAUSAL = new RegExp(CAUSAL_CORE.join('|'), 'i');
+  // U položek o účinku změny (changesHelped, changesHurt) je zakázané i sloveso, které změně přisuzuje výsledek.
+  const CAUSAL_CHANGE = new RegExp([...CAUSAL_CORE, 'přinesl[aoiy]?', 'pomohl[aoiy]?', 'vedl[aoi]? k', 'vyřešil[aoi]?', 'rozhodl[aoi]?'].join('|'), 'i');
   // Opatrná formulace, kterou musí zpráva o změně obsahovat.
   const HEDGE = /po změně|souvis|nemusí|nelze|možná|pravděpodobně|ve srovnání|zdá se|může/i;
 
@@ -44,10 +60,9 @@ Pravidla (platí bez výjimky):
 
   function buildReportTurns(input) {
     const obs = input.observations || [];
-    const lines = obs.length ? obs.map((o) => `- ${o.id} | ${o.label} | ${o.minute !== null && o.minute !== undefined ? o.minute + "'" : '-'} | ${o.text}`).join('\n') : '(žádná)';
-    const passages = input.passages || [];
-    const passageLines = passages.length ? passages.map((p) => `- ${p.id} | ${p.title} | ${p.where} | ${p.text}`).join('\n') : '(žádné)';
-    const body = `${RULES}\n\n${SHAPE_TEXT}\n\nPozorování a vyhodnocení (id | štítek původu | minuta | text):\n${lines}\n\nZdroje znalostí:\n${input.sourcesDigest || '(žádné)'}\n\nÚryvky z knih (teorie):\n${passageLines}\n`;
+    const lines = obs.length ? obs.map((o) => `- ${Core.oneLine(o.id, 40)} | ${o.label} | ${o.minute !== null && o.minute !== undefined ? o.minute + "'" : '-'} | ${Core.oneLine(o.text, 1500)}`).join('\n') : '(žádná)';
+    const passageLines = Core.formatPassageLines(input.passages, '(žádné)');
+    const body = `${RULES}\n${Core.DATA_RULE}\n\n${SHAPE_TEXT}\n\nPozorování a vyhodnocení (id | štítek původu | minuta | text):\n${lines}\n\nZdroje znalostí:\n${input.sourcesDigest || '(žádné)'}\n\nÚryvky z knih (teorie):\n${passageLines}\n`;
     return [{ role: 'user', content: body }];
   }
 
@@ -60,7 +75,7 @@ Pravidla (platí bez výjimky):
     const missing = [...listKeys, 'nextMatch', 'limits'].filter((k) => !(k in report));
     if (missing.length) return { ok: false, errors: [`Chybí sekce: ${missing.join(', ')}.`], warnings };
     const changeStatus = (ctx && ctx.changeStatus) || {};
-    const knownPlayers = ((ctx && ctx.knownPlayers) || []).map((n) => String(n).toLowerCase());
+    const knownPlayers = (ctx && ctx.knownPlayers) || [];
 
     for (const key of listKeys) {
       const list = report[key];
@@ -76,16 +91,20 @@ Pravidla (platí bez výjimky):
         if (!isObject(item)) return;
         if (r.tier === 'verified') errors.push(`${name}: o průběhu zápasu nelze tvrdit „ověřeno oficiálním zdrojem“.`);
         const text = txt(item.text);
-        if (CAUSAL.test(text)) errors.push(`${name}: časová souvislost není důkaz příčiny, nepiš „způsobil“ ani „kvůli změně“. Formuluj opatrně.`);
-        if (key === 'changesHelped' || key === 'changesHurt') {
+        const isChange = key === 'changesHelped' || key === 'changesHurt';
+        if ((isChange ? CAUSAL_CHANGE : CAUSAL).test(text)) errors.push(`${name}: časová souvislost není důkaz příčiny, nepiš „způsobil“, „kvůli změně“ ani že změna něco přinesla nebo vyřešila. Formuluj opatrně.`);
+        if (isChange) {
           const id = txt(item.changeId);
-          if (!id || !(id in changeStatus)) errors.push(`${name}: changeId „${id}“ neodpovídá žádné změně.`);
-          else if (changeStatus[id] !== 'ready') errors.push(`${name}: změna ${id} nemá dost dat pro srovnání před a po, nehodnoť ji.`);
+          if (!id || !Object.prototype.hasOwnProperty.call(changeStatus, id)) errors.push(`${name}: changeId „${id}“ neodpovídá žádné změně.`);
+          else {
+            if (changeStatus[id] !== 'ready') errors.push(`${name}: změna ${id} nemá dost dat pro srovnání před a po, nehodnoť ji.`);
+            // Tvrzení o účinku změny se musí opírat o její vyhodnocení před a po (pozorování s id změny), ne o cokoli jiného.
+            if (!(Array.isArray(item.refs) && item.refs.includes(id))) errors.push(`${name}: tvrzení o změně ${id} musí odkazovat na její vyhodnocení před a po (refs obsahuje „${id}“).`);
+          }
           if (text.length >= MIN_TEXT && !HEDGE.test(text)) errors.push(`${name}: u změny formuluj opatrně (např. „po změně…, nemusí to souviset“).`);
         }
         if (key === 'players') {
-          const n = txt(item.name).toLowerCase();
-          if (!n || !knownPlayers.some((k) => k.includes(n) || n.includes(k))) errors.push(`${name}: hráč „${item.name}“ není v soupisce. Jména se nesmějí vymýšlet.`);
+          if (!Core.matchesKnownName(txt(item.name), knownPlayers)) errors.push(`${name}: hráč „${item.name}“ není v soupisce. Jména se nesmějí vymýšlet.`);
         }
       });
     }
@@ -108,6 +127,7 @@ Pravidla (platí bez výjimky):
           errors.push(...r.errors);
           const hit = Core.scanMechanics(it.what);
           if (hit) errors.push(`${name}: tvrzení o interní mechanice FM27 („${hit}“) bez ověřeného zdroje.`);
+          if (CAUSAL.test(txt(it.why)) || CAUSAL.test(txt(it.what))) errors.push(`${name}: časová souvislost není důkaz příčiny, nepiš „způsobil“ ani „kvůli změně“. Formuluj opatrně.`);
         });
       }
     }

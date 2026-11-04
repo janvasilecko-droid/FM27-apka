@@ -655,7 +655,7 @@ test('rating_drop: pokles o ≥ 0,8 mezi snímky', () => {
 });
 
 // ------------------------------------------------------------------ původ důkazů, jeden snímek, mySide
-test('evidenceTier: inferred, pokud kterýkoli snímek je vision_unverified; observed jen u ověřených nebo zadaných', () => {
+test('evidenceTier: inferred, pokud kterýkoli snímek je vision_unverified; observed jen u ověřených, ručně zadané jsou user_entered', () => {
   const tl = (pa, pb) => [
     snap('a', 20, { possession: 61, shots: 2, xg: 0.2 }, { shots: 5, xg: 0.9 }, { provenance: pa }),
     snap('b', 35, { possession: 63, shots: 3, xg: 0.3 }, { shots: 8, xg: 1.4 }, { provenance: pb }),
@@ -663,8 +663,9 @@ test('evidenceTier: inferred, pokud kterýkoli snímek je vision_unverified; obs
   const tier = (pa, pb) => find(A.detectProblems(tl(pa, pb), { mySide: 'home' }), 'possession_without_chances')[0].evidenceTier;
   assert.equal(tier('vision_unverified', 'vision_unverified'), 'inferred');
   assert.equal(tier('screenshot_verified', 'screenshot_verified'), 'observed');
-  assert.equal(tier('user_entered', 'screenshot_verified'), 'observed');
-  assert.equal(tier('user_entered', 'user_entered'), 'observed');
+  assert.equal(tier('user_entered', 'screenshot_verified'), 'user_entered', 'číslo, které uživatel napsal, není ověřený snímek');
+  assert.equal(tier('user_entered', 'user_entered'), 'user_entered');
+  assert.equal(tier('user_entered', 'vision_unverified'), 'inferred');
   assert.equal(tier('screenshot_verified', 'vision_unverified'), 'inferred');
   assert.equal(tier('vision_unverified', 'screenshot_verified'), 'inferred');
   const unknownProvenance = [{ ...tl('screenshot_verified', 'screenshot_verified')[0], provenance: undefined }, tl('screenshot_verified', 'screenshot_verified')[1]];
@@ -997,7 +998,9 @@ test('summarizeMatch: chybějící data jsou v poznámkách, nic se nehádá', (
   const noStats = A.summarizeMatch([A.makeSnapshot({ id: 'ns', at: 1, minute: 30, screen: 'tactics' })], [], { mySide: 'home' });
   assert.ok(noStats.notes.some((n) => /Žádný snímek neobsahuje statistiky/.test(n)));
   const verified = A.summarizeMatch(MATCH_TL().map((x) => ({ ...x, provenance: 'user_entered' })), [], { mySide: 'home' });
-  assert.equal(verified.totals.evidenceTier, 'observed');
+  assert.equal(verified.totals.evidenceTier, 'user_entered', 'ručně zadané údaje nejsou ověřené snímky');
+  const shots = A.summarizeMatch(MATCH_TL().map((x) => ({ ...x, provenance: 'screenshot_verified' })), [], { mySide: 'home' });
+  assert.equal(shots.totals.evidenceTier, 'observed');
   assert.ok(!verified.notes.some((n) => /neověřené čtení/.test(n)));
 });
 
@@ -1275,4 +1278,54 @@ test('brána: pohybující se obrazovka bez skutečné změny se nezpracuje (unc
   assert.equal(g.check(flat(103), 2000).reason, 'unchanged', 'pod settleDiff, jen drobný šum');
   g.check(flat(115), 4000); // unsettled
   assert.equal(g.check(flat(100), 6000).reason, 'unchanged', 'po vyčerpání čekání se zpracuje jen skutečná změna');
+});
+
+test('ručně zadané snímky: nález, pozorování pro model i vyhodnocení změny je nepovažují za ověřené snímky', () => {
+  const manual = [
+    snap('m1', 20, { possession: 55, shots: 2 }, { shots: 4, xg: 0.6 }, { provenance: 'user_entered' }),
+    snap('m2', 36, { possession: 52, shots: 3 }, { shots: 9, xg: 1.8 }, { provenance: 'user_entered' }),
+  ];
+  const findings = A.detectProblems(manual, { mySide: 'home' });
+  const dominance = find(findings, 'opponent_chance_dominance')[0];
+  assert.equal(dominance.evidenceTier, 'user_entered');
+  const text = A.findingsToObservations([dominance])[0].text;
+  assert.match(text, /zadanými ručně/);
+  assert.doesNotMatch(text, /ověřenými snímky/);
+  // vyhodnocení změny: před ověřené, po ručně zadané → nejslabší je user_entered
+  const tl = [
+    snap('a', 10, { shots: 1 }, { shots: 1 }, { provenance: 'screenshot_verified' }),
+    snap('b', 25, { shots: 3 }, { shots: 4 }, { provenance: 'screenshot_verified' }),
+    snap('c', 45, { shots: 5 }, { shots: 6 }, { provenance: 'user_entered' }),
+    snap('d', 58, { shots: 9 }, { shots: 7 }, { provenance: 'user_entered' }),
+  ];
+  const ev = A.evaluateChange(tl, { id: 'chg-1', minute: 35, recheckAfterMinutes: 0 }, { mySide: 'home' });
+  assert.equal(ev.status, 'ready');
+  assert.equal(ev.evidenceTier, 'user_entered');
+  assert.ok(ev.notes.some((n) => /zadal jsi ručně|zadal ručně|ručně/.test(n)), ev.notes.join(' | '));
+});
+
+test('epizoda nálezu: trvající stav na dalších snímcích je pořád tentýž nález (id se mění, epizoda ne)', () => {
+  const s1 = snap('a', 20, { possession: 55, shots: 2 }, { shots: 4, xg: 0.6 });
+  const s2 = snap('b', 36, { possession: 52, shots: 3 }, { shots: 9, xg: 1.8 });
+  const s3 = snap('c', 44, { possession: 50, shots: 3 }, { shots: 12, xg: 2.2 });
+  const first = find(A.detectProblems([s1, s2], { mySide: 'home' }), 'opponent_chance_dominance')[0];
+  const later = find(A.detectProblems([s1, s2, s3], { mySide: 'home' }), 'opponent_chance_dominance')[0];
+  assert.ok(first && later);
+  assert.notEqual(first.id, later.id);
+  assert.equal(first.episode, later.episode);
+  assert.equal(first.episode, 'opponent_chance_dominance');
+  // červená karta má epizodu po události, pokles hodnocení po hráči
+  const red = A.detectProblems([RS('r', 40, [redEvent('away')])], { mySide: 'home' }).find((f) => f.kind === 'red_card');
+  assert.match(red.episode, /^red_card:/);
+});
+
+test('stejná červená karta přečtená jinými slovy v dalším snímku se nepočítá dvakrát', () => {
+  const a = RS('a', 40, [redEvent('away', 38, 'Novák červená')]);
+  const b = RS('b', 52, [redEvent('away', 38, 'Novák (červená karta)')]);
+  const reds = A.detectProblems([a, b], { mySide: 'home' }).filter((f) => f.kind === 'red_card');
+  assert.equal(reds.length, 1);
+  assert.doesNotMatch(reds[0].text, /2 červených/);
+  // dvě karty téhož týmu ve stejné minutě v jednom snímku jsou dvě události
+  const both = RS('c', 40, [redEvent('away', 38, 'Novák červená'), redEvent('away', 38, 'Horák červená')]);
+  assert.equal(A.detectProblems([both], { mySide: 'home' }).filter((f) => f.kind === 'red_card').length, 2);
 });

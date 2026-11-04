@@ -188,6 +188,7 @@
       return;
     }
     const draw = () => {
+      guard.reset(); // obrazovka se kreslí znovu, takže žádné neuložené úpravy už nejsou
       const career = app.requireCareer(root, 'Historie zápasů');
       if (!career) return;
       const all = app.store.list('match', (m) => m.careerId === career.id).sort((a, b) => (b.startedAt || b.date || 0) - (a.startedAt || a.date || 0));
@@ -203,8 +204,10 @@
       );
       root.replaceChildren(list, match ? detail(app, match, draw) : null);
     };
+    const guard = ui.dirtyGuard(root, app, () => draw());
     draw();
-    app.watch(['match'], (e) => e && e.origin === 'remote' && draw());
+    // změna z druhého zařízení nesmí smazat poznámky, které právě píšeš
+    app.watch(['match'], (e) => e && e.origin === 'remote' && guard.onRemote());
     app.onCleanup(() => running && running.abort());
   }
 
