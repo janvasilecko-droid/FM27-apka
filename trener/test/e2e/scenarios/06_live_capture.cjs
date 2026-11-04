@@ -54,6 +54,23 @@ module.exports = async function run(env) {
   check('06 první snímek se přečte (důvod „first“)', await until(async () => (await extractions()) === 1 && (await timelineCount()) === 1, 12000), { extractions: await extractions(), tl: await timelineCount() });
   check('06 snímek ze sdílení je neověřené čtení', /přečteno z obrázku, neověřeno/.test(await text(page, '#liveTimeline')), await text(page, '#liveTimeline'));
 
+  // ---------- skryté okno: aplikace to řekne (prohlížeč skryté okno zpomaluje, obejít to nejde)
+  await page.evaluate(() => {
+    window.__hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__hidden });
+  });
+  check('06 při viditelném okně není žádné varování před zpomalením', !(await page.isVisible('#liveHidden')));
+  await page.evaluate(() => {
+    window.__hidden = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  check('06 při skrytém okně aplikace varuje, že sledování může být pomalejší, a radí okno nechat vidět', (await page.isVisible('#liveHidden')) && /Okno aplikace je teď skryté/.test(await text(page, '#liveHidden')) && /vedle hry/.test(await text(page, '#liveHidden')), await text(page, '#liveHidden'));
+  await page.evaluate(() => {
+    window.__hidden = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  check('06 po návratu okna varování zmizí', !(await page.isVisible('#liveHidden')));
+
   // ---------- nezměněná obrazovka se neposílá
   await page.waitForTimeout(3500);
   check('06 nezměněná obrazovka se znovu neposílá (šetří se spotřeba)', (await extractions()) === 1, await extractions());

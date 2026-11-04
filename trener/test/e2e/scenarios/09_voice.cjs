@@ -40,6 +40,8 @@ module.exports = async function run(env) {
   check('09 hlas je ve výchozím stavu vypnutý (nic nemluví, dokud to uživatel nezapne)', (await voiceSettings(page)).enabled === false && (await voiceSettings(page)).quiet === false, await voiceSettings(page));
   check('09 stav schopností říká: hlasový výstup ano, mikrofon jen v samostatné verzi', /Hlasový výstup \(čeština\)\s*ano/.test(await text(page, '#diag')) && /Hlasový vstup \(mikrofon\)\s*ne \(jen v samostatné verzi\)/.test(await text(page, '#diag')), await text(page, '#diag'));
 
+  check('09 v Claude se systémová oznámení nenabízí (stránka je nesmí zapnout)', (await page.locator('#setNotify').count()) === 0 && /Systémová oznámení[^\n]*\s*ne \(jen v samostatné verzi\)/.test(await text(page, '#diag')), await text(page, '#diag'));
+
   // ---------- zkouška hlasu
   await page.click('#voiceTest');
   await until(async () => (await spokenOf(page)).length === 1);
@@ -222,6 +224,63 @@ module.exports = async function run(env) {
   const diagNo = await text(n.page, '#diag');
   check('09 stav schopností: výstup ne, vstup ne (prohlížeč řeč nemá)', /Hlasový výstup \(čeština\)\s*ne\b/.test(diagNo) && /Hlasový vstup \(mikrofon\)\s*ne: prohlížeč/.test(diagNo), diagNo);
   await n.context.close();
+
+  // ====================================================== E) systémová oznámení (jen samostatná verze)
+  const NOTE = () => {
+    window.__notes = [];
+    window.__notePerm = 'default';
+    window.__noteAnswer = 'granted';
+    window.__asked = 0;
+    window.__hidden = false;
+    window.Notification = class {
+      constructor(title, opts) {
+        window.__notes.push({ title, body: opts && opts.body, tag: opts && opts.tag });
+      }
+      static get permission() {
+        return window.__notePerm;
+      }
+      static async requestPermission() {
+        window.__asked++;
+        window.__notePerm = window.__noteAnswer;
+        return window.__notePerm;
+      }
+    };
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__hidden });
+  };
+  const f = await newContext(browser, { standalone: true });
+  await f.context.addInitScript(NOTE);
+  const fp = f.page;
+  await open(fp, 'nastaveni');
+  const FINDING = { id: 'det-1', severity: 'alert', title: 'Soupeř tlačí po křídle', text: 'Soupeř má za posledních 15 minut výrazně víc střel. ' + 'Delší text, který se musí zkrátit. '.repeat(12) };
+  const show = (finding) => fp.evaluate((x) => window.FM27.notify.show(window.FM27.app, x), finding);
+  const notes = () => fp.evaluate(() => window.__notes);
+  check('09 samostatná verze nabízí systémová oznámení a stav říká, že zatím nejsou povolená', (await fp.isVisible('#setNotify')) && /Systémová oznámení[^\n]*\s*zatím nepovolena/.test(await text(fp, '#diag')), await text(fp, '#diag'));
+  let ns = await show(FINDING);
+  check('09 oznámení jsou ve výchozím stavu vypnutá', ns.shown === false && ns.reason === 'off' && (await notes()).length === 0, ns);
+  await fp.check('#setNotify');
+  await until(async () => (await fp.evaluate(() => window.FM27.app.settings().notify.enabled)) === true);
+  check('09 zapnutí požádá prohlížeč o povolení (z kliknutí) a uloží se', (await fp.evaluate(() => window.__asked)) === 1 && (await fp.evaluate(() => window.FM27.app.settings().notify.enabled)) === true && /Oznámení jsou zapnutá/.test(await text(fp, '#notifyMsg')), await text(fp, '#notifyMsg'));
+  ns = await show(FINDING);
+  check('09 při viditelném okně se oznámení neposílá (text a hlas stačí)', ns.shown === false && ns.reason === 'visible' && (await notes()).length === 0, ns);
+  await fp.evaluate(() => (window.__hidden = true));
+  ns = await show(Object.assign({}, FINDING, { id: 'w1', severity: 'watch' }));
+  check('09 „sleduj“ se jako oznámení neposílá ani při skrytém okně', ns.shown === false && ns.reason === 'too_minor', ns);
+  ns = await show(FINDING);
+  const sent = await notes();
+  check('09 důležité upozornění při skrytém okně přijde jako oznámení s krátkým textem', ns.shown === true && sent.length === 1 && sent[0].title === 'FM27 Coach: Soupeř tlačí po křídle' && sent[0].body.length <= 180 && sent[0].tag === 'det-1', { ns, sent });
+  await fp.uncheck('#setNotify');
+  await until(async () => (await fp.evaluate(() => window.FM27.app.settings().notify.enabled)) === false);
+  ns = await show(FINDING);
+  check('09 po vypnutí se oznámení neposílají', ns.shown === false && ns.reason === 'off' && (await notes()).length === 1, ns);
+  await fp.evaluate(() => {
+    window.__notePerm = 'default';
+    window.__noteAnswer = 'denied';
+  });
+  await fp.click('#setNotify'); // zaškrtnutí se hned vrátí, proto click (check by to hlásil jako chybu)
+  await until(async () => /zakázal/.test(await text(fp, '#notifyMsg')));
+  check('09 zakázané oznámení se nezapne a aplikace řekne, kde je povolit', !(await fp.isChecked('#setNotify')) && (await fp.evaluate(() => window.FM27.app.settings().notify.enabled)) === false && /Povol je v nastavení webu/.test(await text(fp, '#notifyMsg')), await text(fp, '#notifyMsg'));
+  check('09 E: bez chyb ve skriptu', f.problems.page.length === 0, f.problems.page);
+  await f.context.close();
 
   // ====================================================== D) zařízení bez české hlasové zásoby
   const e = await newContext(browser, {});

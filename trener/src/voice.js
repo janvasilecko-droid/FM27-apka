@@ -116,4 +116,36 @@
       };
     },
   });
+  // -------------------------------------------------------------------- systémová oznámení (jen samostatná verze)
+  /** Důležité upozornění jako oznámení systému, ale jen když je okno aplikace skryté (jinak by se zdvojilo s textem a hlasem).
+      Funguje, dokud je aplikace otevřená (i skrytá za hrou). Oznámení na zavřený telefon vyžaduje server a není součástí aplikace. */
+  const notify = (FM27.notify = {
+    available: () => typeof window.Notification === 'function',
+    permission: () => (notify.available() ? window.Notification.permission : 'unsupported'),
+    /** Zeptá se prohlížeče (musí se volat z kliknutí). Vrací 'granted' | 'denied' | 'default' | 'unsupported'. */
+    async request() {
+      if (!notify.available()) return 'unsupported';
+      try {
+        const r = await window.Notification.requestPermission();
+        return r || notify.permission();
+      } catch (e) {
+        return notify.permission();
+      }
+    },
+    /** alert: nález z Live Coache {id, severity, title, text}. Vrací {shown, reason}. */
+    show(app, alert) {
+      const s = app.settings().notify || {};
+      if (!s.enabled) return { shown: false, reason: 'off' };
+      if (!notify.available() || notify.permission() !== 'granted') return { shown: false, reason: 'no_permission' };
+      if (alert.severity !== 'alert') return { shown: false, reason: 'too_minor' };
+      if (!document.hidden) return { shown: false, reason: 'visible' };
+      try {
+        const body = A ? A.shortenForSpeech(alert.text, 180) : String(alert.text || '').slice(0, 180);
+        new window.Notification('FM27 Coach: ' + alert.title, { body, tag: alert.id || undefined });
+        return { shown: true, reason: 'ok' };
+      } catch (e) {
+        return { shown: false, reason: 'error' };
+      }
+    },
+  });
 })();

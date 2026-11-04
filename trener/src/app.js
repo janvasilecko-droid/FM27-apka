@@ -11,6 +11,7 @@
     id: 'settings',
     voice: { enabled: false, volume: 0.9, rate: 1, frequency: 'normal', quiet: false, voiceURI: '' },
     live: { baseIntervalSec: 15, maxPerHour: 60, maxPerMatch: 150, autoAlerts: true },
+    notify: { enabled: false },
     coach: { deep: false },
   };
   // Zastaralé adresy z první verze stránky vedou na nové sekce.

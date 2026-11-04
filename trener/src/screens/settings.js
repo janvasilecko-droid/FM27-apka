@@ -28,6 +28,7 @@
       ['Oficiální zdroje FM27 v registru', String([...app.registry.byId.values()].filter((s) => app.registry.isOfficialFm27(s.id)).length)],
       ['Sdílení obrazovky v tomto okně', navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && app.standalone ? 'ano' : 'ne (jen v samostatné verzi)'],
       ['Hlasový výstup (čeština)', FM27.voice && FM27.voice.available() ? (FM27.voice.hasCzech() ? 'ano' : 'ano, ale bez české hlasové zásoby') : 'ne'],
+      ['Systémová oznámení (okno skryté za hrou)', app.standalone ? (FM27.notify && FM27.notify.available() ? (FM27.notify.permission() === 'granted' ? 'povolena' : FM27.notify.permission() === 'denied' ? 'zakázána v prohlížeči' : 'zatím nepovolena') : 'ne: prohlížeč je neumí') : 'ne (jen v samostatné verzi)'],
       ['Hlasový vstup (mikrofon)', app.standalone ? (FM27.voice && FM27.voice.recognitionAvailable() ? 'ano' : 'ne: prohlížeč rozpoznávání řeči nemá') : 'ne (jen v samostatné verzi)'],
       ['Verze stránky', build],
     ];
@@ -170,6 +171,20 @@
     const freq = ui.select([['low', 'Jen opravdu důležitá upozornění'], ['normal', 'Běžně'], ['high', 'Častěji']], s.voice.frequency, { id: 'setFreq' });
     const voiceOn = h('input', { type: 'checkbox', id: 'setVoiceOn', checked: s.voice.enabled });
     const quiet = h('input', { type: 'checkbox', id: 'setQuiet', checked: s.voice.quiet });
+    const notifyAvailable = app.standalone && FM27.notify && FM27.notify.available();
+    const notifyOn = h('input', { type: 'checkbox', id: 'setNotify', checked: !!(s.notify && s.notify.enabled) && notifyAvailable && FM27.notify.permission() === 'granted' });
+    const notifyMsg = h('p', { class: 'hint', id: 'notifyMsg', 'aria-live': 'polite' });
+    notifyOn.addEventListener('change', async () => {
+      if (!notifyOn.checked) return save({ notify: { enabled: false } });
+      const perm = FM27.notify.permission() === 'granted' ? 'granted' : await FM27.notify.request();
+      if (perm !== 'granted') {
+        notifyOn.checked = false;
+        notifyMsg.textContent = perm === 'denied' ? 'Prohlížeč oznámení zakázal. Povol je v nastavení webu (ikona vlevo od adresy).' : 'Oznámení nejsou povolená.';
+        return save({ notify: { enabled: false } });
+      }
+      notifyMsg.textContent = 'Oznámení jsou zapnutá. Pošlou se jen důležitá upozornění, když je okno aplikace skryté.';
+      save({ notify: { enabled: true } });
+    });
     const interval = ui.input({ id: 'setInterval', type: 'number', min: 5, max: 120, value: s.live.baseIntervalSec });
     const perHour = ui.input({ id: 'setPerHour', type: 'number', min: 5, max: 300, value: s.live.maxPerHour });
     const perMatch = ui.input({ id: 'setPerMatch', type: 'number', min: 10, max: 600, value: s.live.maxPerMatch });
@@ -196,6 +211,9 @@
       h('p', { class: 'lead', text: 'Hlasový trenér mluví česky jen krátce a jen při důležitém. Tichý režim ho vypne, ale upozornění zůstanou na obrazovce.' }),
       h('label', { class: 'checkline' }, voiceOn, h('span', { text: 'Číst upozornění nahlas' })),
       h('label', { class: 'checkline' }, quiet, h('span', { text: 'Tichý režim (jen text na obrazovce)' })),
+      notifyAvailable ? h('label', { class: 'checkline' }, notifyOn, h('span', { text: 'Systémové oznámení při důležitém upozornění, když je okno aplikace skryté' })) : null,
+      notifyAvailable ? notifyMsg : null,
+      notifyAvailable ? h('p', { class: 'hint', text: 'Funguje, dokud je aplikace otevřená (i skrytá za hrou). Oznámení na zavřený telefon aplikace neumí, ta by potřebovala vlastní server.' }) : null,
       h('div', { class: 'row' }, ui.field('Hlasitost', volume, { grow: true }), ui.field('Rychlost řeči', rate, { grow: true }), ui.field('Četnost upozornění', freq, { grow: true })),
       h('div', { class: 'actions' }, test),
       h('h3', { text: 'Sledování zápasu', style: 'margin-top:16px' }),

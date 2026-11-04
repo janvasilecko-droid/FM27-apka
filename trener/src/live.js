@@ -156,12 +156,15 @@
     const fresh = findings.filter((f) => !s.seen.has(f.id));
     for (const f of fresh) {
       s.seen.add(f.id);
-      const entry = { at: Date.now(), finding: f, spoken: false, reason: '' };
+      const entry = { at: Date.now(), finding: f, spoken: false, notified: false, reason: '' };
       s.alerts.unshift(entry);
-      if (FM27.voice && app.settings().live.autoAlerts) {
-        const d = await FM27.voice.alert(app, findingToAlert(f));
-        entry.spoken = !!d.speak;
-        entry.reason = d.reason;
+      if (app.settings().live.autoAlerts) {
+        if (FM27.voice) {
+          const d = await FM27.voice.alert(app, findingToAlert(f));
+          entry.spoken = !!d.speak;
+          entry.reason = d.reason;
+        }
+        if (FM27.notify) entry.notified = FM27.notify.show(app, f).shown;
       }
     }
     s.alerts = s.alerts.slice(0, 30);

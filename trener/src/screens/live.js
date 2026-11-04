@@ -149,7 +149,7 @@
       alertsCard.replaceChildren(
         h('h2', { text: 'Upozornění' }),
         list.length
-          ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? h('span', { class: 'chip t-observed', text: 'řečeno nahlas' }) : null, h('button', { class: 'btn small', type: 'button', 'data-act': 'explain', text: 'Vysvětlit podrobněji', onclick: () => ((noteInput.value = `Vysvětli podrobněji a poraď: ${a.finding.title}`), ask()) })))))
+          ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? h('span', { class: 'chip t-observed', text: 'řečeno nahlas' }) : null, a.notified ? h('span', { class: 'chip t-observed', text: 'oznámeno systémem' }) : null, h('button', { class: 'btn small', type: 'button', 'data-act': 'explain', text: 'Vysvětlit podrobněji', onclick: () => ((noteInput.value = `Vysvětli podrobněji a poraď: ${a.finding.title}`), ask()) })))))
           : h('p', { class: 'hint', text: 'Zatím nic. Nová upozornění se ukážou tady a podle nastavení se přečtou nahlas.' })
       );
     }
@@ -274,6 +274,15 @@
     document.addEventListener('paste', onPaste);
     app.onCleanup(() => document.removeEventListener('paste', onPaste));
 
+    // Skryté nebo zakryté okno prohlížeč zpomaluje (časovače jedou nejvýš jednou za sekundu, po pěti minutách i jen jednou za minutu).
+    // Aplikace to nemůže obejít, jen to říct: ať je okno vidět vedle hry.
+    const syncHidden = () => {
+      const el = $('#liveHidden');
+      if (el) el.hidden = !(live.session.capture && document.hidden);
+    };
+    document.addEventListener('visibilitychange', syncHidden);
+    app.onCleanup(() => document.removeEventListener('visibilitychange', syncHidden));
+
     // Vazba sdílení na tuhle obrazovku: stavový řádek, překreslení po snímku a konec sdílení.
     let capStatusText = '';
     const captureHooks = {
@@ -330,6 +339,7 @@
           : h('p', { class: 'lead', text: 'Stránka v Claude nesmí sama snímat obrazovku ani mikrofon. Snímky vkládej ručně: ve Windows Win+Shift+S a pak tady Ctrl+V, na telefonu vyfoť obrazovku. Čtení souvislého sdílení obrazovky je v samostatné verzi aplikace.' }),
         share,
         capStatus,
+        h('div', { class: 'banner warn', id: 'liveHidden', hidden: !(live.session.capture && document.hidden) }, h('b', { text: 'Okno aplikace je teď skryté' }), h('span', { text: 'Prohlížeč skryté nebo zakryté okno zpomaluje, takže sledování může být pomalejší (po pěti minutách i jen jedna kontrola za minutu). Nech aplikaci viditelnou vedle hry: hru v okně, nebo aplikaci na druhém monitoru.' })),
         stats ? h('p', { class: 'hint', id: 'liveGate', text: `Zpracováno ${stats.processed}, odstup ${Math.round(stats.intervalMs / 1000)} s, limity ${stats.limits.perHour}/h a ${stats.limits.perMatch}/zápas.` }) : null,
         vision ? null : h('div', { class: 'banner warn' }, h('b', { text: 'Čtení snímků není dostupné' }), h('span', { text: 'Bez Claude s podporou obrázků se snímky číst nedají. Čísla můžeš zadat ručně níž.' })),
         h('div', { class: 'row' }, drop, h('div', { class: 'actions', style: 'margin-top:0' }, h('label', { class: 'btn', for: 'liveFile', style: 'cursor:pointer', text: 'Vybrat soubor' }), h('label', { class: 'btn', for: 'liveCamera', style: 'cursor:pointer', text: 'Vyfotit obrazovku' }), file, cam)),
