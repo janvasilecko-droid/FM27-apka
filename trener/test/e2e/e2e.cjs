@@ -148,6 +148,7 @@ function installMock(config) {
       /\{"ok": true\}/.test(t) ? 'ping'
       : /obrazovka se soupiskou hráčů/.test(t) ? 'squad'
       : /obrazovka s taktikou hry Football Manager/.test(t) ? 'tacread'
+      : /s popisem jedné role hráče/.test(t) ? 'roleread'
       : /informacemi o soupeři/.test(t) ? 'oppread'
       : /připravuješ předzápasový plán proti soupeři/.test(t) ? 'opponent'
       : /vysvětluješ, jak je postavené rozložení/.test(t) ? 'explain'
@@ -177,6 +178,8 @@ function installMock(config) {
       text = JSON.stringify(mock.squadReply || { players: [{ name: 'Jan Novák', positions: ['ST'], age: 24, role: null, attributes: { Finishing: 15 }, injured: false }, { name: 'Petr Svoboda', positions: ['gk'], age: 31, role: null, attributes: {}, injured: true }, { name: '', positions: [] }], notes: 'čitelné' });
     } else if (kind === 'tacread') {
       text = JSON.stringify(mock.tacReply || { name: 'Hlavní 4-2-3-1', formation: '4-2-3-1', mentality: 'Positive', instructions: [{ group: 'S míčem', text: 'Shorter passing' }, { group: 'Bez míče', text: 'Higher defensive line' }, { group: null, text: 'Counter-press' }], roles: [{ position: 'ST', role: 'Advanced Forward', duty: 'Attack', player: null }, { position: 'GK', role: 'Sweeper Keeper', duty: 'Support', player: null }, { position: 'CB', role: 'Ball Playing Defender', duty: 'Defend', player: null }], notes: 'čitelné' });
+    } else if (kind === 'roleread') {
+      text = JSON.stringify(mock.roleReply || { role: 'Advanced Forward', phase: 'S míčem', duty: 'Attack', key: ['Finishing', 'Off The Ball'], preferred: ['Dribbling', 'Pace', 'Consistency'], notes: 'čitelné' });
     } else if (kind === 'oppread') {
       text = JSON.stringify(mock.oppReadReply || { formation: '4 2 3 1', roles: ['Křídelník'], keyPlayers: ['Novák – hrot'], strengths: [], weaknesses: ['Pomalá obrana'], notes: 'čitelné' });
     } else if (kind === 'opponent' || kind === 'explain' || kind === 'report' || kind === 'lesson' || kind === 'scenario') {

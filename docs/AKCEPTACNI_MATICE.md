@@ -70,10 +70,10 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 598 | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 616 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 677 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 711 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
@@ -95,6 +95,10 @@ navázání po novém načtení stránky bez zdvojení, sestava s rolemi s míč
 Ověřeno i opačně (po povolení cizí adresy a po načtení skrytých atributů zkouška spadla). **Skutečný plugin a skutečnou hru se z cloudu ověřit nedá.**
 17 graf průběhu zápasu: xG, střely, střely na bránu a držení míče v čase z časové osy, strana hosta, přepínání a zachování výběru po novém snímku, značka změny skóre,
 tabulka pro čtečky, Historie zápasů (14); ověřeno i opačně (po vynucení domácí strany zkouška spadla).
+18 profily rolí, vhodnost na role a nejlepší sestava (Moje taktiky): čtení role z obrazovky (náhražka Claude) s potvrzením a úpravou, ruční profily, skrytý údaj hry se do profilu nepřijme,
+přesná čísla vhodnosti a přiřazení (70, 73, 55, 77,5; součet 275,5), „nedostupné“ místo nuly, role bez profilu se neobsadí a řekne se proč, slabá místa (o 16,5 pod mediánem),
+sestava v taktice se změní jen po kliknutí, AI trenér dostane výsledek jako „heuristiku“, záloha nového typu dokumentu (34); ověřeno i opačně (skryté atributy v profilu, štítek pro AI, použití
+sestavy bez kliknutí). Algoritmus přiřazení: 500 + 400 náhodných instancí proti hrubé síle v testech jádra. Skutečné role a obrazovku role ve FM27 se z cloudu ověřit nedá.
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 

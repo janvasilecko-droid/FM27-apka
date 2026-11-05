@@ -23,7 +23,7 @@ Zadání majitele: prostudovat zdrojové kódy **FMMatchLens, FM Player Analyzer
 **Co potřebuji od majitele** (doporučená odpověď je první)
 
 1. **Plugin čtoucí paměť hry (FMMatchLens) používat jen pro offline hru na vlastní riziko?** Doporučuji ano, s varováním v aplikaci (už tam je). Autor pluginu riziko přenáší na uživatele a podmínky hry (EULA) nikdo z nich neřeší.
-2. **Odkud vzít váhy pro „vhodnost hráče na roli“ a nejlepší sestavu?** Doporučuji: (a) načíst klíčové atributy rolí z obrazovky role ve hře (přepis potvrdíš ty) a (b) nechat tě je upravit. Předvyplněný odhad z FMSuperScout (MIT) jen volitelně a vždy s nápisem „odhad, hra to nepotvrzuje“. Bez tohohle rozhodnutí etapu 1 nezačnu.
+2. **Odkud vzít váhy pro „vhodnost hráče na roli“ a nejlepší sestavu?** *Rozhodnuto 6. 11. (odpověď „1“): čtení z obrazovky role ve hře s potvrzením a možností úprav; odhad z FMSuperScout jen volitelně a s nápisem „odhad“. Etapa 1 je podle toho hotová.*
 3. **Pošli skutečná data z FM27:** 1 až 2 archivy `.fmlens` po zápase s pluginem a snímky obrazovky rolí. Bez nich nejde ověřit nic proti skutečné hře (viz 1).
 4. **Licence naší aplikace.** Repozitář zatím žádnou nemá. Při převzetí MIT kódu přidám `THIRD_PARTY_NOTICES.md` s textem licence. GPL kód nepřebírat (jinak by celá aplikace musela být GPL-3.0).
 
@@ -165,9 +165,9 @@ Typ převzetí: **kód MIT** = lze přepsat/převzít s oznámením; **metoda** 
 | 9 | Mapa přihrávek | FMMatchLens, `passMap.ts` (224 ř.) | kód MIT | Etapa 2 |
 | 10 | Tepelná mapa (akumulace do mřížky) | FMMatchLens, `heatmap.ts` | kód MIT (bez Pixi) | Etapa 2 |
 | 11 | Pohyb a sprinty (pásma 7/20/25 km/h) | FMMatchLens, `playerMovement.ts` | kód MIT | Etapa 3 |
-| 12 | Vhodnost hráče na roli, vysvětlitelná, **„nedostupné“ místo nuly** | FMSAT (metoda), FMSuperScout (seznamy klíčových atributů, MIT) | metoda + volitelně data MIT s nápisem „odhad“ | Etapa 1, čeká na rozhodnutí o vahách |
-| 13 | Nejlepší sestava pro obě fáze hry (přiřazení: maďarský algoritmus, min-cost flow) a testy proti hrubé síle | FM Player Analyzer (metoda), FMSAT (bitové přiřazení) | **metoda** | Etapa 1 |
-| 14 | Slabá místa a hloubka kádru bez CA/PA | FM Player Analyzer (nápad), FMSuperScout `app.js:4077-4192` | metoda / nápad | Etapa 1 |
+| 12 | Vhodnost hráče na roli, vysvětlitelná, **„nedostupné“ místo nuly** | FMSAT (metoda); profily rolí z obrazovky role ve hře místo cizích tabulek | metoda, vlastní kód | **Hotovo** (6. 11.); předvyplněný odhad z FMSuperScout zatím ne |
+| 13 | Nejlepší sestava (přiřazení: maďarský algoritmus) a testy proti hrubé síle; **pro obě fáze hry (min-cost flow) zatím ne** | FM Player Analyzer (metoda), FMSAT (bitové přiřazení) | **metoda**, vlastní kód | **Hotovo** pro jednu roli na místo (6. 11.); dvě fáze čekají na model taktiky s rolí zvlášť s míčem a bez míče |
+| 14 | Slabá místa a hloubka kádru bez CA/PA | FM Player Analyzer (nápad), FMSuperScout `app.js:4077-4192` | metoda / nápad | **Slabá místa hotová** (6. 11.: o 8 bodů pod mediánem, neobsazená místa); hloubka kádru po skupinách pozic ne |
 | 15 | Profil importu „FM View Exporter FM27“ (hlavičky, aliasy, povinné sloupce) | FM Player Analyzer `ImportSchema.cpp` | fakt (názvy sloupců) | Etapa 3 |
 | 16 | Slovníky atributů, pozic a rolí v dalších jazycích (nl, fr, de) | FMSuperScout `Fields.cs`, `app.js` | kód MIT (data) | Etapa 3 |
 | 17 | Import `dump.json` a CSV shortlistu z FMSuperScout (jen viditelná pole) | FMSuperScout `Dumper.cs`, `app.js:2984-3006` | fakt | Etapa 3 |
@@ -185,7 +185,7 @@ Každá etapa končí testy v obou směrech (kontrola projde, rozbitá pojistka 
 | Etapa | Obsah | Hotovo když | Potřebuji od majitele |
 |---|---|---|---|
 | **E0 — hotovo 5. 11.** | Import tabulek hráčů; FMMatchLens živě (sledování zápasu bez AI, sestava s rolemi); graf průběhu zápasu; tento audit | 598 testů jádra, 677 kontrol v prohlížeči; nahrané na GitHub | Vyzkoušet doma (viz 9) |
-| **E1 — sestava a role** | Vhodnost hráče na roli s politikou „nedostupné“ a rozpisem příspěvků atributů; nejlepší sestava pro obě fáze (vlastní přiřazování); slabá místa; výstup jde AI trenérovi jako pozorování s nápisem „odhad“ | Řešič shoduje s hrubou silou na tisících náhodných vzorků; váhy vždy s původem a upravitelné; bez CA/PA | **Rozhodnutí o zdroji vah** a snímky obrazovky rolí z FM27 |
+| **E1 — sestava a role (hotovo 6. 11., kromě dvou fází)** | Profily rolí z obrazovky role ve hře (potvrdí uživatel, jde upravit) nebo ručně; vhodnost hráče na roli s politikou „nedostupné“ a rozpisem příspěvků atributů; nejlepší sestava pro taktiku (maďarský algoritmus); slabá místa; výstup jde AI trenérovi jako pozorování s nápisem „heuristika“. **Nehotovo:** sestava zvlášť pro hru s míčem a bez míče (taktika v aplikaci má jednu roli na místo), volitelný předvyplněný odhad z FMSuperScout | Řešič se shoduje s hrubou silou na 900 náhodných instancích; váhy vždy s původem a upravitelné; bez CA/PA; zkouška 18 | Rozhodnutí o vahách bylo „odhad z obrazovky role + možnost úprav“ (6. 11.). **Snímky obrazovky rolí z FM27** pro ověření čtení |
 | **E2 — rozbor po zápase z archivu** | Čtečka `.fmlens` (kód MIT přepsaný do čistého JS), události, mapa střel a přihrávek, tepelné mapy; rozbor po zápase s AI nad skutečnými daty; ořez CA/PA a cest k souborům | Čtečka projde zkouškami se zapsaným archivem podle formátu **a se skutečným souborem od majitele** | **1 až 2 skutečné archivy `.fmlens` z FM27** |
 | **E3 — další importy** | Profil FM View Exporteru (FM27), `dump.json` a CSV z FMSuperScout (jen viditelná pole), hlavičky v dalších jazycích, pohyb a sprinty | Reálné exporty z FM27 se načtou s navrženým mapováním | Ukázkové soubory z nástrojů |
 | **E4 — taktika z pluginu** | Formace a role s míčem i bez míče z pluginu do „Moje taktiky“, porovnání s tím, co hraješ, vysvětlení „proč“ s citacemi z knih | Formace se nikdy nehádá (nejasné potvrdí uživatel) | Vyzkoušet na skutečné hře |
@@ -203,6 +203,7 @@ Vše je v repozitáři `janvasilecko-droid/fm27-apka`, větev `main`, a nasazen�
 | **Živá data zápasu z FMMatchLens**: Live Coach → karta „Živá data z FMMatchLens“ | Volá jen tento počítač; sleduje zápas podle herního času (gól, červená, nová část, 1 až 10 minut); bez AI; zápas se založí z dat pluginu | `matchlens.test.mjs` (18), zkouška 16 (41) |
 | **Sestava z FMMatchLens**: Můj tým → „Sestava z FMMatchLens“ | Role a povinnosti s míčem, viditelné atributy mého týmu; **atributy soupeře se nikdy nepřebírají** (a když není poznat, který tým je můj, nepřebírají se žádné) | tamtéž |
 | **Graf průběhu zápasu** (xG, střely, střely na bránu, držení): Live Coach a Historie zápasů | Body jsou snímky, nic se nedopočítává; tabulka pro čtečky | zkouška 17 (14) |
+| **Vhodnost hráčů na role, nejlepší sestava a slabá místa** (6. 11.): Moje taktiky → „Profily rolí“ a „Nejlepší sestava podle rolí“ | Profil role se přečte z obrazovky role ve hře (potvrdí a může upravit uživatel) nebo se zadá ručně; vhodnost = vážený průměr atributů (klíčový 2, žádoucí 1), **chybí-li atribut, je to „nedostupné“, ne nula**; přiřazení maďarským algoritmem; slabá místa; sestava se v taktice změní jen po kliknutí; AI trenér dostane výsledek jako „heuristiku“. Heuristika aplikace, ne pravidlo FM27 | `rolefit.test.mjs` (18; přiřazení proti hrubé síle na 900 instancích), zkouška 18 (34) |
 | Šedé tlačítko „Načíst“ nabízí i tabulku a FMMatchLens | — | zkouška 14 (35) |
 
 Ověřeno i opačně: když se rozbije kontrola adresy, načtou se skryté atributy nebo graf vezme špatnou stranu, zkoušky spadnou. **Co hotovo není a nejde z cloudu ověřit:** čtení skutečného pluginu a skutečné hry (zkoušky používají náhražku podle zdrojového kódu pluginu), skutečný export z cizích nástrojů a chování prohlížeče vůči volání lokální adresy.

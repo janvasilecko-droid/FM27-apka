@@ -50,15 +50,15 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 598 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (17 scénářů, 677 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 616 testů čistých modulů a úložiště |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (18 scénářů, 711 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 598 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 616 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -102,6 +102,11 @@ osobnost) se nenačítají.** Načtené údaje jsou „zadal uživatel (soubor o
 **Živá data z FMMatchLens** (samostatná verze, Windows): zásuvný modul do hry (otevřený kód, MIT) nabízí data zápasu na tomhle počítači. Karta v Live Coachi z nich skládá
 časovou osu zápasu bez čtení obrazovky a bez volání AI, karta v Můj tým načte sestavu s rolemi. Aplikace volá jen tento počítač (127.0.0.1 nebo localhost) a čte jen viditelné údaje.
 **Napsáno podle zdrojového kódu pluginu 0.7.x, neověřeno na běžící hře.** Graf průběhu zápasu (xG, střely, držení) kreslí časovou osu ze snímků z obrazovky i z pluginu.
+
+**Vhodnost hráčů na role a nejlepší sestava** (Moje taktiky): klíčové a žádoucí atributy role se přečtou z obrazovky role ve hře (přepis potvrdíš a můžeš upravit) nebo se zadají ručně;
+z nich aplikace spočítá vhodnost hráče na roli (vážený průměr: klíčový atribut váží 2, žádoucí 1; **chybí-li atribut, je to „nedostupné“, ne nula**), přiřadí hráče k místům taktiky
+maďarským algoritmem (nejdřív co nejvíc obsazených míst, pak největší součet) a ukáže slabá místa. **Je to heuristika aplikace, ne pravidlo FM27**; profily rolí nevymýšlí, skryté údaje hry
+se do nich nepouštějí, sestava se v taktice změní jen po kliknutí a AI trenér výsledek dostane jako neověřený odhad.
 
 ## Co je ověřeno a co ne
 

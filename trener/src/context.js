@@ -108,6 +108,11 @@
       }
       const t = activeTactic(app);
       if (o.tactic && t) out.push({ id: 'tactic', label: 'user_entered', minute: null, text: clip(tacticText(app, t), 3200) });
+      // vhodnost hráčů na role: jen když ji uživatel v téhle relaci spočítal; je to heuristika a tak je i označená
+      if (o.tactic && t && FM27.rolefitUI) {
+        const fit = FM27.rolefitUI.observationFor(t.id);
+        if (fit) out.push(fit);
+      }
       if (o.memory) {
         const lessons = ctx.memory(app).lessons.slice(-12);
         lessons.forEach((l, i) => out.push({ id: `mem-${i + 1}`, label: 'heuristic_coach', minute: null, text: `Zkušenost z dřívějška (${new Date(l.at).toLocaleDateString('cs-CZ')}): ${l.text}` }));

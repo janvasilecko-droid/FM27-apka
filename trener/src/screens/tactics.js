@@ -421,7 +421,8 @@ Odpověz POUZE JSON objektem:
         ui.field('Export taktiky z FM27 (.fmf), jen kontrola souboru', fmfInput),
         importBox
       );
-      root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, tacticReadCard(app, draw), imports);
+      const RFU = FM27.rolefitUI;
+      root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, tactic && RFU ? RFU.bestCard(app, tactic, draw) : null, RFU ? RFU.profilesCard(app, draw) : null, tacticReadCard(app, draw), imports);
     };
     const guard = ui.dirtyGuard(root, app, () => draw());
     draw();

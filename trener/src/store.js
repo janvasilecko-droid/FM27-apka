@@ -13,7 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const TYPES = ['career', 'player', 'tactic', 'match', 'opponent', 'memory', 'progress', 'settings', 'advice', 'source'];
+  const TYPES = ['career', 'player', 'tactic', 'match', 'opponent', 'memory', 'progress', 'settings', 'advice', 'source', 'roleprofile'];
   const MAX_REMOTE_BYTES = 240 * 1024; // `db` bere dokument nejvýš 256 KiB; nechávám rezervu
   const keyOf = (type, id) => `${type}_${id}`;
   // Hlubokou kopii dělá JSON (zahodí funkce a nepodporované hodnoty); klíč __proto__ se zahodí, aby cizí záloha nemohla měnit prototypy.
