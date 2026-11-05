@@ -147,6 +147,7 @@ function installMock(config) {
     const kindOf = (t) =>
       /\{"ok": true\}/.test(t) ? 'ping'
       : /obrazovka se soupiskou hráčů/.test(t) ? 'squad'
+      : /obrazovka s taktikou hry Football Manager/.test(t) ? 'tacread'
       : /informacemi o soupeři/.test(t) ? 'oppread'
       : /připravuješ předzápasový plán proti soupeři/.test(t) ? 'opponent'
       : /vysvětluješ, jak je postavené rozložení/.test(t) ? 'explain'
@@ -174,6 +175,8 @@ function installMock(config) {
       else text = JSON.stringify(next);
     } else if (kind === 'squad') {
       text = JSON.stringify(mock.squadReply || { players: [{ name: 'Jan Novák', positions: ['ST'], age: 24, role: null, attributes: { Finishing: 15 }, injured: false }, { name: 'Petr Svoboda', positions: ['gk'], age: 31, role: null, attributes: {}, injured: true }, { name: '', positions: [] }], notes: 'čitelné' });
+    } else if (kind === 'tacread') {
+      text = JSON.stringify(mock.tacReply || { name: 'Hlavní 4-2-3-1', formation: '4-2-3-1', mentality: 'Positive', instructions: [{ group: 'S míčem', text: 'Shorter passing' }, { group: 'Bez míče', text: 'Higher defensive line' }, { group: null, text: 'Counter-press' }], roles: [{ position: 'ST', role: 'Advanced Forward', duty: 'Attack', player: null }, { position: 'GK', role: 'Sweeper Keeper', duty: 'Support', player: null }, { position: 'CB', role: 'Ball Playing Defender', duty: 'Defend', player: null }], notes: 'čitelné' });
     } else if (kind === 'oppread') {
       text = JSON.stringify(mock.oppReadReply || { formation: '4 2 3 1', roles: ['Křídelník'], keyPlayers: ['Novák – hrot'], strengths: [], weaknesses: ['Pomalá obrana'], notes: 'čitelné' });
     } else if (kind === 'opponent' || kind === 'explain' || kind === 'report' || kind === 'lesson' || kind === 'scenario') {
@@ -294,7 +297,9 @@ function installMock(config) {
     window.__screen = {
       stream: null,
       denied: false,
+      last: 0,
       draw(n) {
+        window.__screen.last = n;
         ctx.fillStyle = n % 2 ? '#123' : '#e8d8c0';
         ctx.fillRect(0, 0, 640, 360);
         ctx.fillStyle = n % 2 ? '#fa0' : '#036';
@@ -305,6 +310,8 @@ function installMock(config) {
     navigator.mediaDevices.getDisplayMedia = async () => {
       if (window.__screen.denied) throw Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
       window.__screen.stream = canvas.captureStream(5);
+      // Plátno vydá snímek až po překreslení: jednou se překreslí stejný obraz, ať se první snímek dostane k videu (obsah se nemění).
+      setTimeout(() => window.__screen.draw(window.__screen.last), 60);
       return window.__screen.stream;
     };
   }

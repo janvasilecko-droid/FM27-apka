@@ -145,6 +145,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn.small { padding: 5px 11px; font-size: 13px; }
+.btn.grey { background: color-mix(in srgb, var(--muted) 22%, var(--panel)); color: var(--fg); }
 .btn.danger:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; align-items: center; }
 

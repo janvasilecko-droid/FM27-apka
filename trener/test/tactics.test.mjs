@@ -1548,3 +1548,110 @@ test('inspectFmf: skutečný zstd z Node (jen kontrola, že kontrakt decompress 
   assert.equal(two.frames.length, 2);
   assert.equal(two.frames[0].manifestLike, false);
 });
+
+// ---------------------------------------------------------------- taktika přečtená z obrazovky hry
+const READ_OK = {
+  name: 'Hlavní',
+  formation: '4-2-3-1',
+  mentality: 'Positive',
+  instructions: [{ group: 'S míčem', text: 'Shorter passing' }, { group: 'Bez míče', text: 'Higher defensive line' }, 'Counter-press', 'Counter-press'],
+  roles: [
+    { position: 'ST', role: 'Advanced Forward', duty: 'Attack' },
+    { position: 'GK', role: 'Sweeper Keeper', duty: 'Support' },
+    { position: 'CB', role: 'Ball Playing Defender', duty: 'Defend' },
+  ],
+  notes: 'Čitelné.',
+};
+
+test('normalizeTacticExtraction: čistá odpověď → formace jako id šablony, instrukce bez duplicit', () => {
+  const r = T.normalizeTacticExtraction(READ_OK);
+  assert.equal(r.ok, true);
+  assert.equal(r.read.formation, '4-2-3-1');
+  assert.equal(r.read.mentality, 'Positive');
+  assert.deepEqual(r.read.instructions, ['S míčem: Shorter passing', 'Bez míče: Higher defensive line', 'Counter-press']);
+  assert.equal(r.read.roles.length, 3);
+  assert.deepEqual(r.issues, []);
+});
+
+test('normalizeTacticExtraction: neznámá nebo nejednoznačná formace se nenahradí jinou, jen se řekne', () => {
+  for (const f of ['3-4-2-1-0', 'Diamond', '4-3', 'abc', '4-4-2 (úzká)']) {
+    const r = T.normalizeTacticExtraction({ formation: f, mentality: 'Balanced' });
+    assert.equal(r.read.formation, null, f);
+    assert.ok(r.issues.some((i) => /není mezi šablonami/.test(i)), f);
+    assert.equal(r.ok, true); // mentalita se přečetla
+  }
+  assert.equal(T.normalizeTacticExtraction({ formation: 433 }).read.formation, '4-3-3');
+});
+
+test('normalizeTacticExtraction: nesmysly, prázdno a špatné typy dají ok=false bez výjimky', () => {
+  for (const bad of [null, undefined, 'x', 5, [], { formation: null, mentality: null, instructions: [], roles: [] }, { instructions: 'text', roles: 'text' }]) {
+    const r = T.normalizeTacticExtraction(bad);
+    assert.equal(r.ok, false);
+    assert.ok(r.issues.length >= 1);
+  }
+});
+
+test('normalizeTacticExtraction: text z obrázku se čistí (řídicí znaky, délky, limity), role bez názvu a pozice divného tvaru se hlídají', () => {
+  const long = 'x'.repeat(500);
+  const r = T.normalizeTacticExtraction({
+    name: 'A\nB\u0000C' + long,
+    formation: '4-3-3',
+    mentality: long,
+    instructions: Array.from({ length: 40 }, (_, i) => `Instrukce ${i}`).concat([{ text: '' }, 7, null]),
+    roles: [{ position: 'st', role: 'R1' }, { position: 'Útočník vpravo', role: 'R2', duty: 'D' }, { position: 'CB' }, 'x', null, { role: '', duty: '' }],
+  });
+  assert.ok(r.read.name.length <= 60 && !/[\u0000\n]/.test(r.read.name));
+  assert.ok(r.read.mentality.length <= 90);
+  assert.equal(r.read.instructions.length, 24);
+  assert.ok(r.issues.some((i) => /nad limit/.test(i)));
+  assert.deepEqual(r.read.roles.map((x) => [x.pos, x.role]), [['ST', 'R1'], ['', 'R2']]); // „st“ se opraví na velká písmena, divná pozice se zahodí, role bez názvu a povinnosti také
+  const max = T.normalizeTacticExtraction({ roles: Array.from({ length: 30 }, (_, i) => ({ position: 'ST', role: 'R' + i })) });
+  assert.equal(max.read.roles.length, 14);
+});
+
+test('tacticFromExtraction: vytvoří taktiku z šablony, role dosadí jen k jednoznačným pozicím, zbytek dá do poznámky', () => {
+  const { read } = T.normalizeTacticExtraction(READ_OK);
+  const r = T.tacticFromExtraction(read, { careerId: 'c1', kind: 'primary', fileName: 'taktika.png', now: 1234 });
+  assert.ok(r.tactic);
+  const t = r.tactic;
+  assert.equal(t.formation, '4-2-3-1');
+  assert.equal(t.name, 'Hlavní');
+  assert.equal(t.careerId, 'c1');
+  assert.equal(t.mentality, 'Positive');
+  assert.deepEqual(t.teamInstructions, ['S míčem: Shorter passing', 'Bez míče: Higher defensive line', 'Counter-press']);
+  const st = t.slots.filter((s) => s.pos === 'ST');
+  const gk = t.slots.filter((s) => s.pos === 'GK');
+  assert.equal(st.length, 1);
+  assert.equal(st[0].role, 'Advanced Forward');
+  assert.equal(st[0].duty, 'Attack');
+  assert.equal(gk[0].role, 'Sweeper Keeper');
+  // dva stoperi, jedna role v odpovědi: pořadí se nehádá
+  assert.ok(t.slots.filter((s) => s.pos === 'CB').length >= 2 || t.slots.filter((s) => s.pos === 'CB').every((s) => !s.role));
+  assert.ok(t.slots.filter((s) => s.pos === 'CB').every((s) => s.role === ''));
+  assert.deepEqual(r.unplaced, ['CB: Ball Playing Defender (Defend)']);
+  assert.match(t.notes, /nepodařilo bezpečně přiřadit.*CB: Ball Playing Defender/);
+  assert.match(t.notes, /Čitelné\./);
+  assert.deepEqual(t.source, { type: 'screenshot', fileName: 'taktika.png', importedAt: 1234, fields: { formation: 'screenshot_verified', mentality: 'screenshot_verified', instructions: 'screenshot_verified', roles: 'screenshot_verified' } });
+});
+
+test('tacticFromExtraction: dvě role se stejnou pozicí v odpovědi se nepřiřadí ani k jedinému hráči; role bez pozice jde do poznámky', () => {
+  const { read } = T.normalizeTacticExtraction({ formation: '4-3-3', roles: [{ position: 'ST', role: 'A' }, { position: 'ST', role: 'B' }, { role: 'Bez pozice' }] });
+  const r = T.tacticFromExtraction(read, {});
+  assert.ok(r.tactic.slots.filter((s) => s.pos === 'ST').every((s) => s.role === ''));
+  assert.equal(r.unplaced.length, 3);
+});
+
+test('tacticFromExtraction: bez rozpoznané formace taktika nevznikne, neplatný vstup nevyhodí výjimku', () => {
+  const noFormation = T.tacticFromExtraction(T.normalizeTacticExtraction({ mentality: 'Balanced' }).read, {});
+  assert.equal(noFormation.tactic, null);
+  assert.match(noFormation.issues[0], /Bez formace/);
+  for (const bad of [null, undefined, 'x', {}, { formation: 'neplatná' }]) assert.equal(T.tacticFromExtraction(bad, {}).tactic, null);
+});
+
+test('tacticFromExtraction: pole, která se nepřečetla, jsou ve zdroji „neznámé“ a název se vezme z volby nebo z formace', () => {
+  const { read } = T.normalizeTacticExtraction({ formation: '4-4-2' });
+  const r = T.tacticFromExtraction(read, {});
+  assert.equal(r.tactic.name, 'Taktika 4-4-2');
+  assert.deepEqual(r.tactic.source.fields, { formation: 'screenshot_verified', mentality: 'unknown', instructions: 'unknown', roles: 'unknown' });
+  assert.equal(T.tacticFromExtraction(read, { name: 'Moje' }).tactic.name, 'Moje');
+});

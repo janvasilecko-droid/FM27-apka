@@ -50,15 +50,15 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 550 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (13 scénářů, 553 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 558 testů čistých modulů a úložiště |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (14 scénářů, 588 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 550 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 558 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -87,6 +87,13 @@ Po každé změně zdrojů je třeba znovu `node trener/build.mjs`; `dist/` nen�
 - **Samostatná aplikace**: GitHub Pages z `dist/standalone/`, workflow `.github/workflows/pages.yml` (spouští se ručně a po každé změně aplikace na `main`).
   Pages zapnul majitel (Source: GitHub Actions) a první nasazení prošlo 5. 11. 2026: https://janvasilecko-droid.github.io/FM27-apka/
 
+## Načíst aktuální hru
+
+Šedé tlačítko „Načíst“ nahoře ukáže, co jde načíst z obrazovky hry (taktika, soupiska, soupeř, zápas), a vede na obrazovku, kde se to dělá. Aplikace
+**nečte paměť hry ani její soubory**: čte jen to, co je vidět na obrazovce, a výsledek je vždy návrh k potvrzení. Tlačítko „Načíst z okna hry“ vezme jeden
+snímek sdíleného okna (samostatná verze, nebo okno claude.ai, pokud sdílení povolí; řádek v Nastavení). Proč ne paměť, jaké nástroje existují a jaké jsou další
+cesty: [`docs/NACITANI_DAT_ZE_HRY.md`](../docs/NACITANI_DAT_ZE_HRY.md).
+
 ## Co je ověřeno a co ne
 
 Podrobně po bodech zadání v [`docs/AKCEPTACNI_MATICE.md`](../docs/AKCEPTACNI_MATICE.md). Zkráceně:
@@ -95,7 +102,7 @@ Podrobně po bodech zadání v [`docs/AKCEPTACNI_MATICE.md`](../docs/AKCEPTACNI_
 synchronizace mezi dvěma okny, import plánu, brána snímků, detektory, vyhodnocení změny před a po, hlasová pravidla, vlastní klíč
 a chyby poskytovatelů, service worker a offline otevření, rozložení na telefonu, čitelnost ve světlém i tmavém vzhledu.
 
-**Neověřeno z cloudu** (čeká na skutečné prostředí): odpovědi skutečného Claude a jak často rada projde kontrolou na první pokus;
+**Neověřeno z cloudu** (čeká na skutečné prostředí): odpovědi skutečného Claude a jak často rada projde kontrolou na první pokus; **čtení taktiky, soupisky a soupeře ze skutečné obrazovky FM27** (jazyk hry, rozložení, kolik záložek je potřeba) a „Načíst z okna hry“ na skutečném okně hry;
 skutečné `db`, `sample` a souhlasy v artefaktu; čtení skutečných screenshotů FM27; skutečný export `.fmf` (pole taktiky se
 **nedekódují**, aplikace čte jen kontejner); sdílení okna FM27 na Windows; kvalita českého hlasu; OpenAI-kompatibilní rozhraní
 proti živé službě; pdf.js uvnitř omezeného okna artefaktu a čtení skutečných knih (sazba ve sloupcích, tabulky); **zda okno claude.ai povolí stránce sdílení obrazovky** (aplikace to zjistí předem a ukáže v Nastavení; pokud ano, živé čtení jede i na stránce v Claude, tedy na předplatném bez klíče); **hledání zdrojů na webu**:

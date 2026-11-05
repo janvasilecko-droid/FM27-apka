@@ -37,7 +37,7 @@ Značení:
 | Etapa | Stav |
 |---|---|
 | 1 Základ | Hotovo: deset sekcí, kariéry, synchronizace (stránka v Claude), nastavení, záloha a smazání dat. |
-| 2 Taktiky | Hotovo, **`.fmf` jen kontejner** (pole taktiky se nedekódují). Plán JSON, editor 11 pozic, laboratoř s tahem hráčů, porovnání taktik, soupeř zrcadlově. |
+| 2 Taktiky | Hotovo, **`.fmf` jen kontejner** (pole taktiky se z něj nedekódují). Plán JSON, **čtení taktiky z obrazovky hry** (návrh k potvrzení), editor 11 pozic, laboratoř s tahem hráčů, porovnání taktik, soupeř zrcadlově. |
 | 3 AI trenér | Hotovo: rada s kontextem, pamětí, knihami, obrázky; kontrola poctivosti a jedna oprava. |
 | 4 Live Coach | Hotovo: ruční vkládání snímků (v Claude), sdílení obrazovky (samostatná verze), brána změn, časová osa, detektory, vyhodnocení změny. |
 | 5 Hlas | Hotovo: výstup, tichý režim, hlasitost, četnost; vstup v samostatné verzi. |
@@ -54,12 +54,13 @@ Značení:
   Manageru je označená „NENÍ FM27“. **Neověřeno z cloudu:** skutečná odpověď Parallel Search (tvar je odhad, čtení toleruje víc tvarů a při
   neznámém tvaru ukáže začátek odpovědi) a skutečné API Anthropic z prohlížeče (nástroj `web_search_20250305`, CORS, účtování 10 USD za 1 000 hledání podle
   dokumentace k 5. 11. 2026). Ověří to až tlačítko „Zkušební hledání“ v Nastavení u tebe.
-- **Načtení dat přímo z běžící hry jako Real Time Editor** (taktika, hráči a jejich údaje, finance jedním tlačítkem). RTE je program pro Windows,
-  který čte paměť hry a je vázaný na konkrétní verzi hry. Prohlížeč ani stránka v Claude do jiného programu sahat nesmí, takže to v téhle aplikaci
-  technicky nejde. Šlo by to jen samostatným programem pro Windows, který by paměť FM27 četl (jen čtení), jenže (1) FM27 vychází 10. 11. 2026 a
-  struktury dat se zjišťují z vydané hry pro každou verzi znovu, (2) z cloudu to nejde vyzkoušet, (3) čtení paměti hry vývojář nepodporuje
-  (licenční podmínky a stabilita hry je třeba ověřit). Nic se tu nehádá. Dnes aplikace čte **obrazovku hry** (snímek nebo sdílené okno) a ručně
-  zadané údaje; finance zatím nemá. Rozhodnutí majitele viz `POKRACOVANI.md`.
+- **Načtení dat přímo z paměti běžící hry jako Real Time Editor** (taktika, hráči a jejich údaje, finance jedním tlačítkem). Prohlížeč ani stránka
+  v Claude do jiného programu sahat nesmí, takže to v téhle aplikaci technicky nejde. Hledání na GitHubu (5. 11. 2026) ukázalo, že kolem FM27 už existují
+  editory čtoucí paměť (hráči, štáb, finance klubu), ale **taktiku z paměti nečte žádný**; taktika se čte ze souboru (`.fmf`, uložená hra). Vlastní čtečku
+  paměti nestavíme (nedá se vyzkoušet z cloudu, struktury FM27 jsou vázané na build hry, hra by mohla spadnout, licenční podmínky je třeba ověřit).
+  Dnes aplikace čte **obrazovku hry** (snímek vložený ručně, nebo jedním kliknutím z okna hry, kde to stránka smí) a ručně zadané údaje; **taktika se čte
+  z obrazovky** (formace, mentalita, instrukce, role přesně jak je hra píše, návrh k potvrzení); finance zatím aplikace nemá. Přehled nástrojů, licencí
+  a možných cest je v `docs/NACITANI_DAT_ZE_HRY.md`.
 - Dekódování polí taktiky z `.fmf`: není známo, jak jsou uložená, a zadání zakazuje hádání.
 - Oznámení na zavřený telefon (push) a překryvné okno nad hrou (Document Picture-in-Picture).
 - Čtení naskenovaných PDF bez textové vrstvy (OCR).
@@ -69,10 +70,10 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 550 | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 558 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 553 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 588 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
@@ -82,6 +83,8 @@ karty a uložení zdroje, rada a lekce se zdroji z webu, chyby konektoru, samost
 Zkoušku 12 jsem ověřil i opačně: po vypnutí kontroly adres (povolení `javascript:` a `http:`) spadla v 15 bodech.
 13 sdílení obrazovky ve stránce v Claude: rámeček z jiného původu napodobuje claude.ai s povolením (`allow="display-capture"`) a bez něj (14);
 ověřeno i opačně (po ignorování pravidla rámečku spadly 4 body). Skutečný rámeček claude.ai se z cloudu ověřit nedá.
+14 načíst z obrazovky hry: šedé tlačítko „Načíst“, čtení taktiky z obrazovky s potvrzením, jeden snímek okna hry, soupiska a soupeř z okna hry (35);
+ověřeno i opačně (po vypuštění potvrzení a po hádání rolí zkouška spadla). Čtení skutečné obrazovky FM27 skutečným Claude se z cloudu ověřit nedá.
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 

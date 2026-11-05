@@ -1251,11 +1251,107 @@
     return result;
   }
 
+  // ---------------------------------------------------------------- taktika přečtená z obrazovky hry
+  // Model přepíše, co je na obrazovce taktiky vidět (formace, mentalita, instrukce, role). Je to jen NÁVRH: nic se nevytvoří,
+  // dokud ho uživatel nepotvrdí podle snímku. Názvy rolí a instrukcí se přebírají přesně tak, jak je hra píše (aplikace jejich
+  // oficiální názvy nezná a nic nepřekládá ani nedoplňuje). Neznámá formace se nikdy tiše nenahradí jinou.
+  const TAC_TEXT = 90;
+  const TAC_MAX_INSTRUCTIONS = 24;
+  const TAC_MAX_ROLES = 14;
+  const oneLineText = (v, n) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
+
+  /** normalizeTacticExtraction(raw) → {ok, read: {name, formation (id šablony|null), formationRaw, mentality, instructions: [text], roles: [{pos, role, duty, player}], notes}, issues}.
+      Cokoli podezřelého se zahodí a řekne se to v `issues`. `ok` je true, jen když je přečtené aspoň něco. */
+  function normalizeTacticExtraction(raw) {
+    const issues = [];
+    const read = { name: '', formation: null, formationRaw: '', mentality: '', instructions: [], roles: [], notes: '' };
+    if (!isObj(raw)) return { ok: false, read, issues: ['Odpověď nemá očekávaný tvar.'] };
+    read.name = oneLineText(raw.name, 60);
+    const fr = typeof raw.formation === 'string' || isNum(raw.formation) ? oneLineText(String(raw.formation), 30) : '';
+    read.formationRaw = fr;
+    if (fr) {
+      read.formation = normalizeFormationId(fr);
+      if (!read.formation) issues.push(`Formace „${fr}“ není mezi šablonami aplikace (nebo ji nejde jednoznačně přečíst), vyber ji ručně.`);
+    }
+    read.mentality = oneLineText(raw.mentality, TAC_TEXT);
+    const seen = new Set();
+    let dropped = 0;
+    for (const item of Array.isArray(raw.instructions) ? raw.instructions : []) {
+      let text = '';
+      if (typeof item === 'string') text = oneLineText(item, 120);
+      else if (isObj(item)) {
+        const g = oneLineText(item.group, 40);
+        const t = oneLineText(item.text, 100);
+        text = t ? (g ? `${g}: ${t}` : t) : '';
+      }
+      const key = text.toLowerCase();
+      if (!text) {
+        dropped++;
+        continue;
+      }
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (read.instructions.length < TAC_MAX_INSTRUCTIONS) read.instructions.push(text);
+      else dropped++;
+    }
+    if (dropped) issues.push(`Instrukcí vynechaných jako prázdné nebo nad limit ${TAC_MAX_INSTRUCTIONS}: ${dropped}.`);
+    for (const r of (Array.isArray(raw.roles) ? raw.roles : []).slice(0, TAC_MAX_ROLES)) {
+      if (!isObj(r)) continue;
+      const role = oneLineText(r.role, 60);
+      const duty = oneLineText(r.duty, 40);
+      const player = oneLineText(r.player, 60);
+      const posRaw = oneLineText(r.position, 8).toUpperCase();
+      const pos = /^[A-Z]{1,4}$/.test(posRaw) ? posRaw : '';
+      if (!role && !duty) continue;
+      read.roles.push({ pos, role, duty, player });
+    }
+    read.notes = oneLineText(raw.notes, 200);
+    const ok = !!(read.formation || read.mentality || read.instructions.length || read.roles.length);
+    if (!ok) issues.push('Na obrázku jsem nenašel nic čitelného z taktiky.');
+    return { ok, read, issues };
+  }
+
+  /** tacticFromExtraction(read, opts) → {tactic|null, unplaced: [text], issues}. Role se přiřadí jen k pozici, kterou má
+      v rozestavení přesně jeden hráč a na obrázku je k ní přesně jedna role; ostatní skončí v poznámce (nehádá se pořadí
+      hráčů se stejnou pozicí). Bez rozpoznané formace se taktika nevytvoří. opts: {name, careerId, kind, fileName, now}. */
+  function tacticFromExtraction(read, opts) {
+    const o = isObj(opts) ? opts : {};
+    const issues = [];
+    if (!isObj(read) || !read.formation) return { tactic: null, unplaced: [], issues: ['Bez formace taktiku vytvořit nejde: vyber ji ručně.'] };
+    const name = oneLineText(o.name, 60) || read.name || `Taktika ${read.formation}`;
+    const t = makeTactic({ formation: read.formation, name, kind: o.kind, careerId: o.careerId });
+    if (!t) return { tactic: null, unplaced: [], issues: [`Formace „${read.formation}“ není mezi šablonami.`] };
+    t.mentality = read.mentality || '';
+    t.teamInstructions = Array.isArray(read.instructions) ? read.instructions.slice(0, TAC_MAX_INSTRUCTIONS) : [];
+    const unplaced = [];
+    for (const r of Array.isArray(read.roles) ? read.roles : []) {
+      const label = `${r.pos ? r.pos + ': ' : ''}${r.role || '?'}${r.duty ? ' (' + r.duty + ')' : ''}${r.player ? ' – ' + r.player : ''}`;
+      const slots = r.pos ? t.slots.filter((s) => s.pos === r.pos) : [];
+      const same = r.pos ? read.roles.filter((x) => x.pos === r.pos) : [];
+      if (slots.length === 1 && same.length === 1) {
+        slots[0].role = r.role || '';
+        slots[0].duty = r.duty || '';
+      } else unplaced.push(label);
+    }
+    const notes = [];
+    if (unplaced.length) notes.push(`Role z obrazovky, které se nepodařilo bezpečně přiřadit k pozici: ${unplaced.join('; ')}.`);
+    if (read.notes) notes.push(read.notes);
+    t.notes = notes.join(' ').slice(0, 400);
+    const fields = {
+      formation: 'screenshot_verified',
+      mentality: read.mentality ? 'screenshot_verified' : 'unknown',
+      instructions: read.instructions && read.instructions.length ? 'screenshot_verified' : 'unknown',
+      roles: read.roles && read.roles.length ? 'screenshot_verified' : 'unknown',
+    };
+    t.source = { type: 'screenshot', fileName: oneLineText(o.fileName, 80) || null, importedAt: isNum(o.now) ? o.now : null, fields };
+    return { tactic: t, unplaced, issues };
+  }
+
   return {
     PLAN_FORMAT, PLAN_VERSION, PHASES, CHANNELS, THIRDS, FMF,
     FORMATIONS, DEFAULT_THRESHOLDS,
     normalizeFormationId, formationById, makeTactic, lineOf, channelOf, thirdOf,
-    importPlanJson, exportPlanJson,
+    importPlanJson, exportPlanJson, normalizeTacticExtraction, tacticFromExtraction,
     analyzeShape, shapeFacts, findConflicts, compareTactics, opponentOverloads, factsToObservations,
     inspectFmf,
   };

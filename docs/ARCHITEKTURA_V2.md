@@ -120,6 +120,10 @@ formationById(id) → formation|null
 makeTactic({id, name, formation, kind}) → Tactic    // klíče slotů 's1'…'s11', role/duty '', playerId null, ox=x, oy=y
 lineOf(pos) → 'gk'|'def'|'mid'|'att'
 importPlanJson(plan) → {tactic, players, report}   // formát 'fm27-tactical-coach-manual-plan' v1; vše je user_entered
+normalizeTacticExtraction(raw) → {ok, read:{name, formation, formationRaw, mentality, instructions[], roles[{pos,role,duty,player}], notes}, issues}
+   // taktika přečtená z OBRAZOVKY hry: jen návrh; neznámá formace → null a věta „vyber ručně“ (nikdy se nenahradí jinou)
+tacticFromExtraction(read, {name, careerId, kind, fileName, now}) → {tactic|null, unplaced[], issues}
+   // role se dosadí jen k pozici s jedním hráčem a jednou rolí v odpovědi; zbytek do poznámky; zdroj {type:'screenshot', fields}
 exportPlanJson(tactic, players, {club}) → plan     // kruhově zpět importovatelný
 analyzeShape(tactic, {phase:'in'|'out', thresholds}) → analysis
    // {lines:[{name,keys,avgY,minY,maxY}], gaps:[{between:[a,b], gap}], width:{overall,perLine}, depth, thirds:{def,mid,att},

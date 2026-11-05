@@ -102,13 +102,18 @@
     const input = h('input', { type: 'file', id: 'oppShot', accept: ai.limitsInfo.images.mediaTypes.join(','), multiple: true });
     const status = h('p', { class: 'hint', id: 'oppShotStatus', 'aria-live': 'polite' });
     const out = h('div', { id: 'oppProposals' });
+    let grabbed = []; // snímek okna hry (jen tam, kde to stránka smí)
+    const grab = W.frameGrabButton((blob) => {
+      grabbed = [blob];
+      status.textContent = 'Snímek okna hry je připravený. Klikni na „Přečíst soupeře ze screenshotu“.';
+    }, { id: 'oppGrab' });
     const read = h('button', {
       class: 'btn',
       id: 'oppRead',
       type: 'button',
       text: 'Přečíst soupeře ze screenshotu',
       onclick: async () => {
-        const files = [...input.files].slice(0, ai.limitsInfo.images.maxCount);
+        const files = [...input.files, ...grabbed].slice(0, ai.limitsInfo.images.maxCount);
         if (!files.length) return (status.textContent = 'Vyber aspoň jeden obrázek.');
         read.disabled = true;
         status.textContent = 'Čtu obrázek… (při prvním použití potvrď okno Claude)';
@@ -146,7 +151,7 @@
         }
       },
     });
-    return h('section', { class: 'card' }, h('h2', { text: 'Doplnit ze screenshotu' }), h('p', { class: 'lead', text: 'Model přečte, co je na obrazovce o soupeři. Použité hodnoty se označí „přečteno z obrázku, neověřeno“, dokud je sám nepotvrdíš.' }), ui.field('Screenshot soupeře', input), h('div', { class: 'actions' }, read), status, out);
+    return h('section', { class: 'card' }, h('h2', { text: 'Doplnit ze screenshotu' }), h('p', { class: 'lead', text: 'Model přečte, co je na obrazovce o soupeři. Použité hodnoty se označí „přečteno z obrázku, neověřeno“, dokud je sám nepotvrdíš.' }), ui.field('Screenshot soupeře', input), h('div', { class: 'actions' }, grab, read), status, out);
   }
 
   // ------------------------------------------------------------------ editor profilu

@@ -298,6 +298,38 @@
     bar.append(sel, h('button', { class: 'btn small', id: 'careerNew', type: 'button', text: 'Nová kariéra', onclick: open }));
   }
 
+  /** Šedé tlačítko „Načíst“: co a odkud se dá z aktuální hry načíst. Čte se jen to, co je vidět na obrazovce hry; paměť hry ani její
+      soubory aplikace nečte (viz akceptační matice). Každý řádek vede na obrazovku, kde se to dělá. */
+  function openLoadDrawer() {
+    const ai = FM27.ai;
+    const vision = !!(ai.available && ai.imagesSupported);
+    const grab = !!(FM27.live && FM27.live.captureAvailable && FM27.live.captureAvailable());
+    const go = (hash) => {
+      ui.closeDrawer();
+      location.hash = '#' + hash;
+    };
+    const row = (title, text, hash) =>
+      h(
+        'div',
+        { class: 'book', 'data-load': hash },
+        h('div', { class: 'meta' }, h('b', { text: title }), h('span', { text }), h('span', { class: 'chips' }, ui.chip(vision ? 'good' : 'warn', vision ? 'jde načíst' : 'nejde: chybí Claude se čtením obrázků'))),
+        h('button', { class: 'btn small', type: 'button', text: 'Otevřít', onclick: () => go(hash) })
+      );
+    ui.openDrawer('Načíst aktuální hru', [
+      h('p', { class: 'lead', id: 'loadLead', text: grab ? 'Aplikace čte to, co je právě vidět na obrazovce hry. V každé z těchto sekcí je tlačítko „Načíst z okna hry“: sdílíš okno hry a vezme se jeden snímek.' : 'Aplikace čte to, co je právě vidět na obrazovce hry. Snímek vlož ručně (ve Windows Win+Shift+S a pak Ctrl+V, na telefonu fotka). Tlačítko „Načíst z okna hry“ je jen tam, kde to stránka smí (samostatná verze).' }),
+      h(
+        'div',
+        { class: 'books', id: 'loadList' },
+        row('Taktika', 'Formace, mentalita, instrukce a role z obrazovky taktiky.', 'taktiky'),
+        row('Soupiska', 'Hráči a jejich atributy z obrazovky týmu.', 'tym'),
+        row('Soupeř', 'Taktika, rozestavení a zpráva skauta o soupeři.', 'soupere'),
+        row('Zápas', 'Statistiky a průběh zápasu (sledování obrazovky).', 'live')
+      ),
+      h('div', { class: 'banner warn', id: 'loadNot' }, h('b', { text: 'Co aplikace nedělá' }), h('span', { text: 'Nečte paměť běžící hry ani její uložené hry a nic do nich nezapisuje. Nástroje, které to dělají (editory, skauti), jsou nezávislé projekty pro offline hru, jejich výstup do aplikace zatím načíst neumím.' })),
+      h('p', { class: 'hint', text: 'Všechno přečtené z obrazovky je „neověřeno“, dokud to nepotvrdíš podle obrázku.' }),
+    ]);
+  }
+
   function renderPills() {
     const lib = FM27.library;
     const nb = lib.books.length;
@@ -356,6 +388,7 @@
   app.init = async function () {
     app.registry = C.Registry.fromKnowledgeJson(JSON.parse($('#knowledge-data').textContent));
     $('#drawerClose').addEventListener('click', ui.closeDrawer);
+    $('#loadBtn').addEventListener('click', openLoadDrawer);
     document.addEventListener('keydown', (e) => e.key === 'Escape' && ui.closeDrawer());
     renderNav();
     renderPills();

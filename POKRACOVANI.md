@@ -13,7 +13,7 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
   „Zdrojích znalostí“, volba „Hledat i na webu“ u Osobního trenéra a u lekce ve Škole, zkušební hledání v Nastavení. Cesty: konektor
   „Parallel Search“ (stránka v Claude, `mcp`) a `web_search` od Anthropic přes klíč (samostatná verze, účtuje se zvlášť). **Neověřeno proti
   živým službám**, nic z webu není `verified`, v Live Coachi se nehledá. Kód: `trener/src/websources.js`, `web.js`; zkouška 12.
-- **Zkoušky**: 550 testů jádra, 141 + 11 v Pythonu, 553 kontrol v prohlížeči (13 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
+- **Zkoušky**: 558 testů jádra, 141 + 11 v Pythonu, 588 kontrol v prohlížeči (14 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
   `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
   skutečné službě ani skutečnému FM27**.
 - Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).
@@ -58,13 +58,14 @@ Seznam s důvody: `docs/AKCEPTACNI_MATICE.md`, část 3.
 
 ## Možná další rozhodnutí (až majitel stránku vyzkouší)
 
-- **Načtení dat z běžící hry jako Real Time Editor** (majitel to chce: taktika, hráči a jejich údaje, finance; 5. 11. 2026). Z prohlížeče ani
-  ze stránky v Claude to technicky nejde (RTE čte paměť hry, to umí jen program pro Windows a je vázaný na verzi hry). Možnosti: (a) čtení
-  obrazovky hry (už je, jen taktika ze snímku zatím ne a finance nejsou); (b) po 10. 11. 2026 zjistit, jestli RTE pro FM27 umí údaje uložit do souboru
-  (tabulka, HTML, CSV), a načítat takový soubor: navržený postup je obecné načtení tabulky s potvrzením významu sloupců (nic nehádá), bez AI, jen
-  s ukázkou skutečného souboru (koncept leží mimo repozitář, nebyl zapojený ani zkoušený); (c) vlastní program pro Windows, jen čtení paměti: až po
-  vydání hry, spolu s majitelem na jeho počítači, bez záruky, s ověřením licenčních podmínek hry; (d) karta Finance (ručně nebo ze snímku).
-  Majitel zatím nerozhodl, kterou cestou.
+- **Načtení dat z běžící hry jako Real Time Editor** (majitel to chce: taktika, hráči a jejich údaje, finance; 5. 11. 2026). Z prohlížeče ani ze stránky
+  v Claude to technicky nejde (čtení paměti umí jen program pro Windows a je vázané na build hry). **Výzkum je v `docs/NACITANI_DAT_ZE_HRY.md`**: editory
+  čtoucí paměť FM27 už existují (GPL-3.0, beta), ale **taktiku z paměti nečte žádný**; taktika se čte ze souboru (`.fmf`: `fm-ai-assistent` bez licence;
+  uložená hra: `fmsave` MIT, syrová čísla). Hotovo: **čtení taktiky z obrazovky hry**, tlačítko „Načíst z okna hry“ (jeden snímek) u taktiky, soupisky a soupeře,
+  šedé tlačítko „Načíst“ nahoře. Možné další kroky podle rozhodnutí majitele: (1) „Načíst uloženou hru“ přes `fmsave` v prohlížeči (samostatná verze;
+  hráči, finance, zápasy, další soupeř; taktika syrově); (2) taktika ze souboru `.fmf` (svolení autora `fm-ai-assistent`, nebo vlastní rozbor souborů od
+  majitele); (3) načítání CSV/JSON z hotových nástrojů (potřebuje ukázky souborů; koncept obecného načtení tabulky leží mimo repozitář, nebyl zapojený ani
+  zkoušený); (4) karta Finance (ručně nebo ze snímku). Vlastní čtečku paměti nestavíme.
 - **Předplatné místo kreditů:** samostatná verze potřebuje klíč API (platí se zvlášť, viz
   https://support.claude.com/en/articles/9876003-why-is-claude-api-usage-billed-separately-from-my-paid-claude-plan); stránka v Claude jede na
   předplatném bez klíče. Aby šlo živé čtení i tam, aplikace zjišťuje, jestli okno claude.ai povolí sdílení obrazovky (Nastavení → „Sdílení obrazovky

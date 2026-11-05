@@ -373,6 +373,47 @@
     return live.framedCaptureAllowed() ? 'ano (okno claude.ai to stránce povoluje)' : 'ne: okno claude.ai sdílení obrazovky stránkám nepovoluje, snímky vkládej ručně (Win+Shift+S a Ctrl+V)';
   };
 
+  /** Jeden snímek okna hry bez spuštění sledování. Běží-li sdílení, vezme se jeho obraz; jinak se prohlížeč zeptá na okno (uživatel
+      vybere hru), vezme se jeden snímek a sdílení se hned ukončí. Vrací Blob (JPEG). Bez výslovného souhlasu uživatele nic nesnímá. */
+  live.grabFrame = async function grabFrame() {
+    if (!live.captureAvailable()) throw new Error('Sdílení obrazovky tady není dostupné.');
+    const running = live.session && live.session.capture;
+    let stream = null;
+    let video;
+    if (running && !running.stopped && running.video && running.video.videoWidth) video = running.video;
+    else {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 2, max: 5 } }, audio: false });
+      video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      video.play().catch(() => {});
+    }
+    try {
+      const end = Date.now() + 4000;
+      while (!video.videoWidth && Date.now() < end) await new Promise((resolve) => setTimeout(resolve, 50));
+      if (!video.videoWidth) throw new Error('Z okna hry se nepodařilo vzít snímek.');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      if (!blob) throw new Error('Snímek se nepodařilo uložit.');
+      return blob;
+    } finally {
+      if (stream) {
+        for (const t of stream.getTracks()) {
+          try {
+            t.stop();
+          } catch (e) {
+            /* už zastaveno */
+          }
+        }
+        video.srcObject = null;
+      }
+    }
+  };
+
   /** hooks: {onStatus(text), onResult(result), onEnded()}. Vyžaduje výslovný souhlas uživatele (okno prohlížeče). */
   live.startCapture = async function startCapture(app, hooks) {
     const s = live.session;

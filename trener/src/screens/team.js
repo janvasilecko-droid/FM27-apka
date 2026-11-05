@@ -7,6 +7,7 @@
   const C = window.TrenerCore;
   const ui = FM27.ui;
   const { h, $, toast } = ui;
+  const W = FM27.widgets;
 
   const MAX_PLAYERS = 60;
   const SUGGEST_ATTRS = ['Finishing', 'Passing', 'Pace', 'Stamina', 'Defending', 'Tackling', 'Dribbling', 'Vision', 'Positioning', 'Work rate', 'Strength', 'Heading'];
@@ -216,13 +217,18 @@ Odpověz POUZE JSON objektem:
     const input = h('input', { type: 'file', id: 'squadShot', accept: ai.limitsInfo.images.mediaTypes.join(','), multiple: true });
     const out = h('div', { id: 'squadProposals' });
     const status = h('p', { class: 'hint', id: 'squadStatus', 'aria-live': 'polite' });
+    let grabbed = []; // snímek okna hry (jen tam, kde to stránka smí)
+    const grab = W.frameGrabButton((blob) => {
+      grabbed = [blob];
+      status.textContent = 'Snímek okna hry je připravený. Klikni na „Přečíst soupisku ze screenshotu“.';
+    }, { id: 'squadGrab' });
     const read = h('button', {
       class: 'btn',
       id: 'squadRead',
       type: 'button',
       text: 'Přečíst soupisku ze screenshotu',
       onclick: async () => {
-        const files = [...input.files].slice(0, ai.limitsInfo.images.maxCount);
+        const files = [...input.files, ...grabbed].slice(0, ai.limitsInfo.images.maxCount);
         if (!files.length) return (status.textContent = 'Vyber aspoň jeden obrázek.');
         read.disabled = true;
         status.textContent = 'Čtu obrázek… (při prvním použití potvrď okno Claude)';
@@ -240,7 +246,7 @@ Odpověz POUZE JSON objektem:
         }
       },
     });
-    return h('section', { class: 'card' }, h('h2', { text: 'Doplnit ze screenshotu' }), h('p', { class: 'lead', text: 'Model přečte hráče z obrázku soupisky. Co přečte, je jen návrh: nic se neuloží, dokud nepotvrdíš, že to odpovídá screenshotu.' }), ui.field('Screenshot soupisky', input), h('div', { class: 'actions' }, read), status, out);
+    return h('section', { class: 'card' }, h('h2', { text: 'Doplnit ze screenshotu' }), h('p', { class: 'lead', text: 'Model přečte hráče z obrázku soupisky. Co přečte, je jen návrh: nic se neuloží, dokud nepotvrdíš, že to odpovídá screenshotu.' }), ui.field('Screenshot soupisky', input), h('div', { class: 'actions' }, grab, read), status, out);
   }
 
   function renderProposals(app, box, proposals, redraw) {

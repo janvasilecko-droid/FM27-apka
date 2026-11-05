@@ -81,6 +81,27 @@
   };
   W.refsRow = (refs, ctx, app) => (Array.isArray(refs) && refs.length ? h('div', { class: 'refs' }, refs.map((r) => W.refChip(r, ctx, app))) : null);
 
+  // ------------------------------------------------------------------ jeden snímek okna hry
+  /** Tlačítko „Načíst z okna hry“: vezme jeden snímek sdíleného okna hry a předá ho funkci `onBlob`. Jen tam, kde to stránka smí
+      (samostatná verze, nebo okno claude.ai sdílení povolí); jinak vrací null a obrazovka nabízí ruční vložení snímku. */
+  W.frameGrabButton = (onBlob, opts) => {
+    const live = FM27.live;
+    if (!live || typeof live.captureAvailable !== 'function' || !live.captureAvailable()) return null;
+    const o = opts || {};
+    const btn = h('button', { class: 'btn', type: 'button', id: o.id, 'data-act': 'grab', text: 'Načíst z okna hry', title: 'Prohlížeč se zeptá na okno hry; vezme se jeden snímek a sdílení se hned ukončí.' });
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        onBlob(await live.grabFrame());
+      } catch (e) {
+        ui.toast(e && e.name === 'NotAllowedError' ? 'Sdílení jsi nepovolil, nic se nenačetlo.' : (e && e.message) || String(e));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    return btn;
+  };
+
   // ------------------------------------------------------------------ oddíly
   W.sec = (no, title, chip, ...body) => h('div', { class: 'sec' }, h('h3', null, no !== null && no !== undefined ? h('span', { class: 'no', text: String(no).padStart(2, '0') }) : null, title, chip), ...body);
   /** Oddíl s tvrzením {text, tier, refs}. */
