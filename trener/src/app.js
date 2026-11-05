@@ -14,6 +14,7 @@
     notify: { enabled: false },
     coach: { deep: false },
     web: { mode: 'auto' }, // hledání zdrojů na webu při radě a lekci: auto (zapnuto u konektoru, vypnuto u vlastního klíče), on, off
+    rating: { model: 'simple', profileId: 'universal' }, // hodnocení hráčů na role: jednoduchý model nebo DWRS a aktivní profil vah
   };
   // Zastaralé adresy z první verze stránky vedou na nové sekce.
   const LEGACY_HASH = { coach: 'trener', knihovna: 'zdroje', info: 'nastaveni' };

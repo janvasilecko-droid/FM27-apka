@@ -403,6 +403,7 @@ Odpověz POUZE JSON objektem:
         h(
           'div',
           { class: 'row' },
+          FM27.playerAnalysis ? h('button', { class: 'btn small', type: 'button', 'data-act': 'analyze', text: 'Rozbor hráče', onclick: () => FM27.playerAnalysis.open(app, p) }) : null,
           h('button', { class: 'btn small', type: 'button', text: 'Upravit', onclick: () => openEditor(app, p, redraw) }),
           ui.confirmButton('Smazat', 'Opravdu smazat?', async () => {
             await app.store.remove('player', p.id);

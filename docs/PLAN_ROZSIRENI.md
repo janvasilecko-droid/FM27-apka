@@ -6,13 +6,15 @@ Navazuje na zadávací dokument majitele z 5. 11. 2026 („MASTER PROMPT – roz
 
 ## 1. Audit současné aplikace
 
+*Popis stavu k zahájení rozšíření (5. 11. 2026, před etapou 2). Co se od té doby změnilo, je ve sloupci „Stav“ tabulky etap v části 3 a v `ANALYTICS_METHODOLOGY.md`.*
+
 ### 1.1 Technologie a stavba
 - **Jazyk a stavba:** čistý JavaScript bez rámce, bez balíčků za běhu; `trener/build.mjs` slepí moduly do jednoho souboru ve dvou podobách: **stránka v Claude** (artefakt, `window.claude`) a **samostatná aplikace** (PWA na GitHub Pages).
 - **Moduly:** čisté moduly bez DOM (UMD, běží v prohlížeči i v Node: `core`, `tactics`, `analysis`, `rolefit`, `matchlens`, `careerread`, `tableimport`, `school`, `alerts`, `opponent`, `report`, …) a rozhraní (`ui`, `store`, `ai`, `live`, `feed`, obrazovky v `screens/`). Výpočty jsou oddělené od vzhledu a mají jednotkové zkoušky.
 - **AI:** ve stránce v Claude schopnost `sample` z účtu uživatele; v samostatné verzi vlastní klíč (Anthropic nebo OpenAI-kompatibilní), klíč jen v prohlížeči. Každá odpověď prochází **kontrolou poctivosti** (úrovně důkazu, odkazy, jistota, „proč“).
 - **Data:** místní úložiště v prohlížeči (IndexedDB, dokument do 240 kB) s volitelnou synchronizací počítač ↔ telefon přes `db` artefaktu; kariéry jsou odděleně, každý záznam nese `careerId`; záloha a obnova.
 - **Čtení hry:** snímky obrazovky přečte Claude (návrh k potvrzení), okno hry jedním kliknutím (samostatná verze), export tabulek hráčů (CSV, TSV, HTML, JSON), plugin FMMatchLens (agregované statistiky a sestava, jen samostatná verze), klub ze snímku nebo z pluginu. **Paměť hry se nečte.**
-- **Zkoušky:** 661 testů jádra (Node), 143 + 11 v Pythonu (shoda validátoru, hlídání klíčů), 756 kontrol v prohlížeči (Playwright, 19 scénářů). **Všechno proti náhražkám Claude, `db`, pluginu a sdílení obrazovky; nic proti skutečnému FM27.**
+- **Zkoušky (k zahájení rozšíření):** 661 testů jádra (Node), 143 + 11 v Pythonu (shoda validátoru, hlídání klíčů), 756 kontrol v prohlížeči (Playwright, 19 scénářů); po etapě 2: 739 testů jádra a 817 kontrol v 20 scénářích. **Všechno proti náhražkám Claude, `db`, pluginu a sdílení obrazovky; nic proti skutečnému FM27.**
 
 ### 1.2 Co je skutečně funkční (zkoušeno na náhražkách) a co ne
 
@@ -52,8 +54,8 @@ Každý záznam má `careerId`, čas a **původ údaje** (`user_entered`, `scree
 | Typ | Stav | Obsah |
 |---|---|---|
 | `career`, `player`, `tactic`, `match`, `opponent`, `memory`, `progress`, `settings`, `advice`, `source`, `roleprofile` | existují | beze změny tvaru |
-| `weightprofile` | **nový (etapa 2)** | pojmenovaný profil vah DWRS: kategorie atributů po skupinách pozic, násobiče, popis změn oproti výchozímu; globální (bez `careerId`) |
-| `lineup` | **nový (etapa 2)** | uložená sestava A + B (taktika, hráči po místech, součty, čas, otisk vstupů) pro porovnání v čase |
+| `weightprofile` | **hotovo (etapa 2)** | pojmenovaný profil vah DWRS: kategorie atributů po skupinách pozic, násobiče, popis změn oproti výchozímu; globální (bez `careerId`) |
+| `lineup` | **odloženo (etapa 7)** | uložená sestava A + B (taktika, hráči po místech, součty, čas, otisk vstupů) pro porovnání v čase; v etapě 2 se sestava jen počítá a porovnává „před a po změně“, do historie se neukládá |
 | `slot.oop` | **rozšíření taktiky (etapa 4)** | volitelná druhá role místa (bez míče: `role`, `duty`); starší taktiky bez ní zůstávají platné |
 | `candidate` | **nový (etapa 3)** | cizí hráč jako kandidát na přestup: atributy (viditelné), věk, `price`/`wage` (`null` = UNKNOWN), původ, poznámka, stav jednání s platností |
 | `recommendation` | **nový (etapa 3 a 6)** | doporučení (přestup, změna taktiky): čas, kariéra, důvod, použitá data, očekávaný přínos, **skutečný výsledek** doplněný později |
@@ -81,7 +83,7 @@ Každá etapa končí: čisté moduly s jednotkovými zkouškami (včetně hrub�
 | Etapa | Obsah | Závisí na | Stav |
 |---|---|---|---|
 | **1. Audit** | tyto tři dokumenty | – | **hotovo** (5. 11. 2026) |
-| **2. Hráči a sestava** | DWRS (kategorie 8/4/2/1/0,2, násobiče 1,5/1,2/1,0, normalizace 0 až 100), model brankáře, přednastavené profily a správa vah, role s rozpadem po atributech, sestava A + B (přísné pořadí cílů), slabé pozice, dopad změn | profily rolí z obrazovky (hotovo) | **zahájeno** |
+| **2. Hráči a sestava** | DWRS (kategorie 8/4/2/1/0,2, násobiče 1,5/1,2/1,0, normalizace 0 až 100), model brankáře, přednastavené profily a správa vah, role s rozpadem po atributech, sestava A + B (přísné pořadí cílů), slabé pozice, dopad změn | profily rolí z obrazovky (hotovo) | **hotovo na náhražkách** (5. 11. 2026): `dwrs.js`, `squadopt.js`, karta Nejlepší sestava (A + B, zámky, vyřazení, zranění, náhrady s dopadem, hloubka, dopad výpadku, rizika), rozbor hráče, správa vah v Nastavení; metodika M15 až M22. Ověření DWRS na skutečných datech FM27 čeká na majitele. Z plánu **nevzniklo** ukládání sestav do historie (`lineup`, odloženo na etapu 7) a obrazovka pro podobné hráče (funkce je hotová, použije ji etapa 3) |
 | **3. Přestupový poradce** | kandidáti (export tabulek, ruční zadání), role-based hledání, simulace příchodu a odchodu s přepočtem sestavy, cena a mzda jen zadané (jinak UNKNOWN), historie doporučení | etapa 2; zdroj kandidátů (exporty) | čeká |
 | **4. Tactic Analyzer** | model taktiky se dvěma fázemi, pravidla rozporů se sedmi poli, čtyři vlastní skóre, kontrola instrukcí | etapa 2; **skutečný `.fmf` export taktiky FM27 od majitele** (bez něj dekódovat nelze) | čeká |
 | **5. Live Match Analytics** | čtení `/frames` a událostí, tepelné mapy, síť přihrávek, mapa střel, časová osa s návratem, archiv | **ověření tvaru dat na skutečném pluginu a souborech `.fmlens`** | čeká |

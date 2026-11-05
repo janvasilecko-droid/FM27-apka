@@ -729,6 +729,10 @@ test('summaryLines: model, každé místo, součty, zámek, zranění a nápis, 
   assert.ok(lines.some((l) => /^Součet A /.test(l)));
   assert.deepEqual(SO.summaryLines(null), []);
   assert.ok(lines.length <= 40);
+  // záloha a počet míst bez role mají stejný tvar jako u staré funkce summaryLines v rolefit.js (AI trenér a zkouška 18 na ně spoléhají)
+  assert.ok(lines.some((l) => /; záloha \S+/.test(l)), lines.join(' | '));
+  const withBlank = SO.summaryLines(SO.optimize({ slots: [{ key: 'a', pos: 'ST', role: '' }, { key: 'b', pos: 'ST', role: '' }, { key: 'c', pos: 'ST', role: 'Střelec' }], players: mini().players, profiles: mini().profiles }, { bench: false }));
+  assert.ok(withBlank.some((l) => /^2 místa nemají zadanou roli, proto se nehodnotí\.$/.test(l)), withBlank.join(' | '));
 });
 
 // ---------------------------------------------------------------- zdroj

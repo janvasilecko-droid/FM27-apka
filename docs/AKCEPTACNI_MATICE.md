@@ -70,10 +70,10 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 661 (z toho 13 hlídá barvy a kontrast vzhledu a 27 čtení klubu ze hry) | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 739 (z toho 13 hlídá barvy a kontrast vzhledu, 27 čtení klubu ze hry, 40 DWRS a 38 sestavu A + B) | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 143 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 756 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 817 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (100; vč. povinného „proč“ u změny a opravného kola, když chybí), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (34; vč. „Co udělat“ a „Proč“ u každého kroku), 09 hlas a oznámení (57),
@@ -101,6 +101,10 @@ tabulka pro čtečky, Historie zápasů (14); ověřeno i opačně (po vynucení
 přesná čísla vhodnosti a přiřazení (70, 73, 55, 77,5; součet 275,5), „nedostupné“ místo nuly, role bez profilu se neobsadí a řekne se proč, slabá místa (o 16,5 pod mediánem),
 sestava v taktice se změní jen po kliknutí, AI trenér dostane výsledek jako „heuristiku“, záloha nového typu dokumentu (34); ověřeno i opačně (skryté atributy v profilu, štítek pro AI, použití
 sestavy bez kliknutí). Algoritmus přiřazení: 500 + 400 náhodných instancí proti hrubé síle v testech jádra. Skutečné role a obrazovku role ve FM27 se z cloudu ověřit nedá.
+20 DWRS, správa vah, sestava A + B, zámky, rozbor hráče: přednastavení vah a výpis toho, co každé změnilo, vlastní profil (úprava, neplatné hodnoty, porovnání, smazání, návrat k výchozímu odhadu, záloha),
+čísla DWRS a součty A i B v prohlížeči sedí na výpočet mimo stránku (Node), zámek, vyřazení a zraněný hráč, lavička B bez hráčů z A, náhrady s přesným dopadem, tabulka výpadků, rizika (jediný brankář),
+hloubka, „mimo sestavu“ s důvody, vstup pro AI trenéra s modelem a rizikem, rozbor hráče (nejlepší role, silné stránky a mezery, pořadí v týmu, vhodnost na místa v taktice, hráč bez atributů),
+použití jen sestavy A v taktice (61). Optimalizace A + B: shoda s hrubou silou na 570 náhodných úlohách (zámky, vyřazení, zranění, lavička) a deset mutací v testech jádra. **DWRS se nezkoušelo proti skutečné hře: tabulky kategorií jsou odhad.**
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 

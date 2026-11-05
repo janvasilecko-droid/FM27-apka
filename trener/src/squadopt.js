@@ -692,14 +692,21 @@
   function summaryLines(result) {
     if (!isObj(result) || !isObj(result.a)) return [];
     const lines = [`Nejlepší sestava A a B (model: ${result.modelInfo}). Jsou to čísla aplikace, ne pravidla FM27; pořadí cílů: obsazená místa A, součet A, obsazená místa B, součet B.`];
+    let noRole = 0;
     for (const a of result.a.assignments) {
-      if (!a.player && !a.role.trim()) continue;
+      if (!a.player && !a.role.trim()) {
+        noRole++;
+        continue;
+      }
       const b = result.b ? result.b.assignments.find((x) => x.slotKey === a.slotKey) : null;
+      const alt = a.alternatives && a.alternatives[0] ? a.alternatives[0] : null;
+      const benchText = b && b.player && !(alt && alt.id === b.player.id) ? `; lavička B ${b.player.name}${b.fit !== null ? ' ' + cz(b.fit) : ''}` : '';
       lines.push(a.player
-        ? `${a.pos} ${a.role || '(bez role)'}: ${a.player.name}${a.fit !== null ? `, vhodnost ${cz(a.fit)}` : ', vhodnost nejde spočítat'}${a.partial ? ' (částečná data)' : ''}${a.locked ? ' (zamčeno uživatelem)' : ''}${b && b.player ? `; B: ${b.player.name}${b.fit !== null ? ' ' + cz(b.fit) : ''}` : ''}`
+        ? `${a.pos} ${a.role || '(bez role)'}: ${a.player.name}${a.fit !== null ? `, vhodnost ${cz(a.fit)}` : ', vhodnost nejde spočítat'}${a.partial ? ' (částečná data)' : ''}${a.locked ? ' (zamčeno uživatelem)' : ''}${alt ? `; záloha ${alt.name} ${cz(alt.fit)}${alt.status === 'startsElsewhere' ? ' (hraje jinde)' : ''}` : ''}${benchText}`
         : `${a.pos} ${a.role || '(bez role)'}: neobsazeno (${a.reason})`);
     }
     lines.push(`Součet A ${cz(result.a.total)} (${result.a.valued} míst)${result.b ? `, součet B ${cz(result.b.total)} (${result.b.valued} míst)` : ''}.`);
+    if (noRole) lines.push(`${noRole} ${noRole === 1 ? 'místo nemá' : noRole < 5 ? 'místa nemají' : 'míst nemá'} zadanou roli, proto se nehodnotí.`);
     for (const w of result.weak || []) if (w.kind === 'weak') lines.push('Slabší místo: ' + w.text);
     for (const d of result.depth || []) if (d.coverage !== 'covered' && result.a.assignments.find((a) => a.slotKey === d.slotKey && (a.player || a.role.trim()))) lines.push(`Hloubka ${d.pos} ${d.role || ''}: ${d.coverage === 'gap' ? 'nikdo' : 'jediný hráč'}.`.replace(/\s+/g, ' '));
     for (const u of result.unavailable || []) lines.push(`${u.name}: ${u.code === 'injured' ? 'zraněný nebo nedostupný' : 'vyřazen uživatelem'}, v sestavě není.`);

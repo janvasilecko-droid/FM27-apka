@@ -52,15 +52,17 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
 | `src/styles.css` | celý vzhled: barvy jako proměnné (tmavý a světlý vzhled), karty, levé menu, tlačítka, graf, hřiště; hlídá ho `test/styles.test.mjs` |
 | `src/careerread.js`, `clubread.js` | klub, soutěž a sezóna ze hry při zakládání kariéry: pravidla čtení a čištění (čistý modul); blok „Načíst klub ze hry“ ve formuláři kariéry (rozhraní) |
-| `test/*.test.mjs` | 661 testů čistých modulů, úložiště a barev vzhledu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (19 scénářů, 756 kontrol), falešné `db`, generátor syntetických souborů |
+| `src/dwrs.js`, `squadopt.js` | hodnocení hráče na roli (DWRS: kategorie atributů, násobiče role, 0 až 100, profily vah) a nejlepší sestava A + B (maďarský algoritmus s přísným pořadím cílů, zámky, vyřazení, zranění, náhrady s dopadem, hloubka, dopad výpadku, rizika); čisté moduly, metodika M15 až M22 v `docs/ANALYTICS_METHODOLOGY.md` |
+| `src/screens/weights.js`, `playeranalysis.js` | správa vah DWRS v Nastavení (přednastavení, vlastní profily, porovnání); rozbor hráče v Můj tým (nejlepší a nejhorší role, silné stránky a mezery, pořadí v týmu) |
+| `test/*.test.mjs` | 739 testů čistých modulů, úložiště a barev vzhledu |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (20 scénářů, 817 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 661 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 739 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 

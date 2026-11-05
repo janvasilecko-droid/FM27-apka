@@ -20,10 +20,12 @@
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
   const r1 = (v) => Math.round(v * 10) / 10;
+  const cz = (v) => String(v).replace('.', ','); // české desetinné číslo do textů pro uživatele
   const attrKey = RF.attrKey;
 
   // ---------------------------------------------------------------- kategorie důležitosti
   const TIERS = Object.freeze(['minor', 'decent', 'good', 'important', 'extreme']); // vzestupně
+  const TIER_ORDER_DESC = Object.freeze(TIERS.slice().reverse());
   const TIER_CS = Object.freeze({ extreme: 'extrémně důležitý', important: 'důležitý', good: 'dobrý', decent: 'přijatelný', minor: 'téměř nepodstatný' });
   const DEFAULT_CATEGORY_WEIGHTS = Object.freeze({ extreme: 8, important: 4, good: 2, decent: 1, minor: 0.2 }); // SOURCE-BASED (hráči z pole)
   const DEFAULT_GK_CATEGORY_WEIGHTS = Object.freeze({ extreme: 3, important: 2, good: 1, decent: 0.5, minor: 0.2 }); // jiná stupnice než u hráčů z pole (brankář má vlastní model)
@@ -136,7 +138,7 @@
         for (const tier of TIERS) {
           if (src[field][tier] === undefined) continue;
           if (validWeight(src[field][tier])) out[field][tier] = src[field][tier];
-          else issues.push(`Váha kategorie „${TIER_CS[tier]}“ musí být číslo od 0 do 100, vrácena výchozí ${defaults[tier]}.`);
+          else issues.push(`Váha kategorie „${TIER_CS[tier]}“ musí být číslo od 0 do 100, vrácena výchozí ${cz(defaults[tier])}.`);
         }
       }
     }
@@ -144,7 +146,7 @@
       for (const k of ['key', 'pref']) {
         if (src.multipliers[k] === undefined) continue;
         if (isNum(src.multipliers[k]) && src.multipliers[k] >= 1 && src.multipliers[k] <= 3) out.multipliers[k] = src.multipliers[k];
-        else issues.push(`Násobič ${k === 'key' ? 'klíčového' : 'žádoucího'} atributu musí být od 1 do 3, vrácen výchozí ${DEFAULT_MULTIPLIERS[k]}.`);
+        else issues.push(`Násobič ${k === 'key' ? 'klíčového' : 'žádoucího'} atributu musí být od 1 do 3, vrácen výchozí ${cz(DEFAULT_MULTIPLIERS[k])}.`);
       }
     }
     out.context = {};
@@ -212,17 +214,17 @@
     const lines = [];
     for (const tier of TIERS.slice().reverse()) {
       const w = isObj(p.categoryWeights) && isNum(p.categoryWeights[tier]) ? p.categoryWeights[tier] : DEFAULT_CATEGORY_WEIGHTS[tier];
-      if (w !== DEFAULT_CATEGORY_WEIGHTS[tier]) lines.push(`Váha kategorie „${TIER_CS[tier]}“ (hráči z pole): ${DEFAULT_CATEGORY_WEIGHTS[tier]} → ${w}.`);
+      if (w !== DEFAULT_CATEGORY_WEIGHTS[tier]) lines.push(`Váha kategorie „${TIER_CS[tier]}“ (hráči z pole): ${cz(DEFAULT_CATEGORY_WEIGHTS[tier])} → ${cz(w)}.`);
       const g = isObj(p.gkCategoryWeights) && isNum(p.gkCategoryWeights[tier]) ? p.gkCategoryWeights[tier] : DEFAULT_GK_CATEGORY_WEIGHTS[tier];
-      if (g !== DEFAULT_GK_CATEGORY_WEIGHTS[tier]) lines.push(`Váha kategorie „${TIER_CS[tier]}“ (brankář): ${DEFAULT_GK_CATEGORY_WEIGHTS[tier]} → ${g}.`);
+      if (g !== DEFAULT_GK_CATEGORY_WEIGHTS[tier]) lines.push(`Váha kategorie „${TIER_CS[tier]}“ (brankář): ${cz(DEFAULT_GK_CATEGORY_WEIGHTS[tier])} → ${cz(g)}.`);
     }
     for (const k of ['key', 'pref']) {
       const m = isObj(p.multipliers) && isNum(p.multipliers[k]) ? p.multipliers[k] : DEFAULT_MULTIPLIERS[k];
-      if (m !== DEFAULT_MULTIPLIERS[k]) lines.push(`Násobič ${k === 'key' ? 'klíčového' : 'žádoucího'} atributu role: ${DEFAULT_MULTIPLIERS[k]} → ${m}.`);
+      if (m !== DEFAULT_MULTIPLIERS[k]) lines.push(`Násobič ${k === 'key' ? 'klíčového' : 'žádoucího'} atributu role: ${cz(DEFAULT_MULTIPLIERS[k])} → ${cz(m)}.`);
     }
     for (const name of Object.keys(isObj(p.context) ? p.context : {}).sort()) {
       const f = p.context[name];
-      if (isNum(f) && f !== 1) lines.push(`${name}: kontextový násobič 1 → ${f} (hráči z pole, ne brankář).`);
+      if (isNum(f) && f !== 1) lines.push(`${name}: kontextový násobič 1 → ${cz(f)} (hráči z pole, ne brankář).`);
     }
     for (const group of GROUPS) {
       const base = defaultTiers(group);
@@ -232,6 +234,43 @@
       }
     }
     return { name: p.name, note: p.note || '', lines, changed: lines.length };
+  }
+
+  /** compareProfiles(a, b) → {changed, lines}: v čem se profil b liší od profilu a (váhy kategorií obou stupnic, násobiče role, kontextové násobiče, kategorie atributů).
+      Řádky mají tvar „co: a → b“, takže je z nich vidět, co se při přechodu z a na b změní. Stejné profily mají changed 0. */
+  function compareProfiles(a, b) {
+    const pa = isObj(a) ? a : defaultProfile();
+    const pb = isObj(b) ? b : defaultProfile();
+    const lines = [];
+    const num = (obj, key, fallback) => (isObj(obj) && isNum(obj[key]) ? obj[key] : fallback);
+    for (const tier of TIER_ORDER_DESC) {
+      const x = num(pa.categoryWeights, tier, DEFAULT_CATEGORY_WEIGHTS[tier]);
+      const y = num(pb.categoryWeights, tier, DEFAULT_CATEGORY_WEIGHTS[tier]);
+      if (x !== y) lines.push(`Váha kategorie „${TIER_CS[tier]}“ (hráči z pole): ${cz(x)} → ${cz(y)}.`);
+      const gx = num(pa.gkCategoryWeights, tier, DEFAULT_GK_CATEGORY_WEIGHTS[tier]);
+      const gy = num(pb.gkCategoryWeights, tier, DEFAULT_GK_CATEGORY_WEIGHTS[tier]);
+      if (gx !== gy) lines.push(`Váha kategorie „${TIER_CS[tier]}“ (brankář): ${cz(gx)} → ${cz(gy)}.`);
+    }
+    for (const k of ['key', 'pref']) {
+      const x = num(pa.multipliers, k, DEFAULT_MULTIPLIERS[k]);
+      const y = num(pb.multipliers, k, DEFAULT_MULTIPLIERS[k]);
+      if (x !== y) lines.push(`Násobič ${k === 'key' ? 'klíčového' : 'žádoucího'} atributu role: ${cz(x)} → ${cz(y)}.`);
+    }
+    const ca = isObj(pa.context) ? pa.context : {};
+    const cb = isObj(pb.context) ? pb.context : {};
+    for (const name of [...new Set([...Object.keys(ca), ...Object.keys(cb)])].sort()) {
+      const x = isNum(ca[name]) ? ca[name] : 1;
+      const y = isNum(cb[name]) ? cb[name] : 1;
+      if (x !== y) lines.push(`${name}: kontextový násobič ${cz(x)} → ${cz(y)} (hráči z pole).`);
+    }
+    for (const group of GROUPS) {
+      const ta = tiersFor(group, pa);
+      const tb = tiersFor(group, pb);
+      for (const [k, e] of ta) {
+        if (tb.get(k).tier !== e.tier) lines.push(`${e.attribute} (${GROUP_CS[group]}): ${TIER_CS[e.tier]} → ${TIER_CS[tb.get(k).tier]}.`);
+      }
+    }
+    return { changed: lines.length, lines };
   }
 
   // ---------------------------------------------------------------- výpočet
@@ -401,6 +440,6 @@
   return {
     TIERS, TIER_CS, DEFAULT_CATEGORY_WEIGHTS, DEFAULT_GK_CATEGORY_WEIGHTS, DEFAULT_MULTIPLIERS, GROUPS, GROUP_CS, OUTFIELD_ATTRIBUTES, GK_ATTRIBUTES, DEFAULT_TABLES,
     groupOfPosition, groupOfRole, groupsOfPlayer, defaultTiers, tiersFor, presets, presetProfile, defaultProfile, normalizeProfile, describeProfile,
-    plan, score, valueOf, strengthsGaps, analyzePlayer, playerAttributes,
+    compareProfiles, plan, score, valueOf, strengthsGaps, analyzePlayer, playerAttributes,
   };
 });

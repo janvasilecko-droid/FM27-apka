@@ -27,7 +27,7 @@ Odpověz POUZE JSON objektem:
   const splitList = (txt) => String(txt || '').split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
 
   let readState = null; // poslední přečtený návrh přežije překreslení obrazovky, dokud ho uživatel nepoužije
-  let bestOpts = { mode: 'strict', allowPartial: false };
+  let bestOpts = { mode: 'strict', allowPartial: false, bench: true };
   let lastBest = null; // {tacticId, at, lines}
 
   const profilesOf = (app) => app.store.list('roleprofile').sort((a, b) => String(a.name).localeCompare(String(b.name), 'cs'));
@@ -181,7 +181,27 @@ Odpověz POUZE JSON objektem:
   }
 
   // ------------------------------------------------------------------ karta Nejlepší sestava
+  const TIER_LABEL = { extreme: 'extrémně důležitý', important: 'důležitý', good: 'dobrý', decent: 'přijatelný', minor: 'téměř nepodstatný' };
+  const LEVEL3_CS = { key: 'klíčový', pref: 'žádoucí', other: 'ostatní' };
+  const SEVERITY = { critical: ['bad', 'kritické'], medium: ['warn', 'citelné'], low: ['good', 'nízké'] };
+  const RISK_CHIP = { high: ['bad', 'vysoké'], medium: ['warn', 'střední'], info: ['neutral', 'informace'] };
+  const DEPTH_CS = { gap: 'nikdo', thin: 'jediný hráč', covered: 'pokryto' };
+  const stateByTactic = new Map(); // omezení (zámky, vyřazení) jsou jen v téhle relaci a platí pro jednu taktiku
+
+  function stateOf(tacticId) {
+    if (!stateByTactic.has(tacticId)) stateByTactic.set(tacticId, { locks: {}, exclude: [] });
+    return stateByTactic.get(tacticId);
+  }
+
   function breakdown(a) {
+    if (a.detail) {
+      // DWRS: kategorie atributu, úroveň v roli, hodnota, váha a body; pod tabulkou přepočet na 0 až 100
+      return h('details', { class: 'flow-table', 'data-model': 'dwrs' }, h('summary', { text: 'Z čeho se to počítá' }),
+        h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Atribut', 'Kategorie', 'V roli', 'Hodnota', 'Váha', 'Body'].map((t) => h('th', { text: t })))),
+          h('tbody', null, a.contributions.map((c) => h('tr', null, h('td', { text: c.attribute }), h('td', { text: TIER_LABEL[c.tier] || c.tier }), h('td', { text: LEVEL3_CS[c.level] || c.level }), h('td', { text: String(c.value) }), h('td', { text: fmt(Math.round(c.weight * 1000) / 1000) }), h('td', { text: fmt(Math.round(c.points * 100) / 100) }))))),
+        h('p', { class: 'hint', text: `Součet váha × hodnota je ${fmt(Math.round(a.detail.absolute * 100) / 100)}; nejhorší možný (všechny atributy 1) ${fmt(Math.round(a.detail.worst * 100) / 100)}, nejlepší možný (všechny 20) ${fmt(Math.round(a.detail.best * 100) / 100)}. Výsledek ${fmt(a.fit)} = (součet − nejhorší) / (nejlepší − nejhorší) × 100.` }),
+        a.detail.ignoredRoleAttributes && a.detail.ignoredRoleAttributes.length ? h('p', { class: 'hint', text: `Atributy role, které u téhle skupiny pozic nejsou v tabulce, se nepočítají: ${a.detail.ignoredRoleAttributes.join(', ')}.` }) : null);
+    }
     return h('details', { class: 'flow-table' }, h('summary', { text: 'Z čeho se to počítá' }),
       h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Atribut', 'Úroveň', 'Hodnota', 'Váha', 'Body'].map((t) => h('th', { text: t })))),
         h('tbody', null, a.contributions.map((c) => h('tr', null, h('td', { text: c.attribute }), h('td', { text: LEVEL_CS[c.level] }), h('td', { text: String(c.value) }), h('td', { text: String(c.weight) }), h('td', { text: `${c.points} z ${c.maxPoints}` }))))));
@@ -191,39 +211,121 @@ Odpověz POUZE JSON objektem:
     const card = h('section', { class: 'card', id: 'bestCard' }, h('h2', { text: 'Nejlepší sestava podle rolí' }));
     const players = FM27.context.players(app);
     const slots = (tactic.slots || []).filter((s) => s && typeof s === 'object');
-    card.append(h('p', { class: 'lead', text: 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností na role (přesně, ne odhadem postupu). Vhodnost je heuristika aplikace: vážený průměr klíčových (váha 2) a žádoucích (váha 1) atributů role z profilu. Hra žádné takové číslo neuvádí. Chybí-li hráči atribut role, vhodnost je „nedostupná“, ne nula.' }));
+    const W = FM27.weightsUI;
+    const SO = window.TrenerSquadOpt;
+    const st = stateOf(tactic.id);
+    const leadText = () => (W && W.modelOf(app) === 'dwrs'
+      ? 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností (přesně, ne odhadem postupu). Model DWRS: atributy hráče jsou rozdělené do kategorií důležitosti pro skupinu pozic, role zdvihne své klíčové a žádoucí atributy a výsledek je 0 až 100. Tabulky kategorií jsou odhad aplikace (ESTIMATED), ne pravidlo FM27, a dají se upravit v Nastavení. Chybí-li hráči atribut, vhodnost je „nedostupná“, ne nula.'
+      : 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností na role (přesně, ne odhadem postupu). Vhodnost je heuristika aplikace: vážený průměr klíčových (váha 2) a žádoucích (váha 1) atributů role z profilu. Hra žádné takové číslo neuvádí. Chybí-li hráči atribut role, vhodnost je „nedostupná“, ne nula.');
+    const lead = h('p', { class: 'lead', id: 'bestLead', text: leadText() });
+    card.append(lead);
     if (!players.length) return (card.append(h('p', { class: 'hint', id: 'bestNoPlayers', text: 'Soupiska je prázdná. Přidej hráče (Můj tým) s atributy.' })), card);
     if (!slots.some((s) => typeof s.role === 'string' && s.role.trim())) card.append(h('p', { class: 'hint', id: 'bestNoRoles', text: 'U místa v téhle taktice není zadaná žádná role. Doplň role v editoru taktiky nebo ji přečti z obrazovky hry.' }));
+    let shown = false;
     const mode = ui.select([['strict', 'Hlídat pozice hráčů (neznámé pozice projdou s příznakem)'], ['free', 'Nehlídat pozice, rozhoduje jen vhodnost']], bestOpts.mode, { id: 'bestMode', onchange: (e) => (bestOpts.mode = e.target.value) });
     const partial = h('input', { type: 'checkbox', id: 'bestPartial' });
     partial.checked = bestOpts.allowPartial;
     partial.addEventListener('change', () => (bestOpts.allowPartial = partial.checked));
+    const bench = h('input', { type: 'checkbox', id: 'bestBench' });
+    bench.checked = bestOpts.bench;
+    bench.addEventListener('change', () => (bestOpts.bench = bench.checked));
     const out = h('div', { id: 'bestOut' });
     const run = h('button', { class: 'btn primary', id: 'bestRun', type: 'button', text: 'Spočítat nejlepší sestavu', onclick: () => compute() });
+    // výběr profilu vah se ukazuje jen u modelu DWRS a po přepnutí modelu se objeví nebo zmizí
+    const weightsHolder = h('div', { class: 'grow', id: 'bestWeightsHolder' });
+    const drawWeights = () => weightsHolder.replaceChildren(...(W && W.modelOf(app) === 'dwrs' ? [ui.field('Profil vah (DWRS)', W.profileSelect(app, { id: 'bestWeights', after: again }), { grow: true, noMargin: true })] : []));
+    function again() {
+      lead.textContent = leadText();
+      drawWeights();
+      if (shown) compute();
+    }
+
+    // ---- omezení: kdo se nesmí použít (zámky jsou přímo u míst)
+    const exBox = h('details', { class: 'flow-table', id: 'bestPlayers' }, h('summary', { text: 'Hráči: kdo se do sestavy nesmí použít' }),
+      h('p', { class: 'hint', text: 'Zraněný hráč (příznak v Můj tým) se do sestavy nedává sám. Tady můžeš vyřadit i dalšího, třeba aby si odpočinul. Platí jen tady a jen v téhle relaci, soupiska se nemění.' }),
+      h('div', { class: 'books' }, players.map((p) => {
+        const cb = h('input', { type: 'checkbox', 'data-ex': p.id, 'aria-label': `Nepoužít ${p.name}` });
+        cb.checked = st.exclude.includes(p.id);
+        cb.addEventListener('change', () => {
+          st.exclude = st.exclude.filter((x) => x !== p.id);
+          if (cb.checked) st.exclude.push(p.id);
+          if (shown) compute();
+        });
+        return h('label', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: p.name }), h('span', { text: (p.positions || []).join('/') || 'pozice neuvedena' }),
+          h('span', { class: 'chips' }, p.flags && p.flags.injury ? h('span', { class: 'chip t-unknown', text: 'zraněný: nepoužije se' }) : null, p.flags && p.flags.fatigue ? h('span', { class: 'chip t-inferred', text: 'unavený' }) : null)), cb);
+      })));
 
     function compute() {
+      shown = true;
       const input = {
         slots: slots.map((s) => ({ key: s.key, pos: s.pos, role: s.role, duty: s.duty })),
-        players: players.map((p) => ({ id: p.id, name: p.name, positions: p.positions || [], attributes: p.attributes || {} })),
+        players: players.map((p) => ({ id: p.id, name: p.name, positions: p.positions || [], attributes: p.attributes || {}, injured: !!(p.flags && p.flags.injury) })),
         profiles: profilesOf(app),
       };
-      const res = RF().assignBest(input, { mode: bestOpts.mode, allowPartial: bestOpts.allowPartial });
-      lastBest = { tacticId: tactic.id, at: Date.now(), lines: RF().summaryLines(res) };
+      const opts = { model: W ? W.modelOf(app) : 'simple', wp: W ? W.activeProfile(app) : undefined, mode: bestOpts.mode, allowPartial: bestOpts.allowPartial, bench: bestOpts.bench, locks: st.locks, exclude: st.exclude };
+      const res = SO.optimize(input, opts);
+      const impact = SO.injuryImpact(input, opts);
+      const risks = SO.squadRisks(res, impact, input.players);
+      const a = res.a;
+      const b = res.b;
+      lastBest = { tacticId: tactic.id, at: Date.now(), lines: SO.summaryLines(res).concat(risks.filter((r) => r.severity === 'high').slice(0, 3).map((r) => 'Riziko: ' + r.text)) };
+      const lockSelect = (row) => {
+        const sel = h('select', { 'data-act': 'lock', 'aria-label': `Zamknout hráče na místo ${row.pos}` }, h('option', { value: '', text: 'bez zámku' }), players.map((p) => h('option', { value: p.id, text: p.name })));
+        sel.value = Object.prototype.hasOwnProperty.call(st.locks, row.slotKey) ? st.locks[row.slotKey] : '';
+        sel.addEventListener('change', () => {
+          if (sel.value) st.locks[row.slotKey] = sel.value;
+          else delete st.locks[row.slotKey];
+          compute();
+        });
+        return sel;
+      };
+      const benchOf = (row) => (b ? b.assignments.find((x) => x.slotKey === row.slotKey) : null);
       out.replaceChildren(
-        h('p', { class: 'hint', id: 'bestSummary', text: `Obsazeno ${res.filled} z ${res.assignments.length} míst, součet vhodnosti ${fmt(res.total)}. Heuristika aplikace, ne pravidlo FM27.` }),
+        h('p', { class: 'hint', id: 'bestSummary', text: `Obsazeno ${a.filled} z ${a.assignments.length} míst, součet vhodnosti ${fmt(a.total)}. ${res.model === 'dwrs' ? 'Odhad aplikace (DWRS), ne pravidlo FM27.' : 'Heuristika aplikace, ne pravidlo FM27.'}${b ? ` Sestava B (druhá jedenáctka): obsazeno ${b.filled}, součet ${fmt(b.total)}.` : ''}` }),
+        h('p', { class: 'hint', id: 'bestModelInfo', text: `Model: ${res.modelInfo}${res.options.wpName ? `; profil vah „${res.options.wpName}“` : ''}. Pořadí cílů: obsazená místa A, součet A, obsazená místa B, součet B.` }),
+        res.issues.length ? h('div', { class: 'banner warn', id: 'bestIssues' }, h('b', { text: 'Pozor' }), h('span', { text: res.issues.slice(0, 6).join(' ') })) : null,
         res.missingProfiles.length ? h('div', { class: 'banner warn', id: 'bestMissing' }, h('b', { text: 'Chybí profil role' }), h('span', { text: `Pro tyto role nejsou profily: ${res.missingProfiles.join(', ')}. Přečti je z obrazovky role ve hře nebo je zadej níže v „Profily rolí“; bez nich se místo neobsadí.` })) : null,
-        h('div', { class: 'books', id: 'bestRows' }, res.assignments.map((a) => h('div', { class: 'book fit-row', 'data-slot': a.slotKey },
-          h('div', { class: 'meta' },
-            h('b', { text: `${a.pos}${a.role ? ' · ' + a.role : ''}${a.duty ? ' (' + a.duty + ')' : ''}` }),
-            a.player ? h('span', { text: `${a.player.name}: vhodnost ${fmt(a.fit)}${a.partial ? ' (částečná data)' : ''}` }) : h('span', { text: `Neobsazeno: ${a.reason}` }),
-            a.flag ? h('span', { class: 'hint', text: `Pozn.: ${a.flag}.` }) : null,
-            a.alternatives.length ? h('span', { class: 'hint', text: 'Záloha: ' + a.alternatives.map((x) => `${x.name} ${fmt(x.fit)}${x.partial ? ' (č.)' : ''}`).join(', ') }) : null,
-            a.profileSource ? h('span', { class: 'chips' }, ui.tierChip(...(SOURCE_CHIP[a.profileSource] || SOURCE_CHIP.user))) : null),
-          a.contributions.length ? breakdown(a) : null))),
+        h('div', { class: 'books', id: 'bestRows' }, a.assignments.map((row) => {
+          const bRow = benchOf(row);
+          return h('div', { class: 'book fit-row', 'data-slot': row.slotKey },
+            h('div', { class: 'meta' },
+              h('b', { text: `${row.pos}${row.role ? ' · ' + row.role : ''}${row.duty ? ' (' + row.duty + ')' : ''}` }),
+              row.player
+                ? h('span', { text: row.fit !== null ? `${row.player.name}: vhodnost ${fmt(row.fit)}${row.partial ? ' (částečná data)' : ''}` : `${row.player.name}: vhodnost nejde spočítat` })
+                : h('span', { text: `Neobsazeno: ${row.reason}` }),
+              row.locked ? h('span', { class: 'chips' }, h('span', { class: 'chip c-accent', text: 'zamčeno uživatelem' })) : null,
+              row.player && row.fit === null ? h('span', { class: 'hint', text: row.reason }) : null,
+              row.flag ? h('span', { class: 'hint', text: `Pozn.: ${row.flag}.` }) : null,
+              row.alternatives.length ? h('span', { class: 'hint', text: 'Záloha: ' + row.alternatives.map((x) => `${x.name} ${fmt(x.fit)}${x.partial ? ' (č.)' : ''}${x.status === 'startsElsewhere' ? ' (hraje jinde)' : ''}`).join(', ') }) : null,
+              bRow && bRow.player ? h('span', { class: 'hint', 'data-b': row.slotKey, text: `Lavička B: ${bRow.player.name}${bRow.fit !== null ? ' ' + fmt(bRow.fit) : ''}${bRow.partial ? ' (č.)' : ''}` }) : b && row.profile ? h('span', { class: 'hint', 'data-b': row.slotKey, text: `Lavička B: nikdo (${bRow ? bRow.reason : ''})` }) : null,
+              row.profileSource ? h('span', { class: 'chips' }, ui.tierChip(...(SOURCE_CHIP[row.profileSource] || SOURCE_CHIP.user))) : null),
+            h('div', { class: 'row' }, lockSelect(row)),
+            row.contributions.length ? breakdown(row) : null,
+            row.alternatives.length ? h('details', { class: 'flow-table', 'data-alt': row.slotKey }, h('summary', { text: 'Náhrady a jejich dopad' }), h('ul', { class: 'list' }, row.alternatives.map((x) => h('li', { 'data-status': x.status, text: x.text })))) : null);
+        })),
         res.weak.length
           ? h('div', { id: 'bestWeak' }, h('h3', { text: 'Slabá místa' }), h('ul', { class: 'list' }, res.weak.map((w) => h('li', { 'data-kind': w.kind, text: w.text }))), h('p', { class: 'hint', text: 'Slabé místo = nejlepší hráč má vhodnost aspoň o 8 bodů pod mediánem obsazených míst. Práh je heuristika aplikace.' }))
           : h('p', { class: 'hint', id: 'bestNoWeak', text: 'Žádné výrazně slabé místo (podle prahu aplikace).' }),
-        res.filled
+        risks.length
+          ? h('div', { id: 'bestRisks' }, h('h3', { text: 'Rizika soupisky' }), h('ul', { class: 'list' }, risks.map((r) => h('li', { 'data-kind': r.kind, 'data-severity': r.severity }, ui.chip(...(RISK_CHIP[r.severity] || RISK_CHIP.info)), ' ', r.text))), h('p', { class: 'hint', text: 'Rizika se berou jen z toho, co aplikace spočítala a zná (hloubka, dopad výpadku, počet brankářů). Prahy závažnosti jsou nastavení aplikace, ne pravidlo hry.' }))
+          : null,
+        impact.length
+          ? h('details', { class: 'flow-table', id: 'bestInjury' }, h('summary', { text: 'Co když vypadne hráč ze základní sestavy' }),
+              h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Hráč', 'Místo', 'Součet A', 'Kdo ho nahradí', 'Dopad'].map((t) => h('th', { text: t })))),
+                h('tbody', null, impact.map((x) => h('tr', { 'data-player': x.playerId, 'data-severity': x.severity },
+                  h('td', { text: x.name }), h('td', { text: `${x.pos}${x.role ? ' · ' + x.role : ''}` }),
+                  h('td', { text: `${fmt(x.aTotalBefore)} → ${fmt(x.aTotalAfter)} (${x.deltaA > 0 ? '+' : ''}${fmt(x.deltaA)})` }),
+                  h('td', { text: x.replacements.filter((r) => r.slotKey === x.slotKey).map((r) => (r.to ? `${r.to.name}${r.to.fit !== null ? ' ' + fmt(r.to.fit) : ''}` : 'nikdo')).join(', ') + (x.replacements.length > 1 ? ` (a přesune se ${x.replacements.length - 1} dalších)` : '') }),
+                  h('td', null, ui.chip(...SEVERITY[x.severity])))))),
+              h('p', { class: 'hint', text: 'Výpočet znovu najde nejlepší sestavu bez daného hráče, takže řetězové posuny jsou v číslech. Závažnost: kritické = místo zůstane prázdné nebo klesne součet o 15 a víc, citelné = o 6 a víc. Prahy jsou nastavení aplikace.' }))
+          : null,
+        res.depth.some((d) => d.coverage !== 'covered' && a.assignments.some((x) => x.slotKey === d.slotKey && (x.player || x.role.trim())))
+          ? h('div', { id: 'bestDepth' }, h('h3', { text: 'Hloubka soupisky' }), h('ul', { class: 'list' }, res.depth.filter((d) => d.coverage !== 'covered' && a.assignments.some((x) => x.slotKey === d.slotKey && (x.player || x.role.trim()))).map((d) => h('li', { 'data-coverage': d.coverage, text: `${d.pos}${d.role ? ' · ' + d.role : ''}: ${DEPTH_CS[d.coverage]}${d.injuredCandidates ? ` (a ${d.injuredCandidates} zraněný se na to hodí)` : ''}.` }))))
+          : null,
+        res.leftOut.length
+          ? h('details', { class: 'flow-table', id: 'bestLeftOut' }, h('summary', { text: `Mimo sestavu A i B (${res.leftOut.length})` }), h('ul', { class: 'list' }, res.leftOut.map((x) => h('li', { 'data-code': x.code, text: `${x.name}: ${x.text}.` }))))
+          : null,
+        a.filled
           ? h('div', { class: 'actions' }, h('button', {
               class: 'btn',
               id: 'bestApply',
@@ -231,9 +333,9 @@ Odpověz POUZE JSON objektem:
               text: 'Použít tuhle sestavu v taktice',
               onclick: async () => {
                 const d = app.store.draft(tactic);
-                for (const a of res.assignments) {
-                  const s = a.player ? d.slots.find((x) => x.key === a.slotKey) : null;
-                  if (s) s.playerId = a.player.id;
+                for (const row of a.assignments) {
+                  const s = row.player ? d.slots.find((x) => x.key === row.slotKey) : null;
+                  if (s) s.playerId = row.player.id;
                 }
                 await app.store.put('tactic', d);
                 toast('Hráči jsou v taktice přiřazeni k místům.', 4000);
@@ -245,11 +347,15 @@ Odpověz POUZE JSON objektem:
     }
 
     card.append(
+      W ? h('div', { class: 'row' }, ui.field('Model hodnocení', W.modelSelect(app, { id: 'bestModel', after: again }), { grow: true, noMargin: true }), weightsHolder) : null,
       h('div', { class: 'row' }, ui.field('Pozice', mode, { grow: true, noMargin: true })),
       h('label', { class: 'checkline' }, partial, h('span', { text: 'Počítat i s částečnými daty (aspoň 80 % váhy atributů role; označeno)' })),
+      h('label', { class: 'checkline' }, bench, h('span', { text: 'Spočítat i sestavu B (druhá jedenáctka z hráčů, kteří nehrají v A)' })),
+      exBox,
       h('div', { class: 'actions' }, run),
       out
     );
+    drawWeights();
     return card;
   }
 

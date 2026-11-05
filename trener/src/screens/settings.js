@@ -471,6 +471,7 @@
       ),
       usageCard(),
       webCard(app),
+      FM27.weightsUI ? FM27.weightsUI.card(app) : null,
       keyCard(app),
       installCard(app),
       prefsCard(app),

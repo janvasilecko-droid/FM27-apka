@@ -288,14 +288,14 @@ test('přednastavení mění výsledky očekávaným směrem: rychlostní zvýho
 
 test('popis profilu říká, co přesně změnil: atribut, skupinu, původní a novou kategorii, váhy a násobiče', () => {
   const d = D.describeProfile(D.presetProfile('speed'));
-  assert.ok(d.lines.includes('Pace: kontextový násobič 1 → 1.5 (hráči z pole, ne brankář).'), d.lines.join(' | '));
+  assert.ok(d.lines.includes('Pace: kontextový násobič 1 → 1,5 (hráči z pole, ne brankář).'), d.lines.join(' | '));
   assert.ok(d.lines.every((l) => l.includes('→')));
   const o = D.describeProfile(D.normalizeProfile({ overrides: { CB: { Pace: 'extreme' } } }).profile);
   assert.deepEqual(o.lines, ['Pace (střední obránce): důležitý → extrémně důležitý.']);
   const custom = D.normalizeProfile({ name: 'X', categoryWeights: { extreme: 10 }, gkCategoryWeights: { top: 1 }, multipliers: { key: 2 } }).profile;
   const c = D.describeProfile(custom);
   assert.ok(c.lines.includes('Váha kategorie „extrémně důležitý“ (hráči z pole): 8 → 10.'));
-  assert.ok(c.lines.includes('Násobič klíčového atributu role: 1.5 → 2.'));
+  assert.ok(c.lines.includes('Násobič klíčového atributu role: 1,5 → 2.'));
 });
 
 test('normalizeProfile: neplatné váhy, násobiče, atributy a kategorie se vrátí na výchozí a hlásí se', () => {
@@ -454,4 +454,52 @@ test('UMD obálka: v prohlížeči vznikne globál TrenerDwrs', () => {
   vm.runInNewContext(source, sandbox);
   assert.equal(typeof sandbox.self.TrenerDwrs.score, 'function');
   assert.equal(typeof sandbox.self.TrenerDwrs.analyzePlayer, 'function');
+});
+
+
+// ---------------------------------------------------------------- porovnání profilů vah
+test('compareProfiles: stejné profily nemají rozdíl, přednastavení se od výchozího liší přesně svým kontextem', () => {
+  const base = D.defaultProfile();
+  assert.deepEqual(D.compareProfiles(base, D.defaultProfile()), { changed: 0, lines: [] });
+  assert.equal(D.compareProfiles(undefined, null).changed, 0);
+  const speed = D.presetProfile('speed');
+  const c = D.compareProfiles(base, speed);
+  assert.equal(c.changed, Object.keys(speed.context).length);
+  assert.ok(c.lines.includes('Pace: kontextový násobič 1 → 1,5 (hráči z pole).'), c.lines.join(' | '));
+  // opačný směr obrací šipku
+  const back = D.compareProfiles(speed, base);
+  assert.ok(back.lines.includes('Pace: kontextový násobič 1,5 → 1 (hráči z pole).'), back.lines.join(' | '));
+});
+
+test('compareProfiles: váhy kategorií (obě stupnice), násobiče a změna kategorie atributu se projeví v řádcích', () => {
+  const a = D.defaultProfile();
+  const b = D.normalizeProfile({ name: 'B', categoryWeights: { extreme: 10 }, gkCategoryWeights: { good: 2 }, multipliers: { key: 2 }, overrides: { ST: { Heading: 'extreme' } } }).profile;
+  const c = D.compareProfiles(a, b);
+  assert.ok(c.lines.some((l) => /Váha kategorie „extrémně důležitý“ \(hráči z pole\): 8 → 10/.test(l)));
+  assert.ok(c.lines.some((l) => /Váha kategorie „dobrý“ \(brankář\): 1 → 2/.test(l)));
+  assert.ok(c.lines.includes('Násobič klíčového atributu role: 1,5 → 2.'), c.lines.join(' | '));
+  assert.ok(c.lines.some((l) => /Heading \(útočník\): dobrý → extrémně důležitý/.test(l)));
+  assert.equal(c.changed, 4);
+  // porovnání nemění vstupy
+  assert.equal(JSON.stringify(a), JSON.stringify(D.defaultProfile()));
+});
+
+// ---------------------------------------------------------------- příklad z metodiky (M15): čísla v dokumentu musí být ta, která kód opravdu počítá
+test('příklad z metodiky M15: Poacher a útočník s Finishing 16 a Off The Ball 14 má 56,4; samé desítky 47,4; samé dvacítky 100; samé jedničky 0', () => {
+  const all = (v) => Object.fromEntries(D.OUTFIELD_ATTRIBUTES.map((a) => [a, v]));
+  const poacher = { name: 'Poacher', key: ['Finishing'], pref: ['Off The Ball'] };
+  const wp = D.defaultProfile();
+  const p = { id: 'x', name: 'x', positions: ['ST'], attributes: { ...all(10), Finishing: 16, 'Off The Ball': 14 } };
+  const plan = D.plan('ST', poacher, wp);
+  const w = (name) => plan.entries.find((e) => e.attribute === name);
+  assert.equal(w('Finishing').weight, 4); // 8 × 1,5 / 3 atributy v kategorii „extrémně důležitý“
+  assert.equal(w('Off The Ball').weight, 1.2); // 4 × 1,2 / 4 atributy v kategorii „důležitý“
+  assert.ok(Math.abs(w('Pace').weight - 8 / 3) < 1e-12);
+  assert.ok(Math.abs(plan.totalWeight - 16.7333333) < 1e-6);
+  const r = D.score(p, poacher, 'ST', wp);
+  assert.equal(r.score, 56.4);
+  assert.ok(Math.abs(r.absolute - 196.1333333) < 1e-6 && Math.abs(r.best - 334.6666667) < 1e-6);
+  assert.equal(D.score({ ...p, attributes: all(10) }, poacher, 'ST', wp).score, 47.4);
+  assert.equal(D.score({ ...p, attributes: all(20) }, poacher, 'ST', wp).score, 100);
+  assert.equal(D.score({ ...p, attributes: all(1) }, poacher, 'ST', wp).score, 0);
 });

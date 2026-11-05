@@ -140,11 +140,13 @@ module.exports = async function run(env) {
   check('18 oba stopeři na stoperských místech (73 a 55)', /Stoper A: vhodnost 73/.test(stoperRows) && /Stoper B: vhodnost 55/.test(stoperRows), stoperRows);
   const st = await row('s10');
   check('18 útočník A na místě pokročilého útočníka s vhodností 77,5 a záložníkem B (62,5)', /Útočník A: vhodnost 77,5/.test(st) && /Záloha: Útočník B 62,5/.test(st), st);
-  check('18 hráč s neúplnými atributy (jen Finishing) se nepoužije a není nulový: je to „nedostupné“', !/Neúplný/.test(await text(page, '#bestRows')));
+  // seznamy zámků u míst obsahují všechna jména, proto se hledá jen v textu o obsazení místa (.meta), ne ve výběrech
+  const metaTexts = await page.locator('#bestRows .meta').allInnerTexts();
+  check('18 hráč s neúplnými atributy (jen Finishing) se nepoužije a není nulový: je to „nedostupné“', !metaTexts.some((t) => /Neúplný/.test(t)) && (await page.locator('#bestRows [data-act="lock"] option', { hasText: 'Neúplný' }).count()) === 11);
   const poacher = await row('s11');
   check('18 místo s rolí bez profilu zůstane neobsazené a říká proč', /Neobsazeno: Chybí profil role „Poacher“/.test(poacher), poacher);
   check('18 místo bez zadané role se nehodnotí', /Neobsazeno: Místo nemá zadanou roli/.test(await row('s2')));
-  check('18 rozpis „Z čeho se to počítá“ ukáže atributy, úroveň, váhu a body', (await page.locator('#bestRows [data-slot="s10"] details tbody tr').count()) === 4 && /klíčový/.test(await page.locator('#bestRows [data-slot="s10"] details').textContent()) && /34 z 40/.test(await page.locator('#bestRows [data-slot="s10"] details').textContent()), await page.locator('#bestRows [data-slot="s10"] details').textContent());
+  check('18 rozpis „Z čeho se to počítá“ ukáže atributy, úroveň, váhu a body', (await page.locator('#bestRows [data-slot="s10"] details:not([data-alt]) tbody tr').count()) === 4 && /klíčový/.test(await page.locator('#bestRows [data-slot="s10"] details:not([data-alt])').textContent()) && /34 z 40/.test(await page.locator('#bestRows [data-slot="s10"] details:not([data-alt])').textContent()), await page.locator('#bestRows [data-slot="s10"] details:not([data-alt])').textContent());
   const weak = await text(page, '#bestWeak');
   check('18 slabá místa: stoper B je o 16,5 pod mediánem 71,5 a roli Poacher chybí profil; místa bez role se mezi slabá nepočítají', (await page.locator('#bestWeak li[data-kind="weak"]').count()) === 1 && /Stoper B má vhodnost 55, o 16,5 méně než medián sestavy \(71,5\)/.test(weak), weak);
   check('18 jediné neobsazené „slabé místo“ je Poacher', (await page.locator('#bestWeak li[data-kind="unfilled"]').count()) === 1 && /Poacher/.test(await page.locator('#bestWeak li[data-kind="unfilled"]').textContent()));
