@@ -259,6 +259,88 @@ Odpověz POUZE JSON objektem:
     );
   }
 
+  // ------------------------------------------------------------------ čtení .fmf (rozšifrování a rozbalení v tomto zařízení)
+  const FC = () => window.TrenerFmfContainer;
+  const SRC_LABEL = { '.tac': 'Taktika (.tac)', '.img': 'Obrázek (.img)', '.aom': 'Detaily (.aom)' };
+
+  /** Obrázek z PNG bajtů jako data URL (bez blob adres, aby ho nezablokovala pravidla stránky). */
+  function pngDataUrl(png) {
+    let bin = '';
+    for (let i = 0; i < png.length; i += 8192) bin += String.fromCharCode.apply(null, png.subarray(i, i + 8192));
+    return 'data:image/png;base64,' + btoa(bin);
+  }
+
+  function showFmfRead(app, file, box, read) {
+    const Fc = FC();
+    const report = Fc.safeReport(read);
+    const tacEntry = read.entries.find((e) => e.ext === '.tac');
+    const rows = [
+      ['Název taktiky (z manifestu)', read.title || '–'],
+      ['Autor (podle souboru, neověřeno)', read.details && read.details.authorHandle ? read.details.authorHandle : 'nezjištěn'],
+      ['Velikost souboru', `${read.size} B`],
+    ];
+    for (const e of read.entries) rows.push([SRC_LABEL[e.ext] || e.path, `${e.size} B zašifrováno → ${e.content ? e.content.length : '?'} B rozbaleno, ${e.ok ? 'kontroly sedí' : 'NEOVĚŘENO: ' + (e.issues.join('; ') || 'neznámý důvod')}`]);
+    rows.push(['Pole taktiky (formace, role, instrukce…)', 'zatím nedekódována, nic z nich není ověřeno']);
+    const bad = read.entries.filter((e) => !e.ok);
+    const logo = read.image && read.image.png ? h('img', { id: 'fmfLogo', alt: 'Obrázek uložený v souboru taktiky', src: pngDataUrl(read.image.png), style: 'max-width:250px;max-height:200px;border-radius:8px;margin:8px 0' }) : null;
+    setNote(
+      box,
+      h(
+        'div',
+        { class: 'banner ok', id: 'fmfReadBanner' },
+        h('b', { text: `Soubor „${file.name}“ je přečtený` }),
+        h('p', { text: 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI) a kontrolní součty sedí. Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.' }),
+        bad.length ? h('p', { class: 'hint', text: `Pozor: ${bad.length === 1 ? 'jeden zdroj' : bad.length + ' zdroje'} se nepodařilo ověřit (${bad.map((e) => e.path).join(', ')}).` }) : null
+      ),
+      logo,
+      h('div', { class: 'diag', id: 'fmfReadRows' }, rows.map(([k, v]) => h('div', null, h('span', { text: k }), h('span', { text: v })))),
+      read.verified.length ? h('ul', { class: 'list', id: 'fmfVerified' }, read.verified.map((v) => h('li', { text: 'Ověřeno: ' + v + '.' }))) : null,
+      h('div', { class: 'actions' }, h('button', {
+        class: 'btn small',
+        type: 'button',
+        id: 'fmfSaveReport',
+        text: 'Uložit zprávu o souboru',
+        onclick: () => app.saveFile('fmf-zprava.json', JSON.stringify({ format: 'fm27-fmf-read', createdAt: new Date().toISOString(), fileName: file.name, report }, null, 2), 'application/json'),
+      })),
+      tacEntry && tacEntry.ok ? h('p', { class: 'hint', text: 'Zpráva obsahuje jen velikosti a výsledky kontrol: žádný obsah taktiky, obrázek ani jméno autora.' }) : null
+    );
+  }
+
+  async function readFmfFile(app, file, box) {
+    const Fc = FC();
+    if (!Fc || !window.crypto || !window.crypto.subtle) return inspectFile(app, file, box);
+    setNote(box, h('p', { class: 'hint', id: 'fmfReading', text: 'Čtu soubor…' }));
+    let bytes;
+    try {
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } catch (e) {
+      return setNote(box, h('div', { class: 'banner bad' }, h('b', { text: 'Soubor se nepodařilo načíst' }), h('span', { text: e.message || String(e) })));
+    }
+    let fzstd = null;
+    let zstdNote = '';
+    try {
+      fzstd = await loadFzstd();
+    } catch (e) {
+      zstdNote = e.message || String(e);
+    }
+    if (!fzstd) return setNote(box, h('div', { class: 'banner bad' }, h('b', { text: 'Soubor nejde přečíst' }), h('span', { text: zstdNote || 'Chybí knihovna pro rozbalení zstd.' })));
+    const read = await Fc.decode(bytes, { zstd: window.TrenerFmfGlue.makeFrameDecompressor(fzstd), aesCtr: window.TrenerFmfGlue.makeWebAesCtr(window.crypto.subtle) });
+    if (read.ok) return showFmfRead(app, file, box, read);
+    // jiná hlavička než známý export: starší nebo cizí soubor řekne víc stará kontrola
+    if (!(read.header && read.header.footerOk)) return inspectFile(app, file, box);
+    setNote(
+      box,
+      h('div', { class: 'banner bad', id: 'fmfReadBanner' }, h('b', { text: 'Soubor má hlavičku exportu FM27, ale nepodařilo se ho přečíst' }), h('p', { text: read.reason }), h('p', { class: 'hint', text: 'Soubor může být poškozený nebo z jiné verze hry. Nic z něj se nepřevzalo. Taktiku můžeš doplnit ručně.' })),
+      h('div', { class: 'actions' }, h('button', {
+        class: 'btn small',
+        type: 'button',
+        id: 'fmfSaveReport',
+        text: 'Uložit zprávu o souboru',
+        onclick: () => app.saveFile('fmf-zprava.json', JSON.stringify({ format: 'fm27-fmf-read', createdAt: new Date().toISOString(), fileName: file.name, report: Fc.safeReport(read) }, null, 2), 'application/json'),
+      }))
+    );
+  }
+
   // ------------------------------------------------------------------ editor taktiky
   function editor(app, tactic, redraw) {
     const Tc = T();
@@ -384,7 +466,7 @@ Odpověz POUZE JSON objektem:
       });
       const fmfInput = h('input', { type: 'file', id: 'tacFmfFile', accept: '.fmf,application/octet-stream' });
       fmfInput.addEventListener('change', async () => {
-        if (fmfInput.files[0]) await inspectFile(app, fmfInput.files[0], importBox);
+        if (fmfInput.files[0]) await readFmfFile(app, fmfInput.files[0], importBox);
         fmfInput.value = '';
       });
 
@@ -416,9 +498,9 @@ Odpověz POUZE JSON objektem:
         'section',
         { class: 'card' },
         h('h2', { text: 'Import' }),
-        h('p', { class: 'lead', text: 'Ruční plán (.json) se načte celý a označí se jako tvoje zadání. Soubor .fmf se jen zkontroluje: pole taktiky z něj zatím číst neumím a aplikace nic nehádá.' }),
+        h('p', { class: 'lead', text: 'Ruční plán (.json) se načte celý a označí se jako tvoje zadání. Soubor .fmf se přečte v tomhle zařízení: aplikace ukáže název, obrázek a výsledky kontrol. Pole taktiky (formace, role, instrukce) z něj zatím nepřebírá a nic nehádá.' }),
         ui.field('Ruční plán taktiky (.json z aplikace)', planInput),
-        ui.field('Export taktiky z FM27 (.fmf), jen kontrola souboru', fmfInput),
+        ui.field('Export taktiky z FM27 (.fmf)', fmfInput),
         importBox
       );
       const RFU = FM27.rolefitUI;

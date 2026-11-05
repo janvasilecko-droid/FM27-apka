@@ -58,5 +58,38 @@
     };
   }
 
-  return { firstFrameContentSize, makeFirstFrameDecompressor };
+  /** Rozbalí PŘESNĚ jeden zstd rámec (rámce v .fmf nemají uvedenou velikost obsahu, proto proudově) a hlídá velikost výstupu:
+      funkce (bytes, maxOut) → Uint8Array nebo vyhodí chybu (neplatný rámec, rámec nedoběhl, výstup větší než maxOut). fzstd: {Decompress}. */
+  function makeFrameDecompressor(fzstd) {
+    return function zstd(bytes, maxOut) {
+      if (!fzstd || typeof fzstd.Decompress !== 'function') throw new Error('Knihovna zstd není k dispozici.');
+      const limit = Number.isFinite(maxOut) && maxOut > 0 ? maxOut : 16 * 1024 * 1024;
+      const chunks = [];
+      let total = 0;
+      const stream = new fzstd.Decompress((chunk) => {
+        total += chunk.length;
+        if (total > limit) throw new Error('Rozbalený obsah přesáhl povolenou velikost.');
+        chunks.push(chunk);
+      });
+      stream.push(bytes, true);
+      const out = new Uint8Array(total);
+      let o = 0;
+      for (const c of chunks) {
+        out.set(c, o);
+        o += c.length;
+      }
+      return out;
+    };
+  }
+
+  /** AES-128-CTR přes WebCrypto (subtle = crypto.subtle): IV je celý počáteční čítací blok, čítání 128 bitů big endian. */
+  function makeWebAesCtr(subtle) {
+    return async function aesCtr(key, iv, data) {
+      if (!subtle || typeof subtle.importKey !== 'function' || typeof subtle.decrypt !== 'function') throw new Error('Prohlížeč nemá WebCrypto (AES-CTR). Soubor .fmf jde přečíst jen na stránce se zabezpečeným spojením (https).');
+      const k = await subtle.importKey('raw', key, { name: 'AES-CTR' }, false, ['decrypt']);
+      return new Uint8Array(await subtle.decrypt({ name: 'AES-CTR', counter: iv, length: 128 }, k, data));
+    };
+  }
+
+  return { firstFrameContentSize, makeFirstFrameDecompressor, makeFrameDecompressor, makeWebAesCtr };
 });

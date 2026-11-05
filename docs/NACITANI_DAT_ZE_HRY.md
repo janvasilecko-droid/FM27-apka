@@ -29,7 +29,7 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
 
 1. **Taktiku z paměti běžící hry nečte žádný nalezený nástroj.** Editory čtou hráče, štáb a finance klubu. Taktiku čtou jen ze **souboru**:
    z uložené hry (`fmsave`, `fm-mcp`) nebo ze souboru `.fmf` (`fm-ai-assistent`).
-2. **Soubor `.fmf` s taktikou je archiv, jehož zdroj taktiky je „zašifrovaný“ klíčem, který je přímo v souboru** (AES v režimu CTR, potom zstd). Obsah
+2. **Soubor `.fmf` s taktikou je archiv, jehož zdroj taktiky je „zašifrovaný“ klíčem, který je přímo v souboru** (AES v režimu CTR, potom zstd). **Kontejner jsme 5. 11. 2026 rozluštili vlastním rozborem tří skutečných exportů od majitele a aplikace ho umí přečíst** (popis: [`FORMAT_FMF.md`](./FORMAT_FMF.md)); pole taktiky uvnitř se teprve rozebírají. Obsah
    se dekóduje tabulkou kódů (mentalita, instrukce, role), kterou autor `fm-ai-assistent` zjistil ze skutečných souborů. **Jeho kód nemá licenci,
    takže ho přebírat nesmíme**; formát lze ale odvodit vlastním rozborem skutečných souborů.
 3. **Uložená hra jde číst bez paměti hry.** `fmsave` (MIT) to umí a jeho webová aplikace (https://rhiever.github.io/fmsave/app/) čte save přímo
@@ -72,8 +72,8 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
    taktika jako syrová čísla. Je to čtení souboru, ne paměti. Nevýhody: aktuální stav je jen tak čerstvý, jak je poslední uložení hry; FM27 podporuje
    `fmsave` zatím jen pro jeden build; významy polí taktiky jsou nepotvrzené, takže taktika by dál šla spolehlivě číst jen z obrazovky; stahuje
    Pyodide a balíček z PyPI (v artefaktu v Claude to prohlížeč neumožní). Odhad práce: střední, nejde ověřit bez skutečného savu.
-2. **Taktika ze souboru `.fmf`**: bude to chtít buď svolení autora `fm-ai-assistent` k použití jeho dekodéru (na GitHubu mu stačí napsat, ať přidá licenci),
-   nebo vlastní rozbor několika `.fmf` souborů s předem známým nastavením od majitele.
+2. **Taktika ze souboru `.fmf`**: kontejner je přečtený (viz výše), pole taktiky uvnitř se rozebírají vlastním rozborem tří skutečných souborů; svolení autora `fm-ai-assistent` už nepotřebujeme.
+   Aby se čísla v souboru dala spárovat s tím, co ukazuje hra, potřebuji od majitele snímky obrazovky těchto taktik ve hře.
 3. **Použít hotový nástroj vedle** (třeba `fm-ai-assistent`, `FMLibreEditor`) a jeho CSV/JSON načítat v naší aplikaci (**pro seznam hráčů hotovo**, viz výše; potřebuje ukázky skutečných souborů);
    nástroje jsou nové, nepodepsané a čtou paměť hry: na vlastní riziko, jen offline hra.
 4. **Vlastní program pro Windows na čtení paměti FM27**: nedoporučuji. Nikdo zatím nečte taktiku z paměti, struktury se musí zjistit na běžící hře

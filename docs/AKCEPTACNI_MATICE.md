@@ -70,10 +70,10 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 739 (z toho 13 hlídá barvy a kontrast vzhledu, 27 čtení klubu ze hry, 40 DWRS a 38 sestavu A + B) | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 765 (z toho 13 hlídá barvy a kontrast vzhledu, 27 čtení klubu ze hry, 40 DWRS, 38 sestavu A + B a 26 čtečku kontejneru `.fmf`) | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 143 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 817 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 834 (831 bez skutečných souborů `.fmf`) | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (100; vč. povinného „proč“ u změny a opravného kola, když chybí), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (34; vč. „Co udělat“ a „Proč“ u každého kroku), 09 hlas a oznámení (57),
@@ -104,7 +104,8 @@ sestavy bez kliknutí). Algoritmus přiřazení: 500 + 400 náhodných instancí
 20 DWRS, správa vah, sestava A + B, zámky, rozbor hráče: přednastavení vah a výpis toho, co každé změnilo, vlastní profil (úprava, neplatné hodnoty, porovnání, smazání, návrat k výchozímu odhadu, záloha),
 čísla DWRS a součty A i B v prohlížeči sedí na výpočet mimo stránku (Node), zámek, vyřazení a zraněný hráč, lavička B bez hráčů z A, náhrady s přesným dopadem, tabulka výpadků, rizika (jediný brankář),
 hloubka, „mimo sestavu“ s důvody, vstup pro AI trenéra s modelem a rizikem, rozbor hráče (nejlepší role, silné stránky a mezery, pořadí v týmu, vhodnost na místa v taktice, hráč bez atributů),
-použití jen sestavy A v taktice (61). Optimalizace A + B: shoda s hrubou silou na 570 náhodných úlohách (zámky, vyřazení, zranění, lavička) a deset mutací v testech jádra. **DWRS se nezkoušelo proti skutečné hře: tabulky kategorií jsou odhad.**
+použití jen sestavy A v taktice (61).
+21 čtení souboru `.fmf` (Moje taktiky → Import): syntetický export se rozšifruje a rozbalí v prohlížeči (WebCrypto AES-CTR, zstd), ukáže se název, obrázek, velikosti a výsledky kontrol, zpráva o souboru bez obsahu a bez přezdívky autora, nic se neuloží ani neodešle do AI, poškozený soubor se nepřečte, cizí a starší soubor jde na původní kontrolu (14 kontrol); **když je zadaný adresář `FMF_SAMPLES_DIR`, přečtou se i tři skutečné exporty z FM27 (další 3 kontroly: všechny kontroly sedí, obrázek 250 × 166)**. Pole taktiky se nezkouší, zatím se nedekódují. Formát kontejneru: `docs/FORMAT_FMF.md`. Optimalizace A + B: shoda s hrubou silou na 570 náhodných úlohách (zámky, vyřazení, zranění, lavička) a deset mutací v testech jádra. **DWRS se nezkoušelo proti skutečné hře: tabulky kategorií jsou odhad.**
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 
