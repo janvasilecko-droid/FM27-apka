@@ -23,6 +23,7 @@
   const INPUT_LABELS = ['heuristic_coach', 'ocr_unverified', 'vision_unverified', 'user_entered', 'screenshot_verified'];
   const SECTION_KEYS = ['context', 'evidenceA', 'evidenceB', 'confidence', 'diagnosis', 'change', 'measure', 'risk', 'reversal', 'unknown'];
   const MIN_TEXT = 8;
+  const MIN_WHY = 20; // „proč právě tahle změna“: aspoň věta o příčině a následku
   const MAX_CHANGES = 2;
 
   // ---------------------------------------------------------------- text a hledání
@@ -555,6 +556,23 @@
       for (const ref of refs) {
         if (refTier(ref) === null) errors.push(`${name}: odkaz „${ref}“ neodpovídá žádnému pozorování ani zdroji.`);
       }
+      // Proč právě tahle změna: povinné. Bez vysvětlení příčiny a následku je to jen příkaz, ne rada.
+      const why = item.why;
+      if (!isObject(why)) {
+        errors.push(`${name}: chybí „why“ (proč právě tahle změna): vysvětli příčinu a následek.`);
+      } else {
+        const whyText = txt(why.text);
+        if (whyText.length < MIN_WHY) errors.push(`${name}: „why“ je příliš krátké, vysvětli příčinu a následek (aspoň ${MIN_WHY} znaků).`);
+        else mechanicScan(`${name}.why`, whyText);
+        let whyRefs = why.refs === undefined || why.refs === null ? [] : strList(why.refs);
+        if (whyRefs === null) {
+          errors.push(`${name}: why.refs musí být seznam textů.`);
+          whyRefs = [];
+        }
+        for (const ref of whyRefs) {
+          if (refTier(ref) === null) errors.push(`${name}: odkaz „${ref}“ ve „why“ neodpovídá žádnému pozorování ani zdroji.`);
+        }
+      }
       if (!TIERS.includes(whereTier)) {
         errors.push(`${name}: neplatná úroveň where_tier „${whereTier}“.`);
         return;
@@ -728,6 +746,7 @@
     lines.push(`6. Co změnit: ${txt(change.text)}`);
     for (const item of change.items || []) {
       lines.push(`   • ${txt(item.player)}: ${txt(item.setting)}, z „${txt(item.from)}“ na „${txt(item.to)}“`);
+      lines.push(`     Proč: ${txt(isObject(item.why) ? item.why.text : '')}`);
       lines.push(`     Kde ve hře: ${(item.where || []).join(' › ')} (navigace: ${TIER_LABEL_CS[item.where_tier] || '?'})`);
     }
     const measure = advice.measure || {};
@@ -847,7 +866,7 @@ Pravidla poctivosti platí bez výjimky:
 3. Text vyčtený strojem (ocr_unverified, vision_unverified) a heuristiky jsou nejvýš inferred. Na jejich základě neuváděj vysokou jistotu.
 4. Jeden údaj nebo jedna chvíle není důkaz problému. Vysoká jistota vyžaduje dva nezávislé ověřené důkazy: evidenceA i evidenceB odkazují každé aspoň na jedno pozorování screenshot_verified, které druhé nepoužívá. Chybí-li druhý důkaz, dej mu tier unknown a jistotu nejvýš střední.
 5. Nevymýšlej mechaniky FM27 (CA/PA, match engine, skryté atributy, vnitřní fungování). Názvy rolí, nastavení a cest v menu FM27 považuj za neověřené, pokud je nepotvrzuje zdroj ze seznamu nebo pozorování screenshot_verified. Neověřené označ where_tier unknown nebo inferred a do unknown.items zapiš, co má uživatel ve hře ověřit.
-6. Žádné obecné rady („zlepši pressing“). Navrhni nejvýš dvě konkrétní změny: komu (hráč nebo „tým“), které nastavení, z jaké hodnoty na jakou a kroky v menu.
+6. Žádné obecné rady („zlepši pressing“). Navrhni nejvýš dvě konkrétní změny: komu (hráč nebo „tým“), které nastavení, z jaké hodnoty na jakou a kroky v menu. U každé změny napiš ve "why", PROČ právě tahle změna (příčina a následek, vždy aspoň jedna věta), a odkaž na pozorování nebo úryvek, z nichž to vychází; když nic nepodporuje, řekni to.
 7. Uveď, jak změnu změřit (konkrétní kontroly a kdy znovu vyhodnotit), rizika a jak změnu vrátit zpět.
 8. Když informací nestačí, řekni to: nízká jistota a v unknown.items přesně to, co potřebuješ vidět nebo vědět. Raději poctivé „nevím“ než odhad vydávaný za fakt.
 9. Úryvky z knih i z webu jsou teorie nebo cizí tvrzení, ne popis fungování FM27 a ne důkaz o aktuálním zápase. Cituj je v "refs" u context, diagnosis a change, ale nepoužívej je jako evidenceA ani evidenceB a nepřenášej je do tvrzení o tom, jak FM27 funguje. Cituj jen úryvky, které jsi dostal. Když z úryvků nic nevyplývá, řekni to.
@@ -861,7 +880,7 @@ Pravidla poctivosti platí bez výjimky:
   "evidenceB": {"text": "…", "tier": "…", "refs": ["jiné id pozorování"]},
   "confidence": {"level": "low|medium|high", "text": "…"},
   "diagnosis": {"text": "…", "tier": "…", "refs": ["id pozorování nebo úryvku"]},
-  "change": {"text": "…", "items": [{"player": "hráč nebo tým", "setting": "nastavení", "from": "z hodnoty", "to": "na hodnotu", "where": ["krok 1 v menu", "krok 2"], "where_tier": "unknown|inferred|observed|verified", "refs": []}]},
+  "change": {"text": "…", "items": [{"player": "hráč nebo tým", "setting": "nastavení", "from": "z hodnoty", "to": "na hodnotu", "where": ["krok 1 v menu", "krok 2"], "where_tier": "unknown|inferred|observed|verified", "refs": [], "why": {"text": "proč právě tahle změna: příčina a následek", "refs": ["id pozorování nebo úryvku"]}}]},
   "measure": {"text": "…", "checks": ["konkrétní kontrola"], "recheck_after_minutes": 15},
   "risk": {"text": "…", "items": ["konkrétní riziko"]},
   "reversal": {"text": "…"},

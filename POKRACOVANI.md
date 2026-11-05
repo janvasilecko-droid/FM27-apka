@@ -13,7 +13,7 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
   „Zdrojích znalostí“, volba „Hledat i na webu“ u Osobního trenéra a u lekce ve Škole, zkušební hledání v Nastavení. Cesty: konektor
   „Parallel Search“ (stránka v Claude, `mcp`) a `web_search` od Anthropic přes klíč (samostatná verze, účtuje se zvlášť). **Neověřeno proti
   živým službám**, nic z webu není `verified`, v Live Coachi se nehledá. Kód: `trener/src/websources.js`, `web.js`; zkouška 12.
-- **Zkoušky**: 616 testů jádra, 141 + 11 v Pythonu, 711 kontrol v prohlížeči (18 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
+- **Zkoušky**: 621 testů jádra, 143 + 11 v Pythonu, 717 kontrol v prohlížeči (18 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
   `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
   skutečné službě ani skutečnému FM27**.
 - Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).

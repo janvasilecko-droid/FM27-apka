@@ -63,7 +63,7 @@
     svgHost.innerHTML = Sc.renderDiagramSvg(lesson.diagram, { width: 480 }); // SVG skládá modul a všechny texty z modelu v něm escapuje
     box.append(W.sec(3, 'Grafické znázornění', null, svgHost));
 
-    box.append(W.sec(4, 'Konkrétní použití ve hře', null, h('p', { text: lesson.usage.text }), h('ol', null, lesson.usage.steps.map((s) => h('li', { text: s })))));
+    box.append(W.sec(4, 'Konkrétní použití ve hře', null, h('p', { text: lesson.usage.text }), h('ol', { class: 'steps-why' }, lesson.usage.steps.map((s) => { const step = typeof s === 'string' ? { do: s, why: '' } : s; return h('li', null, h('div', { class: 'do' }, h('b', { text: 'Co udělat: ' }), step.do), step.why ? h('div', { class: 'why' }, h('b', { text: 'Proč: ' }), step.why) : h('div', { class: 'hint', text: 'Bez vysvětlení proč (starší lekce).' })); }))));
     box.append(W.sec(5, 'Nejčastější chyby', null, h('ul', null, lesson.mistakes.map((m) => h('li', { text: m })))));
     box.append(
       W.sec(6, 'Praktické cvičení', null, h('p', { text: lesson.exercise.task }), h('details', null, h('summary', { text: 'Nápověda' }), h('p', { text: lesson.exercise.hint })), h('details', null, h('summary', { text: 'Jak může vypadat řešení' }), h('p', { text: lesson.exercise.solutionOutline })))

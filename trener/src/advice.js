@@ -197,6 +197,10 @@
           { class: 'change-item' },
           h('div', { class: 'what' }, `${item.player}: ${item.setting}`),
           h('div', null, `z „${item.from}“ `, h('span', { class: 'arrow', text: '→' }), ` na „${item.to}“`),
+          // Proč právě tahle změna (povinné): příčina a následek a odkud to vychází; bez odkazu je to jen úvaha trenéra a je to vidět
+          item.why && item.why.text
+            ? h('div', { class: 'why', 'data-why': String(i + 1) }, h('b', { text: 'Proč: ' }), item.why.text, W.refsRow(item.why.refs, ctx, app) || h('div', { class: 'chips' }, h('span', { class: 'chip t-inferred', text: 'úvaha trenéra, bez zdroje' })))
+            : null,
           h('div', { class: 'hint' }, 'Kde ve hře: ', ui.tierChip(item.where_tier)),
           h('ol', null, item.where.map((s) => h('li', { text: s }))),
           W.refsRow(item.refs, ctx, app),

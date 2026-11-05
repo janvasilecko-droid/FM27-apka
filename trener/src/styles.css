@@ -302,6 +302,11 @@ svg.pitch { width: 100%; max-width: 560px; height: auto; max-height: 82vh; touch
 .flow-tabs { margin-top: 0; }
 .flow-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .flow-table th, .flow-table td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line); }
+.change-item .why { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; font-size: 14px; }
+.change-item .why .refs, .change-item .why .chips { margin-top: 6px; }
+.steps-why { padding-left: 22px; }
+.steps-why li { margin: 10px 0; }
+.steps-why .why { margin-top: 4px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; font-size: 14px; }
 .drop { flex: 1 1 260px; border: 2px dashed var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 4px; text-align: center; cursor: pointer; background: var(--bg-2); min-width: 0; }
 .drop.over, .drop:focus-visible { border-color: var(--accent); }
 .drop b { font: 600 17px var(--font-display); letter-spacing: 0.04em; }

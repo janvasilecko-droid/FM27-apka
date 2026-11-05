@@ -241,6 +241,30 @@ class Changes(unittest.TestCase):
         self.assertFalse(check(patched(**{"change.items.0.where": []})).ok)
         self.assertFalse(check(patched(**{"change.items.0.where": ["  "]})).ok)
 
+    def test_every_change_must_say_why(self):
+        # Rada bez „proč“ je jen příkaz: každá změna musí vysvětlit příčinu a následek.
+        missing = check(patched(**{"change.items.0.why": None}))
+        self.assertFalse(missing.ok)
+        self.assertIn("chybí „why“", errors_text(missing))
+        short = check(patched(**{"change.items.0.why.text": "ne"}))
+        self.assertFalse(short.ok)
+        self.assertIn("příliš krátké", errors_text(short))
+        self.assertFalse(check(patched(**{"change.items.0.why": {"text": "", "refs": []}})).ok)
+        # u druhé ze dvou změn to platí také
+        second = self.item()
+        del second["why"]
+        self.assertFalse(check(patched(**{"change.items": [self.item(), second]})).ok)
+
+    def test_why_references_must_exist_and_mechanics_need_a_source(self):
+        bad = check(patched(**{"change.items.0.why.refs": ["obs-999"]}))
+        self.assertFalse(bad.ok)
+        self.assertIn("ve „why“", errors_text(bad))
+        self.assertTrue(check(patched(**{"change.items.0.why.refs": ["obs-1"]})).ok)
+        self.assertFalse(check(patched(**{"change.items.0.why.refs": "obs-1"})).ok)
+        invented = check(patched(**{"change.items.0.why.text": "Změna zvýší CA hráče, protože match engine počítá s jeho skrytými atributy."}))
+        self.assertFalse(invented.ok)
+        self.assertIn("mechanice", errors_text(invented))
+
     def test_vague_target_is_only_a_warning(self):
         result = check(patched(**{"change.items.0.to": "více podpory"}))
         self.assertTrue(result.ok)
@@ -423,6 +447,7 @@ class Rendering(unittest.TestCase):
         self.assertIn("[odhad]", text)
         self.assertIn("[zadal uživatel]", text)
         self.assertIn("navigace: neznámé", text)
+        self.assertIn("Proč: ", text)  # u každé změny se ukáže, proč právě ta
 
     def test_renders_even_a_partial_advice(self):
         self.assertIsInstance(render_text_cs({}), str)

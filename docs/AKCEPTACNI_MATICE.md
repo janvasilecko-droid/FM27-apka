@@ -70,13 +70,13 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 616 | `node --test trener/test/*.test.mjs` |
-| Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 621 | `node --test trener/test/*.test.mjs` |
+| Serverové jádro v Pythonu (`ai_gateway/`) | 143 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 711 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 717 | viz `trener/README.md` |
 
-Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
-05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
+Prohlížečové zkoušky: 01 poradce (100; vč. povinného „proč“ u změny a opravného kola, když chybí), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
+05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (34; vč. „Co udělat“ a „Proč“ u každého kroku), 09 hlas a oznámení (57),
 10 samostatná verze: vlastní klíč, service worker, offline, instalace (47), 11 průchod všemi obrazovkami: zbloudilý text,
 vodorovné posouvání, čitelnost písma ve světlém i tmavém vzhledu (25), 12 zdroje z webu: konektor Parallel Search (zkušební náhražka),
 karty a uložení zdroje, rada a lekce se zdroji z webu, chyby konektoru, samostatná verze s web search přes klíč Anthropic (falešné HTTP API) (86).

@@ -174,6 +174,16 @@ add("obecná cílová hodnota", patched(**{"change.items.0.to": "více podpory"}
 add("obecná cílová hodnota velkými", patched(**{"change.items.0.to": "Víc podpory"}))
 add("podobné, ale ne obecné slovo", patched(**{"change.items.0.to": "víceméně stejná"}))
 add("položka změny není objekt", patched(**{"change.items": ["x"]}))
+add("chybí proč u změny", patched(**{"change.items.0.why": None}))
+add("proč je příliš krátké", patched(**{"change.items.0.why.text": "ne"}))
+add("proč bez textu", patched(**{"change.items.0.why": {"text": "", "refs": []}}))
+add("proč není objekt", patched(**{"change.items.0.why": "Protože ano, tohle je dostatečně dlouhý text."}))
+add("proč s neznámým odkazem", patched(**{"change.items.0.why.refs": ["obs-999"]}))
+add("proč s odkazem na pozorování", patched(**{"change.items.0.why.refs": ["obs-1"]}))
+add("proč s odkazem na úryvek z knihy", patched(**{"change.items.0.why.refs": [PASSAGE]}), passages=PASSAGES)
+add("proč: odkazy nejsou seznam", patched(**{"change.items.0.why.refs": "obs-1"}))
+add("proč popisuje vymyšlenou mechaniku", patched(**{"change.items.0.why.text": "Změna zvýší CA hráče, protože match engine počítá s jeho skrytými atributy."}))
+add("druhá změna bez proč", patched(**{"change.items": [item(), {k: v for k, v in item().items() if k != "why"}]}))
 add("verified navigace bez zdroje", patched(**{"change.items.0.where_tier": "verified"}))
 add(
     "verified navigace s oficiálním zdrojem",

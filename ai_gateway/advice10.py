@@ -37,6 +37,7 @@ SECTION_KEYS = (
     "unknown",
 )
 MIN_TEXT = 8
+MIN_WHY = 20  # „proč právě tahle změna“: aspoň věta o příčině a následku
 MAX_CHANGES = 2
 
 _STR = {"type": "string"}
@@ -84,8 +85,14 @@ ADVICE10_JSON_SCHEMA: dict[str, Any] = {
                             "where": _STRS,
                             "where_tier": _TIER,
                             "refs": _STRS,
+                            "why": {
+                                "type": "object",
+                                "properties": {"text": _STR, "refs": _STRS},
+                                "required": ["text", "refs"],
+                                "additionalProperties": False,
+                            },
                         },
-                        "required": ["player", "setting", "from", "to", "where", "where_tier", "refs"],
+                        "required": ["player", "setting", "from", "to", "where", "where_tier", "refs", "why"],
                         "additionalProperties": False,
                     },
                 },
@@ -337,6 +344,24 @@ def validate_advice10(
         for ref in refs:
             if ref_tier(ref) is None:
                 errors.append(f"{name}: odkaz „{ref}“ neodpovídá žádnému pozorování ani zdroji.")
+        # Proč právě tahle změna: povinné. Bez vysvětlení příčiny a následku je to jen příkaz, ne rada.
+        why = item.get("why")
+        if not isinstance(why, Mapping):
+            errors.append(f"{name}: chybí „why“ (proč právě tahle změna): vysvětli příčinu a následek.")
+        else:
+            why_text = _text(why.get("text"))
+            if len(why_text) < MIN_WHY:
+                errors.append(f"{name}: „why“ je příliš krátké, vysvětli příčinu a následek (aspoň {MIN_WHY} znaků).")
+            else:
+                mechanic_scan(f"{name}.why", why_text)
+            raw_why_refs = why.get("refs")
+            why_refs = [] if raw_why_refs is None else _str_list(raw_why_refs)
+            if why_refs is None:
+                errors.append(f"{name}: why.refs musí být seznam textů.")
+                why_refs = []
+            for ref in why_refs:
+                if ref_tier(ref) is None:
+                    errors.append(f"{name}: odkaz „{ref}“ ve „why“ neodpovídá žádnému pozorování ani zdroji.")
         if where_tier not in TIERS:
             errors.append(f"{name}: neplatná úroveň where_tier „{where_tier}“.")
             continue
@@ -448,6 +473,8 @@ def render_text_cs(advice: Mapping[str, Any]) -> str:
             f"   • {_text(item.get('player'))}: {_text(item.get('setting'))}, "
             f"z „{_text(item.get('from'))}“ na „{_text(item.get('to'))}“"
         )
+        why = item.get("why") if isinstance(item.get("why"), Mapping) else {}
+        lines.append(f"     Proč: {_text(why.get('text'))}")
         lines.append(f"     Kde ve hře: {' › '.join(item.get('where') or [])} (navigace: {verified})")
     measure = advice.get("measure") or {}
     minutes = measure.get("recheck_after_minutes") or 0

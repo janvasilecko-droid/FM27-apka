@@ -26,6 +26,8 @@ module.exports = async function run(env) {
     check('A2 stránka řekne, že rada nevychází z knih', /rada nevychází z knih/.test(await text(page, '#result .banner')), await text(page, '#result .banner'));
     check('A2 volání bez mezipaměti a s tierem default', c[0].cache === false && c[0].tier === 'default', c[0]);
     check('A2 bez pozorování je jistota nízká', /nízká/.test(await text(page, '#result .sec:nth-child(4)')), await text(page, '#result .sec:nth-child(4)'));
+    check('A2 u každé změny je „Proč“: příčina a následek, ne jen příkaz', (await page.locator('#result .change-item').count()) === (await page.locator('#result .change-item .why').count()) && (await page.locator('#result .change-item .why').count()) >= 1 && /Proč: .*proto dostává málo přihrávek/.test(await text(page, '#result .change-item .why')), await text(page, '#result .change-item'));
+    check('A2 „Proč“ bez zdroje je viditelně označené jako úvaha trenéra', /úvaha trenéra, bez zdroje/.test(await text(page, '#result .change-item .why')), await text(page, '#result .change-item .why'));
 
     // A3: knihovna
     let status = await addBooks(page, [fx('prazdny.txt')]);
@@ -116,6 +118,16 @@ module.exports = async function run(env) {
     check('A8 po opravě se rada zobrazí', (await page.locator('#result .sec').count()) === 10);
     const repairPrompt = await page.evaluate(() => window.__mock.prompts[2]);
     check('A8 opravné kolo dostane seznam výhrad', /nesplnila tato pravidla/.test(repairPrompt) && /confidence: high/.test(repairPrompt), repairPrompt.slice(-600));
+
+    // změna bez „proč“ se zamítne a opraví
+    await setMode(page, { mode: 'no-why' });
+    await resetCalls(page);
+    await ask(page, 'Pressing nefunguje.');
+    c = await calls(page);
+    check('A8 rada bez „proč“ u změny vyvolá opravné kolo', c.map((x) => x.kind).join() === 'planner,advice,repair', c.map((x) => x.kind));
+    check('A8 oprava doplní „proč“ a rada se zobrazí', (await page.locator('#result .sec').count()) === 10 && (await page.locator('#result .change-item .why').count()) >= 1);
+    const whyPrompt = await page.evaluate(() => window.__mock.prompts[2]);
+    check('A8 opravné kolo říká, že chybí „why“', /chybí „why“/.test(whyPrompt), whyPrompt.slice(-500));
 
     await setMode(page, { mode: 'repair-fail' });
     await resetCalls(page);

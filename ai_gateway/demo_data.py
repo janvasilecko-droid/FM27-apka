@@ -68,6 +68,10 @@ DEMO_ADVICE = {
                 ],
                 "where_tier": "unknown",
                 "refs": [],
+                "why": {
+                    "text": "Útočník je od záložní řady daleko, proto bez blízké podpory dostává málo přihrávek; útočnější záložník zkrátí vzdálenost a nabídne přihrávku.",
+                    "refs": [],
+                },
             }
         ],
     },

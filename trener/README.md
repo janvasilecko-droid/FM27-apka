@@ -50,15 +50,15 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 616 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (18 scénářů, 711 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 621 testů čistých modulů a úložiště |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (18 scénářů, 717 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 616 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 621 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -107,6 +107,10 @@ osobnost) se nenačítají.** Načtené údaje jsou „zadal uživatel (soubor o
 z nich aplikace spočítá vhodnost hráče na roli (vážený průměr: klíčový atribut váží 2, žádoucí 1; **chybí-li atribut, je to „nedostupné“, ne nula**), přiřadí hráče k místům taktiky
 maďarským algoritmem (nejdřív co nejvíc obsazených míst, pak největší součet) a ukáže slabá místa. **Je to heuristika aplikace, ne pravidlo FM27**; profily rolí nevymýšlí, skryté údaje hry
 se do nich nepouštějí, sestava se v taktice změní jen po kliknutí a AI trenér výsledek dostane jako neověřený odhad.
+
+**Co dělat a proč** (výuka i rady): u každé změny v radě je povinné „proč“ (příčina a následek, odkaz na pozorování nebo úryvek z knihy; bez odkazu je to označené „úvaha trenéra, bez zdroje“),
+u každého kroku „Konkrétního použití“ v lekci je „Co udělat“ i „Proč“ a Trenér rozhodování ukáže po tvé volbě doporučený postup, důvod, častou chybu a co sledovat dál. Rada nebo lekce bez „proč“
+projde opravným kolem, ne na obrazovku. Kontrola je v JavaScriptu i v Pythonu stejná (sdílené případy).
 
 ## Co je ověřeno a co ne
 

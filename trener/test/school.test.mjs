@@ -222,7 +222,11 @@ function validLesson() {
     diagram: DIAGRAM,
     usage: {
       text: 'Při bránění sleduj, jestli mezi řadami nevzniká prostor, a hráče v případě potřeby přibliž k sobě.',
-      steps: ['Sleduj vzdálenost mezi obranou a zálohou.', 'Všimni si, kde soupeř dostává míč mezi řady.', 'Zkus řady přiblížit a sleduj změnu.'],
+      steps: [
+        { do: 'Sleduj vzdálenost mezi obranou a zálohou.', why: 'Velká vzdálenost mezi řadami nechává prostor, kam soupeř dostává míč.' },
+        { do: 'Všimni si, kde soupeř dostává míč mezi řady.', why: 'Právě tam se řady nestíhají vzájemně krýt, takže tam vzniká nebezpečí.' },
+        { do: 'Zkus řady přiblížit a sleduj změnu.', why: 'Kratší vzdálenost zmenší prostor mezi řadami, a soupeř tak přihrávky hůř hraje.' },
+      ],
     },
     mistakes: ['Řady se roztáhnou, protože se hráči bojí o prostor za zády.', 'Tým se zkrátí jen do šířky, ne do hloubky.'],
     exercise: {
@@ -336,7 +340,12 @@ const LESSON_DEFECTS = [
   ['mechanika v principu', (l) => (l.principle.text = 'Kompaktní tým funguje lépe, když mají hráči vysoké CA a dobrou kondici.'), /principle: tvrzení o interní mechanice FM27 \(„CA“\)/],
   ['mechanika v příkladu z FM27', (l) => (l.fm27Example.text = 'Ve hře to řídí match engine, takže si zkus zkrátit vzdálenost mezi řadami.'), /fm27Example: tvrzení o interní mechanice FM27 \(„match engine“\)/],
   ['mechanika v použití', (l) => (l.usage.text = 'Použij to tak, že match engine zohlední vzdálenost mezi řadami při každé akci.'), /usage: tvrzení o interní mechanice FM27 \(„match engine“\)/],
-  ['mechanika v krocích použití', (l) => (l.usage.steps[1] = 'Ověř skryté atributy hráčů, než řady přiblížíš.'), /usage\.steps\[2\]: tvrzení o interní mechanice/],
+  ['mechanika v krocích použití', (l) => (l.usage.steps[1].do = 'Ověř skryté atributy hráčů, než řady přiblížíš.'), /usage\.steps\[2\]: tvrzení o interní mechanice/],
+  ['mechanika ve vysvětlení proč u kroku', (l) => (l.usage.steps[1].why = 'Skryté atributy hráčů rozhodují, jak rychle se řady k sobě přiblíží.'), /usage\.steps\[2\]\.why: tvrzení o interní mechanice/],
+  ['krok bez vysvětlení proč', (l) => delete l.usage.steps[0].why, /usage: steps\[1\] musí mít „why“/],
+  ['krok s příliš krátkým proč', (l) => (l.usage.steps[2].why = 'protože'), /usage: steps\[3\] musí mít „why“/],
+  ['krok bez textu co udělat', (l) => (l.usage.steps[0].do = ''), /usage: steps\[1\] musí mít „do“/],
+  ['krok jako holý text (starý tvar)', (l) => (l.usage.steps[0] = 'Sleduj vzdálenost mezi obranou a zálohou.'), /usage: steps\[1\] musí být objekt s částmi „do“/],
   ['mechanika v chybách', (l) => (l.mistakes[0] = 'Ignorování skrytých atributů hráčů při přibližování řad.'), /mistakes\[1\]: tvrzení o interní mechanice/],
   ['mechanika v zadání cvičení', (l) => (l.exercise.task = 'Nastav hráčům PA tak, aby tým držel řady blízko u sebe.'), /exercise\.task: tvrzení o interní mechanice FM27 \(„PA“\)/],
   ['mechanika v nápovědě cvičení', (l) => (l.exercise.hint = 'Podívej se na current ability záložníků.'), /exercise\.hint: tvrzení o interní mechanice/],
@@ -356,7 +365,7 @@ const LESSON_DEFECTS = [
   ['tvrzení o chování hry v příkladu', (l) => (l.fm27Example.text = 'FM27 vždy zohledňuje vzdálenost mezi řadami, takže si zkus řady přiblížit a sleduj změnu.'), /fm27Example: tvrdí, jak se FM27 chová nebo co nabízí \(„FM27 vždy“\)/],
   ['tvrzení o nabídce hry v příkladu', (l) => (l.fm27Example.text = 'Football Manager nabízí nastavení výšky obrany, které si můžeš zkusit změnit a sledovat.'), /fm27Example: tvrdí, jak se FM27 chová nebo co nabízí \(„Football Manager nabízí“\)/],
   ['tvrzení o platnosti v použití', (l) => (l.usage.text = 'Ve FM27 platí, že přiblížené řady zmenšují prostor mezi nimi, tak je sleduj.'), /usage: tvrdí, jak se FM27 chová nebo co nabízí \(„FM27 platí“\)/],
-  ['tvrzení o chování hry v kroku použití', (l) => (l.usage.steps[0] = 'Počkej, až FM27 automaticky přiblíží řady.'), /usage\.steps\[1\]: tvrdí, jak se FM27 chová/],
+  ['tvrzení o chování hry v kroku použití', (l) => (l.usage.steps[0].do = 'Počkej, až FM27 automaticky přiblíží řady.'), /usage\.steps\[1\]: tvrdí, jak se FM27 chová/],
   ['tvrzení o chování hry v cvičení', (l) => (l.exercise.task = 'Ověř si, že FM27 automaticky přiblíží řady, když změníš taktiku.'), /exercise\.task: tvrdí, jak se FM27 chová/],
   ['odvolání na FM27 jako na autoritu v příkladu', (l) => (l.fm27Example.text = 'Podle FM27 je nejlepší zkrátit vzdálenost mezi obranou a zálohou.'), /fm27Example: odvolává se na FM27 jako na autoritu \(„Podle FM27“\)/],
   ['odvolání na FM27 jako na autoritu v použití', (l) => (l.usage.text = 'Dle FM27 se řady přibližují tak, že hráče posuneš k sobě.'), /usage: odvolává se na FM27 jako na autoritu/],
@@ -425,7 +434,7 @@ test('validateLesson: varování na stejné pozice správných odpovědí, cestu
   const lesson = validLesson();
   lesson.quiz[0].options = ['x1', 'y2', 'z3'];
   lesson.quiz.forEach((q) => (q.answerIndex = 2));
-  lesson.usage.steps[0] = 'Taktika › Role › Povinnost';
+  lesson.usage.steps[0].do = 'Taktika › Role › Povinnost';
   lesson.titulek = 'navíc';
   const r = check(lesson);
   assert.equal(r.ok, true);

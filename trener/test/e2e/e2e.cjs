@@ -61,7 +61,7 @@ function installMock(config) {
       diagnosis: { text: 'Pravděpodobná příčina je velká vzdálenost mezi záložní řadou a útočníkem.', tier: 'inferred', refs: [...(a ? [a.id] : []), ...book, ...web] },
       change: {
         text: 'Přiblížit záložníka k útočníkovi, aby měl přihrávku.',
-        items: [{ player: 'Útočník', setting: 'role útočníka', from: 'izolovaný', to: 'podporující', where: ['Taktika', 'Role hráčů'], where_tier: 'unknown', refs: book.slice(0, 1) }],
+        items: [{ player: 'Útočník', setting: 'role útočníka', from: 'izolovaný', to: 'podporující', where: ['Taktika', 'Role hráčů'], where_tier: 'unknown', refs: book.slice(0, 1), why: { text: 'Útočník je daleko od záložní řady, proto dostává málo přihrávek; blízký záložník mu nabídne přihrávku a zkrátí vzdálenost.', refs: [...(a ? [a.id] : []), ...book.slice(0, 1)] } }],
       },
       measure: { text: 'Po změně sleduj, zda útočník dostává míč.', checks: ['Počet přihrávek útočníkovi za 15 minut', 'Poměr střel'], recheck_after_minutes: 15 },
       risk: { text: 'Záložník bude víc vystavený protiútokům.', items: ['Víc volného prostoru za záložní řadou'] },
@@ -108,7 +108,7 @@ function installMock(config) {
         principle: { text: 'Podle úryvků z knih mají být řady blízko u sebe, aby měl útočník komu přihrát.', tier: refs.length ? 'inferred' : 'unknown', refs },
         fm27Example: { text: 'Zkus ve hře přiblížit záložníka k útočníkovi a sleduj, jestli útočník dostane víc míčů.', tier: 'inferred', refs: [], verify: ['Ověř ve hře, jak se role záložníka jmenuje a kde se nastavuje'] },
         diagram: { players: [{ x: 50, y: 30, team: 'own', label: 'Útočník' }, { x: 50, y: 55, team: 'own', label: 'Záložník' }, { x: 50, y: 18, team: 'opp', label: 'Obránce' }], arrows: [{ from: [50, 55], to: [50, 34], kind: 'pass' }], zones: [{ x: 30, y: 35, w: 40, h: 18, label: 'Prostor' }], caption: 'Záložník nabízí přihrávku útočníkovi' },
-        usage: { text: 'Obecně: zkrať vzdálenost mezi řadami.', steps: ['Najdi izolovaného hráče', 'Přibliž k němu záložníka', 'Sleduj, co se změnilo'] },
+        usage: { text: 'Obecně: zkrať vzdálenost mezi řadami.', steps: [{ do: 'Najdi izolovaného hráče', why: 'Izolovaný hráč nemá k přihrávce nikoho blízko, proto se na něm útok zastaví.' }, { do: 'Přibliž k němu záložníka', why: 'Blízký spoluhráč mu nabídne přihrávku a zkrátí vzdálenost mezi řadami.' }, { do: 'Sleduj, co se změnilo', why: 'Bez sledování nepoznáš, jestli změna pomohla, nebo jen náhodně vyšla.' }] },
         mistakes: ['Přiblížit celou řadu najednou', 'Zapomenout na prostor za záložníkem'],
         exercise: { task: 'Nakresli rozestavení se vzdáleností řad 30 a potom 20.', hint: 'Použij taktickou laboratoř.', solutionOutline: 'Menší vzdálenost mezi řadami zvyšuje počet přihrávkových možností.' },
         quiz: [q('Co zkrátí vzdálenost mezi řadami?', ['Přiblížení záložníka k útočníkovi', 'Odsunutí obrany dozadu', 'Širší hra'], 0), q('Kdy je útočník izolovaný?', ['Když má kolem sebe hodně spoluhráčů', 'Když je daleko od zbytku týmu', 'Když hraje na křídle'], 1), q('Co hlídat po přiblížení záložníka?', ['Nic', 'Šířku hřiště', 'Prostor za ním'], 2)],
@@ -199,7 +199,12 @@ function installMock(config) {
       if (kind === 'advice') {
         if (mock.mode === 'repair' || mock.mode === 'repair-fail') text = JSON.stringify(advice(p, true));
         else if (mock.mode === 'invalid_json') text = 'Tady je rada, ale není to JSON.';
-        else text = JSON.stringify(advice(p, false));
+        else if (mock.mode === 'no-why') {
+          // rada bez „proč“ u změny: kontrola ji zamítne a oprava ji doplní
+          const x = advice(p, false);
+          delete x.change.items[0].why;
+          text = JSON.stringify(x);
+        } else text = JSON.stringify(advice(p, false));
       } else {
         text = JSON.stringify(advice(p, mock.mode === 'repair-fail'));
       }
