@@ -29,7 +29,7 @@ if (/<\/style/i.test(css)) fail('styles.css obsahuje "</style".');
 
 // Pořadí je důležité: čisté moduly, pak rozhraní, pak obrazovky, nakonec spuštění.
 // Moduly z OPTIONAL se při chybějícím souboru přeskočí (vývoj); `STRICT=1` chybu vyžaduje.
-const PURE = ['core.js', 'websources.js', 'tableimport.js', 'matchlens.js', 'careerread.js', 'rolefit.js', 'providers.js', 'tactics.js', 'analysis.js', 'school.js', 'alerts.js', 'opponent.js', 'report.js', 'labexplain.js', 'fmfglue.js'];
+const PURE = ['core.js', 'websources.js', 'tableimport.js', 'matchlens.js', 'careerread.js', 'rolefit.js', 'dwrs.js', 'squadopt.js', 'providers.js', 'tactics.js', 'analysis.js', 'school.js', 'alerts.js', 'opponent.js', 'report.js', 'labexplain.js', 'fmfglue.js'];
 const UI = ['ui.js', 'store.js', 'library.js', 'ai.js', 'web.js', 'context.js', 'voice.js', 'widgets.js', 'advice.js', 'live.js', 'feed.js', 'clubread.js', 'app.js'];
 const OPTIONAL = new Set(['providers.js', 'tactics.js', 'analysis.js', 'school.js']);
 const screensDir = join(here, 'src', 'screens');
