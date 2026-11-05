@@ -51,7 +51,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
 | `test/*.test.mjs` | 550 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (12 scénářů, 536 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (12 scénářů, 539 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 

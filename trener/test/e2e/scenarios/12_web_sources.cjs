@@ -326,6 +326,18 @@ module.exports = async function run(env) {
   check('12 samostatná verze: žádná chyba v konzoli ani výjimka stránky', f.problems.console.filter((m) => !/Failed to load resource|net::ERR/.test(m)).length === 0 && f.problems.page.length === 0, { console: f.problems.console, page: f.problems.page });
   await f.context.close();
 
+  // ====================================================== G) klíč zadaný až za běhu: cesta hledání se přepne bez obnovení stránky
+  const g = await newContext(browser, { standalone: true, noClaude: true });
+  const gp = g.page;
+  await open(gp, 'nastaveni');
+  check('12 samostatná verze bez klíče: hledání na webu není dostupné a důvod říká, že je potřeba klíč Anthropic', (await gp.evaluate(() => window.FM27.web.route)) === 'none' && /klíč Anthropic/.test(await gp.evaluate(() => window.FM27.web.reason)) && /Zadej ho v Nastavení/.test(await gp.evaluate(() => window.FM27.web.reason)), await gp.evaluate(() => window.FM27.web.reason));
+  await gp.fill('#keyValue', KEY);
+  await gp.click('#keySave');
+  await gp.waitForFunction(() => /Klíč je uložený/.test(document.querySelector('#keyMsg').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('12 po zadání klíče se cesta hledání přepne na „anthropic“ bez obnovení stránky', (await gp.evaluate(() => window.FM27.web.route)) === 'anthropic' && (await gp.evaluate(() => window.FM27.web.available)) === true, await gp.evaluate(() => window.FM27.web.route));
+  check('12 po zadání klíče stav v nastavení ukáže hledání přes klíč', /tvůj klíč Anthropic/.test(await text(gp, '#webStatusLine')) || (await until(async () => /tvůj klíč Anthropic/.test(await text(gp, '#webStatusLine')))), await text(gp, '#webStatusLine'));
+  await g.context.close();
+
   async function resetPrompts(p) {
     await p.evaluate(() => {
       window.__mock.prompts = [];

@@ -391,6 +391,7 @@
             }
             const saved = FM27.ai.setConfig(next, { remember: remember.checked });
             await FM27.ai.init(app);
+            if (FM27.web && FM27.web.init) FM27.web.init(app); // cesta hledání na webu závisí na klíči
             keyNote = !saved
               ? 'Klíč se nepodařilo uložit (úložiště prohlížeče je zablokované).'
               : FM27.ai.available
@@ -403,6 +404,7 @@
         ui.confirmButton('Smazat klíč', 'Opravdu smazat klíč?', async () => {
           FM27.ai.setConfig(null);
           await FM27.ai.init(app);
+          if (FM27.web && FM27.web.init) FM27.web.init(app); // cesta hledání na webu závisí na klíči
           keyNote = 'Klíč je smazaný.';
           toast('Klíč je smazaný.');
           app.render();

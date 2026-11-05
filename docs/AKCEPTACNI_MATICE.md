@@ -66,13 +66,13 @@ Značení:
 | Jádro v Node (`trener/test/*.test.mjs`) | 550 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 536 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 539 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
 10 samostatná verze: vlastní klíč, service worker, offline, instalace (47), 11 průchod všemi obrazovkami: zbloudilý text,
 vodorovné posouvání, čitelnost písma ve světlém i tmavém vzhledu (25), 12 zdroje z webu: konektor Parallel Search (zkušební náhražka),
-karty a uložení zdroje, rada a lekce se zdroji z webu, chyby konektoru, samostatná verze s web search přes klíč Anthropic (falešné HTTP API) (83).
+karty a uložení zdroje, rada a lekce se zdroji z webu, chyby konektoru, samostatná verze s web search přes klíč Anthropic (falešné HTTP API) (86).
 Zkoušku 12 jsem ověřil i opačně: po vypnutí kontroly adres (povolení `javascript:` a `http:`) spadla v 15 bodech.
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
