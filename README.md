@@ -16,6 +16,7 @@ skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu z
 | **Samostatná aplikace** (sdílení okna hry, hlasová otázka, instalace; vlastní klíč AI) | **běží**: https://janvasilecko-droid.github.io/FM27-apka/ (nasazuje se samo po každé změně na `main`) |
 | Popis aplikace, sestavení, zkoušky | [`trener/README.md`](./trener/README.md) |
 | Architektura a pravidla poctivosti | [`docs/ARCHITEKTURA_V2.md`](./docs/ARCHITEKTURA_V2.md) |
+| Rozšíření podle zadání majitele (6 referenčních projektů): analýza, metodika výpočtů, plán a rizika | [`docs/REFERENCE_ANALYSIS.md`](./docs/REFERENCE_ANALYSIS.md), [`docs/ANALYTICS_METHODOLOGY.md`](./docs/ANALYTICS_METHODOLOGY.md), [`docs/PLAN_ROZSIRENI.md`](./docs/PLAN_ROZSIRENI.md) |
 | Co dál a co potřebuju od tebe | [`POKRACOVANI.md`](./POKRACOVANI.md) |
 
 ## Co je v repozitáři
