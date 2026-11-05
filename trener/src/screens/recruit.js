@@ -507,7 +507,8 @@
       bannerBox,
       h('div', { class: 'actions' }, h('button', { class: 'btn primary', id: 'recAdd', type: 'button', text: 'Přidat kandidáta', onclick: () => candidateForm(app, null, draw) })),
       importCard(app, draw),
-      ui.field('Dnešní datum ve hře (nepovinné)', gd, { width: '200px', hint: 'Slouží jen ke hlídání platnosti jednání. Aplikace datum ve hře nezná, takže ho píšeš ty.' }),
+      ui.field('Dnešní datum ve hře (nepovinné)', gd, { width: '260px' }),
+      h('p', { class: 'hint', text: 'Slouží jen ke hlídání platnosti jednání. Aplikace datum ve hře nezná, takže ho píšeš ty.' }),
       gdMsg,
       h3('Kandidáti', 'recListTitle'),
       h('div', { id: 'recListBox' }, listBox),
@@ -519,7 +520,26 @@
       recBox);
     draw();
     // Překreslení při změně dat (i z druhého zařízení); ovládací prvky a rozepsaný stav zůstávají.
-    app.watch(['candidate', 'recommendation', 'player', 'tactic', 'roleprofile', 'weightprofile', 'settings', 'career'], () => section.isConnected && draw());
+    // Dokud uživatel píše do pole nebo vybírá v seznamu u doporučení, překreslení počká, aby pole neztratilo kurzor a seznam se nezavřel; provede se po opuštění pole.
+    let deferred = false;
+    const editing = () => {
+      const a = document.activeElement;
+      return !!a && recBox.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT');
+    };
+    app.watch(['candidate', 'recommendation', 'player', 'tactic', 'roleprofile', 'weightprofile', 'settings', 'career'], () => {
+      if (!section.isConnected) return;
+      if (editing()) deferred = true;
+      else draw();
+    });
+    section.addEventListener('focusout', () => {
+      if (!deferred) return;
+      setTimeout(() => {
+        if (deferred && section.isConnected && !editing()) {
+          deferred = false;
+          draw();
+        }
+      }, 0);
+    });
     return section;
   }
 

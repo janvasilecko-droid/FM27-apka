@@ -1421,6 +1421,16 @@ test('inspectFmf: žádný kandidát nevypadá jako manifest → ok:false s čes
   assert.deepEqual(noDecompress.frames, []);
 });
 
+test('inspectFmf: rozbalovač, který hlásí chybu s kódem limit, znamená „příliš velký“, ne „nejde rozbalit“; jiná chyba zůstává „nejde rozbalit“', () => {
+  const tooLarge = T.inspectFmf(fmfFile(frame(manifest(TOKENS))), { decompress: () => { const e = new Error('víc než strop'); e.code = 'limit'; throw e; } });
+  assert.equal(tooLarge.ok, false);
+  assert.equal(tooLarge.frames[0].reason, 'překročil limit 1 MiB');
+  assert.match(tooLarge.reason, /Manifest překročil limit 1 MiB/);
+  const plain = T.inspectFmf(fmfFile(frame(manifest(TOKENS))), { decompress: () => { throw new Error('jiná chyba'); } });
+  assert.equal(plain.frames[0].reason, 'nejde rozbalit');
+  assert.doesNotMatch(plain.reason, /překročil limit/);
+});
+
 test('inspectFmf: limity (soubor 5 MiB, manifest 1 MiB, nejvýš 16 kandidátů)', () => {
   let calls = 0;
   const spy = (b) => (calls++, fakeDecompress(b));

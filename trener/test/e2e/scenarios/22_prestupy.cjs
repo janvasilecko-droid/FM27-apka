@@ -201,6 +201,7 @@ module.exports = async function run(env) {
   check('22 doporučení je vidět v seznamu a úspěšnost zatím nejde spočítat', /Hvězdný Útočník/.test(await text(page, '#recRecs')) && /Doporučení: 1, otevřených 1/.test(await text(page, '#recStats')) && /úspěšnost nejde spočítat/.test(await text(page, '#recStats')), await text(page, '#recStats'));
   const recBox = '#recRecs [data-rec]';
   await page.fill(`${recBox} [data-f="note"]`, 'rozepsaná poznámka');
+  await page.evaluate(() => { document.querySelector('#recRecs [data-rec] [data-f="note"]').__znacka = 'stejny-prvek'; });
   await page.evaluate(async () => {
     const app = window.FM27.app;
     const c0 = app.store.list('candidate')[0];
@@ -209,7 +210,11 @@ module.exports = async function run(env) {
     await app.store.put('candidate', next);
   });
   await page.waitForTimeout(500);
-  check('22 rozepsaná poznámka u doporučení přežije překreslení karty po změně dat na pozadí', (await page.inputValue(`${recBox} [data-f="note"]`)) === 'rozepsaná poznámka', await page.inputValue(`${recBox} [data-f="note"]`));
+  check('22 rozepsaná poznámka u doporučení přežije změnu dat na pozadí', (await page.inputValue(`${recBox} [data-f="note"]`)) === 'rozepsaná poznámka', await page.inputValue(`${recBox} [data-f="note"]`));
+  check('22 při psaní poznámky se karta nepřekreslí: pole je pořád to samé a drží kurzor', await page.evaluate(() => { const el = document.querySelector('#recRecs [data-rec] [data-f="note"]'); return el.__znacka === 'stejny-prvek' && document.activeElement === el; }));
+  await page.click('#recLead'); // opuštění pole: odložené překreslení se provede a poznámka zůstane
+  const redrawn = await until(async () => (await page.evaluate(() => document.querySelector('#recRecs [data-rec] [data-f="note"]').__znacka)) === undefined);
+  check('22 po opuštění pole se odložené překreslení provede (pole je nové) a rozepsaná poznámka zůstane', redrawn && (await page.inputValue(`${recBox} [data-f="note"]`)) === 'rozepsaná poznámka', await page.inputValue(`${recBox} [data-f="note"]`));
   await page.fill(`${recBox} [data-f="note"]`, '');
   await page.selectOption(`${recBox} [data-f="decision"]`, 'passed');
   await page.selectOption(`${recBox} [data-f="verdict"]`, 'good');

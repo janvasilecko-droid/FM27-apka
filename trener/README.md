@@ -57,7 +57,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/zstd.js` | vlastní dekodér zstd (RFC 8878) bez závislostí: strop výstupu, bloku a okna, přísné odmítání vadných rámců; zkoušený proti libzstd (`test/zstd.test.mjs`) |
 | `src/fmfcontainer.js`, `fmfglue.js`, `fmftac.js` | čtečka kontejneru `.fmf` z FM27 (rozšifrování AES-128-CTR a rozbalení zstd v zařízení, kontrolní součty, limity) a přísná čtečka **stavby** payloadu taktiky (bloky, položky, seznamy; popis v `docs/FORMAT_FMF.md`); **význam čísel** (formace, role, instrukce) zatím nečte |
 | `src/screens/weights.js`, `playeranalysis.js` | správa vah DWRS v Nastavení (přednastavení, vlastní profily, porovnání); rozbor hráče v Můj tým (nejlepší a nejhorší role, silné stránky a mezery, pořadí v týmu) |
-| `test/*.test.mjs` | 865 testů čistých modulů, úložiště a barev vzhledu |
+| `test/*.test.mjs` | 866 testů čistých modulů, úložiště a barev vzhledu |
 | `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 896 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
@@ -65,7 +65,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 865 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 866 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -135,12 +135,14 @@ synchronizace mezi dvěma okny, import plánu, brána snímků, detektory, vyhod
 a chyby poskytovatelů, service worker a offline otevření, rozložení na telefonu, čitelnost ve světlém i tmavém vzhledu.
 
 **Neověřeno z cloudu** (čeká na skutečné prostředí): odpovědi skutečného Claude a jak často rada projde kontrolou na první pokus; **čtení taktiky, soupisky a soupeře ze skutečné obrazovky FM27** (jazyk hry, rozložení, kolik záložek je potřeba) a „Načíst z okna hry“ na skutečném okně hry; **skutečné exporty cizích nástrojů** (návrh významu sloupců se zkoušel na vlastních ukázkách a podle dokumentace `fmsave`);
-skutečné `db`, `sample` a souhlasy v artefaktu; čtení skutečných screenshotů FM27; skutečný export `.fmf` (pole taktiky se
-**nedekódují**, aplikace čte jen kontejner); sdílení okna FM27 na Windows; kvalita českého hlasu; OpenAI-kompatibilní rozhraní
+skutečné `db`, `sample` a souhlasy v artefaktu; čtení skutečných screenshotů FM27; čtení `.fmf` uvnitř okna claude.ai (kontejner a stavba taktiky jsou ověřené na třech skutečných exportech jen ve zkušebním prostředí;
+**pole taktiky se nedekódují**, jejich význam čeká na snímky obrazovky hry); sdílení okna FM27 na Windows; kvalita českého hlasu; OpenAI-kompatibilní rozhraní
 proti živé službě; pdf.js uvnitř omezeného okna artefaktu a čtení skutečných knih (sazba ve sloupcích, tabulky); **zda okno claude.ai povolí stránce sdílení obrazovky** (aplikace to zjistí předem a ukáže v Nastavení; pokud ano, živé čtení jede i na stránce v Claude, tedy na předplatném bez klíče); **hledání zdrojů na webu**:
 skutečná odpověď konektoru Parallel Search (tvar je odhad, čtení je tolerantní) a nástroj `web_search` Anthropic volaný z prohlížeče (CORS, účtování).
 Ověřeno jen se zkušebními náhražkami: že se výsledky čtou, řadí a označují poctivě (druh zdroje podle domény, starší verze FM „NENÍ FM27“,
 jen https, text z webu je jen text a v promptu jen jeden řádek dat, nic z webu není `verified`) a že chyby konektoru mají srozumitelné hlášky.
+
+**Ověřeno proti referenci:** vlastní dekodér zstd (`src/zstd.js`) se zkoušel proti libzstd (Python `zstandard`): platné rámce všech úrovní a strategií, více než milion náhodně poškozených rámců, ručně sestavené Huffmanovy stromy a sekvence, popis tabulek FSE a tři skutečné exporty z FM27. Libzstd (zkoušeno verze 1.5.7) je v některých případech vstřícnější: nekontroluje konec proudů bitů a přijme odkaz dál než okno rámce; dekodér je v těchto případech přísnější a každý takový případ má vlastní kód chyby (`litend`, `overread`, `window`). Obsahový kontrolní součet zstd dekodér neověřuje (ověřuje ho čtečka kontejneru). Bez Pythonu se porovnání s libzstd přeskočí, ostatní zkoušky běží vždy.
 
 Když něco z toho selže, aplikace to řekne: Nastavení má stav schopností a zkoušky spojení, kniha hlášení o čtení.
 

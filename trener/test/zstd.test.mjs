@@ -528,11 +528,13 @@ test('sekvence: odkaz za okno, výstup bloku nad největší blok, zbylé liter�
   // zbylé literály po sekvencích přesáhnou blok: 131072 literálů (z malého bloku, jsou komprimované) + shoda o délce 3
   const left = zframe([{ raw: text4 }, { comp: [...bigLiterals(131072), 0x01, 0x54, 0, 0, 0, ...bitStream('')] }]);
   assert.throws(() => Z.decompress(left), /zbylých literálů/);
-  // nulový opakovaný posun: první sekvence s hodnotou posunu 3 a nulovými literály chce „první opakovaný posun minus jedna“, což je při počátečním 1 nula;
-  // libzstd to mlčky opraví na 1, my to odmítáme (platný rámec to nikdy neobsahuje)
+  // nulový opakovaný posun: první sekvence s hodnotou posunu 3 a nulovými literály chce „první opakovaný posun minus jedna“, což je při počátečním 1 nula; odmítá se (libzstd 1.5.7 také)
   const zero = zframe([{ raw: Buffer.from(gen.random(100, rng(55))) }, { comp: rleSeqBlock([], { ll: 0, of: 1, ml: 0 }, [{ of: 1, ml: 0, ll: 0 }]) }]);
   assert.throws(() => Z.decompress(zero), /nulový posun/);
-  const frames = [seqAt(1024), seqAt(2001), over, left]; // odkazy za okno (kód window) tu nejsou: libzstd je v rámci své vyrovnávací paměti přijme
+  // totéž s hodnotou posunu 2 (opakovaný posun č. 2 = 8) je platné
+  const nonzero = zframe([{ raw: Buffer.from(gen.random(100, rng(55))) }, { comp: rleSeqBlock([], { ll: 0, of: 1, ml: 0 }, [{ of: 0, ml: 0, ll: 0 }]) }]);
+  assert.equal(ours(nonzero).length, 103);
+  const frames = [seqAt(1024), seqAt(2001), over, left, zero, nonzero]; // odkazy za okno (kód window) tu nejsou: libzstd je v rámci své vyrovnávací paměti přijme
   const want = oracle(frames);
   if (want) judge(frames, want);
 });
@@ -567,8 +569,6 @@ test('sekvence: náhodné bloky s RLE tabulkami a náhodnými bity navíc (opako
       const codes = { ll: pick(4) === 0 ? pick(36) : pick(16), ml: pick(4) === 0 ? pick(53) : pick(40), of: pick(5) === 0 ? pick(12) : pick(8) };
       const nSeq = pick(6) === 0 ? 1 + pick(200) : 1 + pick(4);
       const seqs = Array.from({ length: nSeq }, () => ({ of: pick(2 ** codes.of), ml: pick(2 ** ML_EXTRA[codes.ml]), ll: pick(2 ** LL_EXTRA[codes.ll]) }));
-      // hodnota posunu 3 s nulovými literály by chtěla „první opakovaný posun minus jedna“; libzstd nulu opraví na 1, my ji odmítáme, takže se jí tahle zkouška vyhne
-      if (codes.of === 1 && codes.ll === 0) for (const q of seqs) q.of = 0;
       let litSum = seqs.reduce((a, q) => a + LL_BASE_T[codes.ll] + q.ll, 0);
       while (litSum > 120000 && seqs.length > 1) litSum -= LL_BASE_T[codes.ll] + seqs.pop().ll;
       const lits = Buffer.from(Array.from({ length: litSum + pick(30) }, () => pick(256)));

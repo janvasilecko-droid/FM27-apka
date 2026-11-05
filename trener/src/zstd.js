@@ -5,8 +5,8 @@
    - nepřipouští víc výstupu, než je zadaný strop (kontroluje se před každým zápisem, ne až po bloku),
    - drží každý blok v mezích specifikace (nejvýš 128 KiB výstupu na blok), takže práce na jeden blok je omezená a celková práce je úměrná stropu výstupu,
    - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz za začátek výstupu nebo dál než okno rámce (kód 'window'), okno nad 128 MiB, slovník, který nemáme); u konce proudů bitů je přísnější než libzstd:
-     proud literálů musí mít koncovou značku a být spotřebovaný přesně (kód 'litend') a proud sekvencí také (kód 'inexact' zůstalo něco nepřečteno, kód 'overread' bylo čteno za začátek), kdežto libzstd to podle cesty
-     dekodéru a procesoru u literálů nekontroluje vůbec a u sekvencí čtení za konec mlčky přijme a dál dekóduje z bitů, které už jednou přečetl; platný rámec z libzstd tyhle podmínky vždy splní,
+     proud literálů musí mít koncovou značku a být spotřebovaný přesně (kód 'litend') a proud sekvencí také (kód 'inexact' zůstalo něco nepřečteno, kód 'overread' bylo čteno za začátek), kdežto libzstd 1.5.7 to podle pozorování
+     (zkouška test/zstd.test.mjs s referenčním dekodérem) u čtyřproudých literálů nekontroluje a u sekvencí čtení za konec přijme; platný rámec z libzstd tyhle podmínky vždy splní,
    - nestahuje nic z internetu a funguje i bez připojení.
    Nepodporuje: slovníky, přeskočitelné rámce, více rámců za sebou (volající si hlídá délku rámce sám) a kontrolní součet rámce (ten ověřuje volající: fmfcontainer.js, XXH64).
    Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba je vždy ZstdError (nikdy jiná výjimka z tohoto modulu). */
@@ -261,8 +261,8 @@
     return { table: { sym, nb, maxBits }, bytes };
   }
 
-  /** Rozbalí jeden proud literálů. Proud musí mít koncovou značku a být spotřebovaný přesně do konce, jinak je to chyba s kódem 'litend'. libzstd to u čtyřproudých literálů
-      na procesorech s rychlou cestou (BMI2) nekontroluje vůbec (ani značku) a po přečtení za konec vrací bity ze zalomeného kontejneru, ne nuly; tohle chování se nedá a nemá napodobovat. */
+  /** Rozbalí jeden proud literálů. Proud musí mít koncovou značku a být spotřebovaný přesně do konce, jinak je to chyba s kódem 'litend'. Pozorování na libzstd 1.5.7 (procesor s BMI2): u čtyřproudých literálů
+      konec proudu nekontroluje vůbec (ani značku) a po přečtení za konec vrací jiné bity než nuly (pravděpodobně z přetočeného kontejneru; příčina se neověřovala); tohle chování se nedá a nemá napodobovat. */
   function huffStream(b, start, end, count, table, out, at) {
     const r = backReader(b, start, end, 'litend');
     const { sym, nb, maxBits } = table;
@@ -471,7 +471,7 @@
       }
     }
     if (r.pos > 0) fail('Proud sekvencí není celý spotřebovaný.', 'inexact');
-    // přečtení za začátek proudu libzstd mlčky přijme (a dál počítá s bity ze zalomeného kontejneru); platný rámec to nikdy neudělá
+    // přečtení za začátek proudu libzstd 1.5.7 u sekvencí přijme (pozorováno; výstup pak závisí na bitech, které nejsou nuly); platný rámec to nikdy neudělá
     if (r.pos < 0) fail('Proud sekvencí je přečtený za svůj začátek.', 'overread');
     state.rep = [rep0, rep1, rep2];
     const left = lits.length - litPos;
