@@ -21,6 +21,7 @@ Projekty jsou staré dny až týdny, většinou beta a bez zkušeností komunity
 | [JelmerBouma1985/fm-ai-assistent](https://github.com/JelmerBouma1985/fm-ai-assistent) | paměť běžící hry + soubor `.fmf` s taktikou | hráči, finance (příjmy, výdaje), program a další soupeř; **taktika ze souboru `.fmf`**; AI přes OpenRouter nebo příkazový nástroj; MCP server | **žádná** | nejpodobnější našemu záměru |
 | [nonorigon-design/fm27-adjoint](https://github.com/nonorigon-design/fm27-adjoint) | snímky obrazovky (bez paměti), francouzsky | taktika, hráči, předzápasový rozbor, živý režim | **žádná** | podobné čtení obrazovky |
 | [FM-Prism/fm-prism-plugin](https://github.com/FM-Prism/fm-prism-plugin) | zásuvný modul | nahrává data na web fmprism.com | **vlastnická** | nelze |
+| [osnsyc/FMMatchLens](https://github.com/osnsyc/FMMatchLens) (doplněno 5. 11. 2026) | zásuvný modul BepInEx 6 IL2CPP, čtení paměti jen pro čtení; **lokální HTTP a WebSocket na 127.0.0.1:16726** | **živý zápas**: statistiky obou týmů (xG, držení, střely…), hráči v zápase s hodnocením, role a povinnosti hráčů s míčem i bez míče, formace v čase, momentum, archivy `.fmlens` | **MIT** | FM27 jen Steam a Windows (CHANGELOG 0.7.x; README stále píše FM26) | **napojeno** (viz níže) |
 
 Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom savu) k tématu nic nepřidávají.
 
@@ -42,6 +43,16 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
   **taktika** (formace, mentalita, instrukce, role přesně tak, jak je hra píše). Všechno přečtené je návrh k potvrzení; názvy hry se nepřekládají
   ani nedoplňují; role se přiřadí jen k jednoznačné pozici (jinak skončí v poznámce); neznámá formace se nikdy nenahradí jinou.
 - Šedé tlačítko „Načíst“ nahoře ukáže, co jde načíst, a vede na příslušnou obrazovku.
+- **Živá data zápasu a sestava z FMMatchLens** (samostatná verze, Windows, plugin musí běžet ve hře): karta „Živá data z FMMatchLens“ v Live Coachi a „Sestava z
+  FMMatchLens“ v Můj tým. Aplikace volá **jen tento počítač** (127.0.0.1 nebo localhost; cizí adresa i adresa v místní síti se odmítne), čte `/api/health`,
+  `/api/match/meta` a `/api/match/current` a skládá z nich snímky časové osy **bez čtení obrazovky a bez volání AI**. Nový snímek vznikne podle **herního času** (každých
+  1 až 10 herních minut, hned při gólu, červené kartě a nové části zápasu). Držení míče se počítá z podílu času, přesnost přihrávek z úspěšných a všech přihrávek.
+  Zápas se začne sledovat jedním kliknutím (soupeř, soutěž a tvoje strana podle řízeného týmu z dat pluginu). Sestava: jména, pozice, **role a povinnosti s míčem**
+  (bez míče v poznámce), viditelné atributy; potvrzuje ji uživatel. **Nečte se**: CA a PA, pověst, mzdy, skryté atributy, osobnost, interní vstupy hodnocení, pozice na
+  hřišti ani identifikátory. Údaje jsou „zadal uživatel (data od nástroje u tebe)“, ne „ověřeno hrou“. **Tvar odpovědí je převzatý ze zdrojového kódu pluginu 0.7.x a nebyl
+  ověřen na běžící hře** (zkoušky používají náhražku pluginu); jestli prohlížeč dovolí stránce z internetu volat tento počítač, ukáže až skutečné prostředí.
+- **Graf průběhu zápasu** (xG, střely, střely na bránu, držení míče v čase; Live Coach i Historie zápasů) z časové osy, ze snímků z obrazovky i z pluginu. Body jsou snímky,
+  nic se nedopočítává.
 - **Načte hráče z tabulky, kterou uložil jiný nástroj** (CSV, TSV, webová stránka, JSON, třeba výstup `fmsave` nebo export z editoru): karta „Načíst hráče
   z exportu“ v Můj tým. Soubor se čte jen v zařízení a bez AI; aplikace navrhne, co sloupec znamená, ty to potvrdíš. Skryté údaje hry (CA a PA, skryté atributy,
   osobnost) se nenačtou. Přesné sloupce zná jen u `fmsave` (podle jeho dokumentace), ostatní nehádá. Ověřeno na vlastních ukázkách, ne na skutečném exportu cizího nástroje.

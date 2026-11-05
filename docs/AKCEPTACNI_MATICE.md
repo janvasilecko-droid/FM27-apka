@@ -70,10 +70,10 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 578 | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 595 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 622 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 677 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
@@ -88,6 +88,13 @@ ověřeno i opačně (po vypuštění potvrzení a po hádání rolí zkouška s
 15 načtení hráčů z tabulky exportu: CSV (UTF-8 s BOM), TSV (UTF-16), stará česká znaková sada (windows-1250), HTML tabulka, JSON ve tvaru čtečky `fmsave` (podle její
 dokumentace), úprava významu sloupce uživatelem, limit 60 hráčů, soubory bez tabulky, prázdné a příliš velké, nepřátelský text v souboru (34); skryté údaje hry
 (CA a PA, skryté atributy, osobnost) se nenačtou a u sloupce je vidět proč. Skutečné soubory cizích nástrojů se z cloudu ověřit nedají.
+16 živá data a sestava z FMMatchLens (samostatná verze, náhražka pluginu na 127.0.0.1:16726 s tvarem odpovědí podle jeho zdrojového kódu 0.7.x): zkouška spojení,
+odmítnutí cizí adresy i adresy v místní síti, cizí služba na adrese, plugin bez zápasu, zápas z dat pluginu (soupeř, soutěž, strana), snímky podle herního času (gól,
+červená, nová část, tři minuty), držení míče a přesnost přihrávek z čísel pluginu, hodnocení jen mých hráčů, žádné volání AI, jiný zápas v pluginu, výpadek a zotavení,
+navázání po novém načtení stránky bez zdvojení, sestava s rolemi s míčem, skryté údaje a CA/PA se nenačtou, nepřátelský text je jen text, stránka v Claude (41).
+Ověřeno i opačně (po povolení cizí adresy a po načtení skrytých atributů zkouška spadla). **Skutečný plugin a skutečnou hru se z cloudu ověřit nedá.**
+17 graf průběhu zápasu: xG, střely, střely na bránu a držení míče v čase z časové osy, strana hosta, přepínání a zachování výběru po novém snímku, značka změny skóre,
+tabulka pro čtečky, Historie zápasů (14); ověřeno i opačně (po vynucení domácí strany zkouška spadla).
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 

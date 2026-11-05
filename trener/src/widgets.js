@@ -153,6 +153,80 @@
     );
   };
 
+  // ------------------------------------------------------------------ graf průběhu zápasu (z časové osy: snímky z obrazovky i z FMMatchLens)
+  const FLOW_METRICS = [['xg', 'xG', 2], ['shots', 'Střely', 0], ['shotsOnTarget', 'Střely na bránu', 0], ['possession', 'Držení míče (%)', 0]];
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs, ...kids) => {
+    const el = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+    for (const k of kids) if (k) el.append(k);
+    return el;
+  };
+  const niceMax = (v, metric) => {
+    if (metric === 'possession') return 100;
+    if (metric === 'xg') return Math.max(1, Math.ceil(v * 2) / 2);
+    return Math.max(5, Math.ceil(v / 5) * 5);
+  };
+
+  /** Průběh jedné statistiky v čase: moje a soupeřova hodnota ve snímcích. Body jsou snímky, ne souvislé měření (spojnice je jen pomůcka);
+      nic se nedopočítává. Změna skóre se značí na prvním snímku, kde je vidět. */
+  W.flowChart = (match, opts) => {
+    const An = window.TrenerAnalysis;
+    const mine = match.mySide === 'away' ? 'away' : 'home';
+    const other = mine === 'home' ? 'away' : 'home';
+    const sorted = An ? An.sortTimeline(match.timeline).filter((x) => x.minute !== null) : [];
+    const has = (m) => sorted.filter((x) => x.stats[mine][m] !== null && x.stats[other][m] !== null).length >= 2;
+    let metric = (opts && opts.metric) || (FLOW_METRICS.find(([k]) => has(k)) || FLOW_METRICS[0])[0];
+    const root = h('div', { class: 'flow', id: 'flowChart' });
+    const num = (v, d) => (v === null || v === undefined ? '–' : Number(v).toFixed(d).replace('.', ','));
+
+    function draw() {
+      const [, label, dec] = FLOW_METRICS.find(([k]) => k === metric);
+      const pts = sorted.filter((x) => x.stats[mine][metric] !== null && x.stats[other][metric] !== null).map((x) => ({ minute: x.minute, me: x.stats[mine][metric], opp: x.stats[other][metric], score: x.score, via: x.via }));
+      const tabs = h('div', { class: 'actions flow-tabs', role: 'group', 'aria-label': 'Která statistika se kreslí' }, FLOW_METRICS.map(([k, l]) => h('button', { class: 'btn small' + (k === metric ? ' primary' : ''), type: 'button', 'data-metric': k, 'aria-pressed': k === metric ? 'true' : 'false', text: l, onclick: () => ((metric = k), opts && opts.onMetric && opts.onMetric(k), draw()) })));
+      if (pts.length < 2) {
+        root.replaceChildren(tabs, h('p', { class: 'hint', id: 'flowEmpty', text: `Graf potřebuje aspoň dva snímky se statistikou „${label}“ pro obě strany. Zatím jich je ${pts.length}.` }));
+        return;
+      }
+      const Wd = 600;
+      const Hd = 230;
+      const L = 44;
+      const R = 14;
+      const T = 18;
+      const B = 30;
+      const xmax = Math.max(90, Math.ceil(Math.max(...pts.map((p) => p.minute)) / 5) * 5);
+      const ymax = niceMax(Math.max(...pts.map((p) => Math.max(p.me, p.opp))), metric);
+      const x = (m) => L + ((Wd - L - R) * m) / xmax;
+      const y = (v) => Hd - B - ((Hd - T - B) * v) / ymax;
+      const grid = [];
+      for (let i = 0; i <= 4; i++) {
+        const v = (ymax * i) / 4;
+        grid.push(sv('line', { x1: L, x2: Wd - R, y1: y(v), y2: y(v), class: 'grid' }), sv('text', { x: L - 6, y: y(v) + 4, class: 'tick', 'text-anchor': 'end' }, document.createTextNode(num(v, metric === 'xg' ? 1 : 0))));
+      }
+      for (let m = 0; m <= xmax; m += 15) grid.push(sv('line', { x1: x(m), x2: x(m), y1: T, y2: Hd - B, class: 'grid v' }), sv('text', { x: x(m), y: Hd - B + 16, class: 'tick', 'text-anchor': 'middle' }, document.createTextNode(m + '′')));
+      const line = (key, cls) => sv('polyline', { class: 'line ' + cls, fill: 'none', points: pts.map((p) => `${x(p.minute).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ') });
+      const dots = (key, cls, who) => pts.map((p) => sv('circle', { class: 'dot ' + cls, cx: x(p.minute).toFixed(1), cy: y(p[key]).toFixed(1), r: 3.5 }, sv('title', {}, document.createTextNode(`${p.minute}. min, ${who}: ${num(p[key], dec)}${p.via === 'fmmatchlens' ? ' (z FMMatchLens)' : ''}`))));
+      const goals = [];
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1].score;
+        const b = pts[i].score;
+        if (a && b && (a.home !== b.home || a.away !== b.away)) goals.push(sv('line', { x1: x(pts[i].minute), x2: x(pts[i].minute), y1: T, y2: Hd - B, class: 'goal' }), sv('text', { x: x(pts[i].minute) + 3, y: T + 10, class: 'tick goal-label' }, document.createTextNode(`${b.home}:${b.away}`)));
+      }
+      const last = pts[pts.length - 1];
+      const svg = sv('svg', { viewBox: `0 0 ${Wd} ${Hd}`, role: 'img', id: 'flowSvg', class: 'flow-svg', 'aria-label': `${label}: ty ${num(last.me, dec)}, soupeř ${num(last.opp, dec)} v ${last.minute}. minutě; ${pts.length} bodů ze snímků zápasu.` }, ...grid, ...goals, line('opp', 'opp'), line('me', 'me'), ...dots('opp', 'opp', 'soupeř'), ...dots('me', 'me', 'ty'));
+      const table = h('details', { class: 'flow-table' }, h('summary', { text: 'Tabulka hodnot' }), h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Minuta', 'Ty', 'Soupeř', 'Skóre'].map((t) => h('th', { text: t })))), h('tbody', null, pts.map((p) => h('tr', null, h('td', { text: String(p.minute) }), h('td', { text: num(p.me, dec) }), h('td', { text: num(p.opp, dec) }), h('td', { text: p.score ? `${p.score.home}:${p.score.away}` : '–' }))))));
+      root.replaceChildren(
+        tabs,
+        h('div', { class: 'flow-legend' }, h('span', { class: 'swatch me' }), h('span', { text: `Ty (${mine === 'home' ? 'domácí' : 'hosté'})` }), h('span', { class: 'swatch opp' }), h('span', { text: 'Soupeř' })),
+        svg,
+        h('p', { class: 'hint', text: 'Body jsou snímky zápasu, ne souvislé měření; čára mezi nimi je jen spojnice. Svislá čárka značí změnu skóre na prvním snímku, kde je vidět. Čísla jsou ve stavu, jak je dodal zdroj snímku (z obrazovky neověřená, z FMMatchLens od nástroje u tebe).' }),
+        table
+      );
+    }
+    draw();
+    return root;
+  };
+
   // ------------------------------------------------------------------ kroky průběhu (seznam s kolečky)
   W.steps = (labels) => {
     const ol = h('ol', { class: 'steps', hidden: true });

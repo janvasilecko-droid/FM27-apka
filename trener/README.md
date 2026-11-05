@@ -50,15 +50,15 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 578 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (15 scénářů, 622 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 595 testů čistých modulů a úložiště |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (17 scénářů, 677 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 578 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 595 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -97,6 +97,10 @@ cesty: [`docs/NACITANI_DAT_ZE_HRY.md`](../docs/NACITANI_DAT_ZE_HRY.md).
 Hráče jde načíst i z **tabulky, kterou uložil jiný nástroj** (CSV, TSV, webová stránka, JSON, třeba výstup čtečky uložené hry `fmsave`): karta „Načíst hráče z exportu“ v Můj tým.
 Soubor se čte jen v zařízení a bez volání AI. Aplikace navrhne, co který sloupec znamená, ty to potvrdíš a můžeš změnit. **Skryté údaje hry (CA a PA, skryté atributy,
 osobnost) se nenačítají.** Načtené údaje jsou „zadal uživatel (soubor od tebe)“, ne „ověřeno hrou“.
+
+**Živá data z FMMatchLens** (samostatná verze, Windows): zásuvný modul do hry (otevřený kód, MIT) nabízí data zápasu na tomhle počítači. Karta v Live Coachi z nich skládá
+časovou osu zápasu bez čtení obrazovky a bez volání AI, karta v Můj tým načte sestavu s rolemi. Aplikace volá jen tento počítač (127.0.0.1 nebo localhost) a čte jen viditelné údaje.
+**Napsáno podle zdrojového kódu pluginu 0.7.x, neověřeno na běžící hře.** Graf průběhu zápasu (xG, střely, držení) kreslí časovou osu ze snímků z obrazovky i z pluginu.
 
 ## Co je ověřeno a co ne
 

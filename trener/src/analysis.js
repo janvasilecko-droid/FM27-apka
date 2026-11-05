@@ -24,6 +24,7 @@
   const SCREENS = ['match', 'stats', 'tactics', 'squad', 'analysis', 'other', 'unknown'];
   const EVENT_TYPES = ['goal', 'yellow', 'red', 'sub', 'injury', 'other'];
   const PROVENANCES = ['vision_unverified', 'screenshot_verified', 'user_entered'];
+  const VIAS = ['fmmatchlens']; // odkud snímek přišel, když ne z obrazovky ani z ruky; model si to nastavit nesmí (normalizeExtraction to nepřebírá)
   const SIDES = ['home', 'away'];
 
   // Rozsahy záměrně nechávají místo pro skutečný zápas; mají zachytit nesmysly z čtení obrazu
@@ -367,7 +368,7 @@
     const f = isObj(fields) ? fields : {};
     const c = sanitize(f, issues);
     const at = isNum(f.at) ? f.at : 0;
-    return {
+    const snapshot = {
       id: cleanId(f.id, at),
       at,
       minute: c.minute,
@@ -381,6 +382,8 @@
       visibleText: c.visibleText, // totéž
       players: c.players, // volitelné hodnocení hráčů pro detektor rating_drop
     };
+    if (VIAS.includes(f.via)) snapshot.via = f.via;
+    return snapshot;
   }
 
   const EXTRACTION_KEYS = ['screen', 'minute', 'score', 'teams', 'stats', 'events', 'visibleText', 'notes', 'players'];

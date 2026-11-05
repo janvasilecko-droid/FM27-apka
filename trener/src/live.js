@@ -91,6 +91,7 @@
   live.begin = (app, matchId) => {
     const s = live.session;
     live.stopCapture();
+    if (FM27.feed) FM27.feed.stop(null, { keepWanted: true });
     s.matchId = matchId;
     s.gate = makeGate(app);
     s.lastGray = null;
@@ -106,6 +107,7 @@
   };
   live.end = (app) => {
     live.stopCapture();
+    if (FM27.feed) FM27.feed.stop();
     live.session.matchId = null;
     ui.lsSet(MATCH_KEY, null);
   };
@@ -113,6 +115,7 @@
   /** Zahodí všechno, co relace drží v paměti (sdílení, upozornění, bránu); používá se při smazání všech dat. */
   live.reset = () => {
     live.stopCapture();
+    if (FM27.feed) FM27.feed.stop();
     const s = live.session;
     Object.assign(s, { matchId: null, gate: null, lastGray: null, manualCount: 0, busy: false, active: new Map(), alerts: [], lastResult: null });
     if (FM27.voice) FM27.voice.resetPolicy();
@@ -274,6 +277,20 @@
     return { status: 'added', snapshot, issues, newFindings };
   };
 
+  /** Snímek z pluginu FMMatchLens (pole z matchlens.js: user_entered + via). Stojí jen zápis, žádné volání AI. */
+  live.addFeedSnapshot = async function addFeedSnapshot(app, fields) {
+    const at = Date.now();
+    const issues = [];
+    const snapshot = A().makeSnapshot(Object.assign({}, fields, { id: 'snap-' + at.toString(36), at, provenance: 'user_entered', via: 'fmmatchlens' }), { issues });
+    if (snapshot.minute === null && snapshot.score === null && !A().STAT_KEYS.some((k) => snapshot.stats.home[k] !== null || snapshot.stats.away[k] !== null)) return { status: 'unreadable', message: 'Záznam z pluginu neměl minutu, skóre ani statistiku.', issues };
+    const saved = await saveMatch(app, (m) => {
+      m.timeline.push(snapshot);
+      while (m.timeline.length > MAX_TIMELINE) m.timeline.shift();
+    });
+    const newFindings = await announce(app, live.findings(saved));
+    return { status: 'added', snapshot, issues, newFindings };
+  };
+
   /** Uživatel potvrdí, že přečtené hodnoty odpovídají snímku (vision_unverified → screenshot_verified). */
   live.verify = (app, snapId) =>
     saveMatch(app, (m) => {
@@ -286,7 +303,7 @@
       const i = m.timeline.findIndex((x) => x.id === snapId);
       if (i < 0) return;
       const old = m.timeline[i];
-      const merged = A().makeSnapshot(Object.assign({}, old, fields, { id: old.id, at: old.at, provenance: 'user_entered' }));
+      const merged = A().makeSnapshot(Object.assign({}, old, fields, { id: old.id, at: old.at, provenance: 'user_entered', via: null })); // po úpravě jsou čísla zadání uživatele
       m.timeline[i] = merged;
     });
   live.removeSnapshot = (app, snapId) =>
@@ -335,7 +352,7 @@
         label: s.provenance === 'screenshot_verified' ? 'screenshot_verified' : s.provenance === 'user_entered' ? 'user_entered' : 'vision_unverified',
         minute: s.minute,
         scope: 'live',
-        text: `Snímek (${s.screen}), ${score}. Domácí: ${st('home')}. Hosté: ${st('away')}.${match.mySide ? ` Uživatel hraje za ${match.mySide === 'home' ? 'domácí' : 'hosty'}.` : ''}`.slice(0, 400),
+        text: `${s.via === 'fmmatchlens' ? 'Živá data z FMMatchLens (statistiky zápasu, neověřené hrou)' : `Snímek (${s.screen})`}, ${score}. Domácí: ${st('home')}. Hosté: ${st('away')}.${match.mySide ? ` Uživatel hraje za ${match.mySide === 'home' ? 'domácí' : 'hosty'}.` : ''}`.slice(0, 400),
       });
     });
     const findings = live.findings(match);

@@ -308,11 +308,11 @@
       ui.closeDrawer();
       location.hash = '#' + hash;
     };
-    const row = (title, text, hash) =>
+    const row = (title, text, hash, noVision) =>
       h(
         'div',
         { class: 'book', 'data-load': hash },
-        h('div', { class: 'meta' }, h('b', { text: title }), h('span', { text }), h('span', { class: 'chips' }, ui.chip(vision ? 'good' : 'warn', vision ? 'jde načíst' : 'nejde: chybí Claude se čtením obrázků'))),
+        h('div', { class: 'meta' }, h('b', { text: title }), h('span', { text }), h('span', { class: 'chips' }, noVision ? ui.chip('good', 'bez čtení obrázků a bez AI') : ui.chip(vision ? 'good' : 'warn', vision ? 'jde načíst' : 'nejde: chybí Claude se čtením obrázků'))),
         h('button', { class: 'btn small', type: 'button', text: 'Otevřít', onclick: () => go(hash) })
       );
     ui.openDrawer('Načíst aktuální hru', [
@@ -323,9 +323,11 @@
         row('Taktika', 'Formace, mentalita, instrukce a role z obrazovky taktiky.', 'taktiky'),
         row('Soupiska', 'Hráči a jejich atributy z obrazovky týmu.', 'tym'),
         row('Soupeř', 'Taktika, rozestavení a zpráva skauta o soupeři.', 'soupere'),
-        row('Zápas', 'Statistiky a průběh zápasu (sledování obrazovky).', 'live')
+        row('Zápas', 'Statistiky a průběh zápasu (sledování obrazovky).', 'live'),
+        row('Hráči z exportu nástroje', 'Tabulka hráčů uložená jiným nástrojem (CSV, TSV, webová stránka, JSON).', 'tym', true),
+        row('Živá data a sestava z FMMatchLens', 'Zásuvný modul do hry, který nabízí data zápasu a sestavu na tomhle počítači (samostatná verze, Windows).', 'live', true)
       ),
-      h('div', { class: 'banner warn', id: 'loadNot' }, h('b', { text: 'Co aplikace nedělá' }), h('span', { text: 'Nečte paměť běžící hry ani její uložené hry a nic do nich nezapisuje. Nástroje, které to dělají (editory, skauti), jsou nezávislé projekty pro offline hru, jejich výstup do aplikace zatím načíst neumím.' })),
+      h('div', { class: 'banner warn', id: 'loadNot' }, h('b', { text: 'Co aplikace nedělá' }), h('span', { text: 'Sama nečte paměť běžící hry ani její uložené hry a nic do nich nezapisuje. Umí ale převzít data od nezávislých nástrojů, které to dělají pro offline hru (editory, skauti, FMMatchLens): tabulku hráčů a živá data zápasu. Takové údaje jsou „od nástroje u tebe“, ne „ověřeno hrou“.' })),
       h('p', { class: 'hint', text: 'Všechno přečtené z obrazovky je „neověřeno“, dokud to nepotvrdíš podle obrázku.' }),
     ]);
   }

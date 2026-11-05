@@ -303,6 +303,8 @@
   const HIDDEN_ABBR = new Set(['ca', 'pa']);
   const isHidden = (headerNorm) => HIDDEN_ABBR.has(headerNorm) || HIDDEN.some((x) => headerNorm === x || headerNorm.endsWith(' ' + x));
   // Skupiny sloupců `fmsave`, které nejsou atributy (čísla bývají také v rozsahu 1 až 20: ocenění pozic, osobnost, pověst, surové hodnoty).
+  /** Je název (jak je napsaný) skrytý údaj hry? Používá i modul pro FMMatchLens. */
+  const isHiddenName = (name) => isHidden(norm(name));
   const NOT_ATTRIBUTE_PREFIX = /^(positions|personality|reputation|ability|raw|contract|club|team|loan|height|transfer)[ _]/;
 
   /** Je to výstup čtečky `fmsave` (podle dokumentace: ploché sloupce `attributes_finishing`, `ability_current`, `contract_wage`)? */
@@ -450,5 +452,5 @@
     return { players, issues, skipped };
   }
 
-  return { MAX_BYTES, MAX_ROWS, ROLES, ROLE_LABEL, decodeBytes, cellText, parseHtmlTables, detectDelimiter, parseDelimited, parseJsonRows, extractTable, isFmsave, isHidden, prettyAttrName, guessMapping, rowsToPlayers };
+  return { MAX_BYTES, MAX_ROWS, ROLES, ROLE_LABEL, decodeBytes, cellText, parseHtmlTables, detectDelimiter, parseDelimited, parseJsonRows, extractTable, isFmsave, isHidden, isHiddenName, prettyAttrName, guessMapping, rowsToPlayers };
 });

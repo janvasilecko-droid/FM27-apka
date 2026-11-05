@@ -28,11 +28,11 @@ module.exports = async function run(env) {
   check('14 v hlavičce je šedé tlačítko „Načíst“', (await page.locator('#loadBtn.grey').count()) === 1 && /Načíst/.test(await text(page, '#loadBtn')));
   await page.click('#loadBtn');
   await page.waitForSelector('#loadList');
-  check('14 panel ukáže čtyři zdroje: taktika, soupiska, soupeř, zápas', JSON.stringify(await page.locator('#loadList [data-load]').evaluateAll((els) => els.map((e) => e.getAttribute('data-load')))) === JSON.stringify(['taktiky', 'tym', 'soupere', 'live']));
+  check('14 panel ukáže zdroje: taktika, soupiska, soupeř, zápas a dva zdroje od nástrojů (export a FMMatchLens)', JSON.stringify(await page.locator('#loadList [data-load]').evaluateAll((els) => els.map((e) => e.getAttribute('data-load')))) === JSON.stringify(['taktiky', 'tym', 'soupere', 'live', 'tym', 'live']));
   check('14 u stránky v Claude panel říká, že snímek se vkládá ručně', /vlož ručně/.test(await text(page, '#loadLead')) && /Win\+Shift\+S/.test(await text(page, '#loadLead')), await text(page, '#loadLead'));
-  check('14 panel poctivě říká, co aplikace nedělá: nečte paměť hry ani její soubory', /Nečte paměť běžící hry/.test(await text(page, '#loadNot')) && /nic do nich nezapisuje/.test(await text(page, '#loadNot')), await text(page, '#loadNot'));
-  check('14 všechny čtyři zdroje jsou u stránky se čtením obrázků „jde načíst“', (await page.locator('#loadList .chip.c-good').count()) === 4);
-  await page.click('#loadList [data-load="tym"] button');
+  check('14 panel poctivě říká, co aplikace nedělá: sama nečte paměť hry ani její soubory a data od nástrojů jsou „neověřená hrou“', /Sama nečte paměť běžící hry/.test(await text(page, '#loadNot')) && /nic do nich nezapisuje/.test(await text(page, '#loadNot')) && /ne „ověřeno hrou“/.test(await text(page, '#loadNot')), await text(page, '#loadNot'));
+  check('14 čtyři zdroje z obrazovky jsou u stránky se čtením obrázků „jde načíst“ a dva od nástrojů jsou „bez čtení obrázků a bez AI“', (await page.locator('#loadList .chip.c-good').count()) === 6 && (await page.locator('#loadList [data-load] .chip.c-good', { hasText: 'jde načíst' }).count()) === 4 && (await page.locator('#loadList [data-load] .chip.c-good', { hasText: 'bez čtení obrázků a bez AI' }).count()) === 2);
+  await page.locator('#loadList [data-load="tym"] button').first().click();
   await page.waitForFunction(() => location.hash === '#tym');
   check('14 řádek v panelu vede na obrazovku, kde se to dělá, a panel se zavře', (await page.evaluate(() => document.querySelector('#drawer').hidden)) === true);
   await nav(page, 'taktiky');

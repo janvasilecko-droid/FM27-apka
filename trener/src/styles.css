@@ -284,6 +284,24 @@ svg.pitch { width: 100%; max-width: 560px; height: auto; max-height: 82vh; touch
 @media (min-width: 1100px) { .live-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .live-grid > div { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); min-width: 0; align-content: start; }
 .live-grid .card + .card { margin-top: 0; }
+.flow { display: grid; gap: 8px; min-width: 0; }
+.flow-svg { width: 100%; height: auto; max-height: 300px; display: block; }
+.flow-svg .grid { stroke: var(--line); stroke-width: 1; }
+.flow-svg .grid.v { stroke-dasharray: 2 4; }
+.flow-svg .tick { fill: var(--muted); font: 11px var(--font-mono); }
+.flow-svg .line { stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.flow-svg .line.me, .flow-svg .dot.me { stroke: var(--accent); }
+.flow-svg .line.opp, .flow-svg .dot.opp { stroke: var(--t-observed); }
+.flow-svg .dot { stroke-width: 2; fill: var(--panel); }
+.flow-svg .goal { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.flow-svg .goal-label { fill: var(--fg); }
+.flow-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.flow-legend .swatch { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.flow-legend .swatch.me { background: var(--accent); }
+.flow-legend .swatch.opp { background: var(--t-observed); }
+.flow-tabs { margin-top: 0; }
+.flow-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.flow-table th, .flow-table td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line); }
 .drop { flex: 1 1 260px; border: 2px dashed var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 4px; text-align: center; cursor: pointer; background: var(--bg-2); min-width: 0; }
 .drop.over, .drop:focus-visible { border-color: var(--accent); }
 .drop b { font: 600 17px var(--font-display); letter-spacing: 0.04em; }

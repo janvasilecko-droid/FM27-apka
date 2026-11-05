@@ -41,7 +41,7 @@
   const attrsToText = (a) => Object.entries(a || {}).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => `${k} ${v}`).join('\n');
 
   function sourceChip(p) {
-    const map = { manual: ['user_entered', 'zadal jsi'], plan: ['user_entered', 'z ručního plánu'], screenshot: ['observed', 'ze screenshotu, potvrzeno tebou'], export: ['user_entered', 'z exportu (soubor od tebe)'] };
+    const map = { manual: ['user_entered', 'zadal jsi'], plan: ['user_entered', 'z ručního plánu'], screenshot: ['observed', 'ze screenshotu, potvrzeno tebou'], export: ['user_entered', 'z exportu (soubor od tebe)'], fmmatchlens: ['user_entered', 'z FMMatchLens (data od nástroje u tebe, neověřeno hrou)'] };
     const [tier, text] = map[p.source] || map.manual;
     return ui.tierChip(tier, text);
   }
@@ -450,13 +450,15 @@ Odpověz POUZE JSON objektem:
     // jinak by změna uprostřed výběru souboru vybraný obrázek zahodila.
     const listBox = h('div');
     const exportBox = h('div');
+    const feedBox = h('div');
     const shotBox = h('div');
     const drawList = () => listBox.replaceChildren(listCard(app, drawList));
     const drawExport = () => exportBox.replaceChildren(exportCard(app, () => (drawList(), drawExport())));
     if (!app.requireCareer(root, 'Soupiska')) return;
-    root.replaceChildren(listBox, exportBox, shotBox);
+    root.replaceChildren(listBox, feedBox, exportBox, shotBox);
     drawList();
     drawExport();
+    if (FM27.feed) feedBox.replaceChildren(FM27.feed.card(app, 'squad', { redraw: drawList }));
     shotBox.replaceChildren(screenshotCard(app, drawList));
     app.watch(['player'], () => root.contains(listBox) && drawList());
   }

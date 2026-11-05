@@ -11,6 +11,7 @@
   const A = () => window.TrenerAnalysis;
 
   const PROV_CHIP = { vision_unverified: ['inferred', 'přečteno z obrázku, neověřeno'], screenshot_verified: ['observed', 'ověřeno tebou podle snímku'], user_entered: ['user_entered', 'zadal jsi ručně'] };
+  const FEED_CHIP = ['user_entered', 'živě z FMMatchLens (data od nástroje u tebe, neověřeno hrou)'];
   const STAT_FIELDS = [['possession', 'Držení míče (%)'], ['shots', 'Střely'], ['shotsOnTarget', 'Střely na bránu'], ['xg', 'xG']];
   let adviceCtl = null;
 
@@ -110,6 +111,8 @@
     const captureCard = h('section', { class: 'card', id: 'liveCapture' });
     const alertsCard = h('section', { class: 'card', id: 'liveAlerts' });
     const findingsCard = h('section', { class: 'card', id: 'liveFindings' });
+    const flowCard = h('section', { class: 'card', id: 'liveFlow' });
+    let flowMetric = null;
     const adviceCard = h('section', { class: 'card', id: 'liveAdviceCard' });
     const changesCard = h('section', { class: 'card', id: 'liveChanges' });
     const timelineCard = h('section', { class: 'card', id: 'liveTimeline' });
@@ -154,6 +157,11 @@
           ? h('div', { class: 'books' }, list.slice(0, 6).map((a) => h('div', { class: 'book alertrow ' + a.finding.severity }, h('div', { class: 'meta' }, h('b', { text: a.finding.title }), h('span', { text: a.finding.text })), h('span', { class: 'chips' }, h('span', { class: 'chip t-' + (a.finding.severity === 'alert' ? 'unknown' : 'inferred'), text: a.finding.severity === 'alert' ? 'upozornění' : 'sleduj' }), a.spoken ? ui.chip('neutral', 'řečeno nahlas') : null, a.notified ? ui.chip('neutral', 'oznámeno systémem') : null, h('button', { class: 'btn small', type: 'button', 'data-act': 'explain', text: 'Vysvětlit podrobněji', onclick: () => ((noteInput.value = `Vysvětli podrobněji a poraď: ${a.finding.title}`), ask()) })))))
           : h('p', { class: 'hint', text: 'Zatím nic. Nová upozornění se ukážou tady a podle nastavení se přečtou nahlas.' })
       );
+    }
+
+    // ---- průběh zápasu (graf z časové osy)
+    function drawFlow() {
+      flowCard.replaceChildren(h('h2', { text: 'Průběh zápasu' }), W.flowChart(getMatch(), { metric: flowMetric || undefined, onMetric: (k) => (flowMetric = k) }));
     }
 
     // ---- nálezy a rada
@@ -238,11 +246,11 @@
         h('h2', { text: `Časová osa zápasu (${m.timeline.length})` }),
         sorted.length
           ? h('div', { class: 'books' }, sorted.map((s) => {
-              const [tier, label] = PROV_CHIP[s.provenance] || PROV_CHIP.vision_unverified;
+              const [tier, label] = s.via === 'fmmatchlens' ? FEED_CHIP : PROV_CHIP[s.provenance] || PROV_CHIP.vision_unverified;
               return h(
                 'div',
                 { class: 'book snap', 'data-snap': s.id },
-                h('div', { class: 'meta' }, h('b', { text: `${s.minute !== null ? s.minute + '. min' : 'minuta neznámá'}${s.score ? `, ${s.score.home}:${s.score.away}` : ''} (${s.screen})` }), h('span', { text: statLine(s) }), s.visibleText && s.visibleText.length ? h('span', { text: 'Přečtený text: ' + s.visibleText.join(' · ') }) : null, s.events && s.events.length ? h('span', { text: 'Události: ' + s.events.map((e) => `${e.minute !== null ? e.minute + '. ' : ''}${e.type}${e.text ? ' ' + e.text : ''}`).join('; ') }) : null, h('span', { class: 'chips' }, ui.tierChip(tier, label))),
+                h('div', { class: 'meta' }, h('b', { text: `${s.minute !== null ? s.minute + '. min' : 'minuta neznámá'}${s.score ? `, ${s.score.home}:${s.score.away}` : ''} (${s.via === 'fmmatchlens' ? 'z pluginu' : s.screen})` }), h('span', { text: statLine(s) }), s.visibleText && s.visibleText.length ? h('span', { text: 'Přečtený text: ' + s.visibleText.join(' · ') }) : null, s.events && s.events.length ? h('span', { text: 'Události: ' + s.events.map((e) => `${e.minute !== null ? e.minute + '. ' : ''}${e.type}${e.text ? ' ' + e.text : ''}`).join('; ') }) : null, h('span', { class: 'chips' }, ui.tierChip(tier, label))),
                 h('div', { class: 'row' }, s.provenance === 'vision_unverified' ? h('button', { class: 'btn small', type: 'button', 'data-act': 'verify', text: 'Potvrdit podle snímku', title: 'Potvrzuji, že čísla odpovídají snímku obrazovky', onclick: () => live.verify(app, s.id) }) : null, h('button', { class: 'btn small', type: 'button', text: 'Opravit', onclick: () => ui.openDrawer('Opravit snímek', [snapshotForm(app, s, (input) => live.edit(app, s.id, input), 'lve')]) }), ui.confirmButton('Smazat', 'Opravdu?', () => live.removeSnapshot(app, s.id)))
               );
             }))
@@ -360,6 +368,7 @@
       if (!getMatch()) return;
       drawHeader();
       drawAlerts();
+      drawFlow();
       drawFindings();
       drawChanges();
       drawTimeline();
@@ -371,7 +380,9 @@
     local.push(() => {
       if (adviceCtl) adviceCtl.abort();
     });
-    return h('div', { class: 'live-grid' }, h('div', null, header, captureCard, timelineCard), h('div', null, alertsCard, findingsCard, adviceCard, changesCard));
+    const feedEl = FM27.feed ? FM27.feed.card(app, 'match', { redraw, local }) : null;
+    if (FM27.feed) FM27.feed.resumeIfWanted(app);
+    return h('div', { class: 'live-grid' }, h('div', null, header, feedEl, captureCard, timelineCard), h('div', null, alertsCard, flowCard, findingsCard, adviceCard, changesCard));
   }
 
   // ------------------------------------------------------------------ obrazovka
@@ -403,7 +414,7 @@
       }
       if (!m) {
         FM27.live.end(app);
-        root.replaceChildren(setupCard(app, draw));
+        root.replaceChildren(setupCard(app, draw), FM27.feed ? FM27.feed.card(app, 'setup', { redraw: draw, local }) : null);
         return;
       }
       root.replaceChildren(matchView(app, draw, local));
