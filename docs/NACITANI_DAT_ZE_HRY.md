@@ -42,6 +42,9 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
   **taktika** (formace, mentalita, instrukce, role přesně tak, jak je hra píše). Všechno přečtené je návrh k potvrzení; názvy hry se nepřekládají
   ani nedoplňují; role se přiřadí jen k jednoznačné pozici (jinak skončí v poznámce); neznámá formace se nikdy nenahradí jinou.
 - Šedé tlačítko „Načíst“ nahoře ukáže, co jde načíst, a vede na příslušnou obrazovku.
+- **Načte hráče z tabulky, kterou uložil jiný nástroj** (CSV, TSV, webová stránka, JSON, třeba výstup `fmsave` nebo export z editoru): karta „Načíst hráče
+  z exportu“ v Můj tým. Soubor se čte jen v zařízení a bez AI; aplikace navrhne, co sloupec znamená, ty to potvrdíš. Skryté údaje hry (CA a PA, skryté atributy,
+  osobnost) se nenačtou. Přesné sloupce zná jen u `fmsave` (podle jeho dokumentace), ostatní nehádá. Ověřeno na vlastních ukázkách, ne na skutečném exportu cizího nástroje.
 - **Nečte paměť hry ani její soubory** a nic do nich nezapisuje.
 
 ## Možné další kroky (rozhodnutí majitele)
@@ -52,7 +55,7 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
    Pyodide a balíček z PyPI (v artefaktu v Claude to prohlížeč neumožní). Odhad práce: střední, nejde ověřit bez skutečného savu.
 2. **Taktika ze souboru `.fmf`**: bude to chtít buď svolení autora `fm-ai-assistent` k použití jeho dekodéru (na GitHubu mu stačí napsat, ať přidá licenci),
    nebo vlastní rozbor několika `.fmf` souborů s předem známým nastavením od majitele.
-3. **Použít hotový nástroj vedle** (třeba `fm-ai-assistent`, `FMLibreEditor`) a jeho CSV/JSON načítat v naší aplikaci: potřebuje ukázky skutečných souborů;
+3. **Použít hotový nástroj vedle** (třeba `fm-ai-assistent`, `FMLibreEditor`) a jeho CSV/JSON načítat v naší aplikaci (**pro seznam hráčů hotovo**, viz výše; potřebuje ukázky skutečných souborů);
    nástroje jsou nové, nepodepsané a čtou paměť hry: na vlastní riziko, jen offline hra.
 4. **Vlastní program pro Windows na čtení paměti FM27**: nedoporučuji. Nikdo zatím nečte taktiku z paměti, struktury se musí zjistit na běžící hře
    s ladicím nástrojem, to z cloudu nejde; chyba může spadnout hru; licenční podmínky hry je třeba ověřit.

@@ -41,7 +41,7 @@
   const attrsToText = (a) => Object.entries(a || {}).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => `${k} ${v}`).join('\n');
 
   function sourceChip(p) {
-    const map = { manual: ['user_entered', 'zadal jsi'], plan: ['user_entered', 'z ručního plánu'], screenshot: ['observed', 'ze screenshotu, potvrzeno tebou'] };
+    const map = { manual: ['user_entered', 'zadal jsi'], plan: ['user_entered', 'z ručního plánu'], screenshot: ['observed', 'ze screenshotu, potvrzeno tebou'], export: ['user_entered', 'z exportu (soubor od tebe)'] };
     const [tier, text] = map[p.source] || map.manual;
     return ui.tierChip(tier, text);
   }
@@ -164,6 +164,114 @@
       msg,
     ]);
     name.focus();
+  }
+
+  // ------------------------------------------------------------------ načtení z exportu nástroje (tabulka)
+  const KIND_CS = { html: 'webová stránka', csv: 'CSV (čárka)', 'csv-strednik': 'CSV (středník)', tsv: 'TSV (tabulátor)', svislitka: 'text se svislicemi', 'zarovnany-text': 'zarovnaný text', json: 'JSON', jsonl: 'JSON Lines' };
+  const UNIQUE_ROLES = ['name', 'positions', 'age', 'role', 'duty', 'injured'];
+
+  function exportCard(app, redraw) {
+    const TI = window.TrenerTableImport;
+    if (!TI) return null;
+    const input = h('input', { type: 'file', id: 'exportFile', accept: '.csv,.tsv,.txt,.html,.htm,.json,.jsonl,text/csv,text/plain,text/html,application/json' });
+    const status = h('p', { class: 'hint', id: 'exportStatus', 'aria-live': 'polite' });
+    const out = h('div', { id: 'exportPreview' });
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      out.replaceChildren();
+      if (!file) return (status.textContent = '');
+      status.textContent = 'Čtu soubor…';
+      try {
+        const dec = TI.decodeBytes(new Uint8Array(await file.arrayBuffer()));
+        if (!dec.ok) return (status.textContent = dec.error);
+        const table = TI.extractTable(dec.text);
+        if (!table.ok) return (status.textContent = table.error);
+        status.textContent = `Nalezena tabulka: ${table.rows.length} ${ui.plural(table.rows.length, 'řádek', 'řádky', 'řádků')}, ${table.columns} ${ui.plural(table.columns, 'sloupec', 'sloupce', 'sloupců')} (${KIND_CS[table.kind] || table.kind}, kódování ${dec.encoding}). Zkontroluj, co který sloupec znamená.`;
+        renderMapping(app, out, table, file.name, redraw);
+      } catch (e) {
+        status.textContent = 'Soubor se nepodařilo přečíst: ' + ((e && e.message) || e);
+      }
+    });
+    return h(
+      'section',
+      { class: 'card', id: 'exportCard' },
+      h('h2', { text: 'Načíst hráče z exportu (tabulka)' }),
+      h('p', { class: 'lead', text: 'Nástroje kolem hry umějí uložit tabulku hráčů do souboru (CSV, TSV, webová stránka, JSON), například čtečka uložené hry fmsave nebo exporty z editorů. Takový soubor je přesnější než snímek obrazovky, nestojí žádné volání AI a čte se jen v tomto zařízení. Aplikace nehádá, jak který nástroj sloupce pojmenoval: navrhne, co sloupec znamená, a ty to před načtením potvrdíš.' }),
+      ui.field('Soubor s tabulkou hráčů (CSV, TSV, HTML, JSON)', input),
+      status,
+      out,
+      h('p', { class: 'hint', text: 'Skryté údaje hry (CA a PA, skryté atributy jako Consistency nebo Injury Proneness, osobnost) se nenačítají: trenér s nimi nepočítá a o skrytých mechanikách FM27 nic netvrdí. Načtené údaje jsou „zadal uživatel (soubor od tebe)“, ne „ověřeno hrou“.' })
+    );
+  }
+
+  function renderMapping(app, box, table, fileName, redraw) {
+    const TI = window.TrenerTableImport;
+    const map = TI.guessMapping(table);
+    const existing = FM27.context.players(app);
+    const room = Math.max(0, MAX_PLAYERS - existing.length);
+    const existingNames = existing.map((p) => p.name);
+    const selects = [];
+    const summary = h('p', { class: 'hint', id: 'exportSummary', 'aria-live': 'polite' });
+    const preview = h('div', { class: 'books', id: 'exportPlayers' });
+    const confirm = h('input', { type: 'checkbox', id: 'exportConfirm' });
+    const add = h('button', { class: 'btn primary', id: 'exportAdd', type: 'button', text: 'Přidat hráče' });
+    const example = (i) => table.rows.slice(0, 3).map((r) => String(r[i] === undefined ? '' : r[i]).slice(0, 24)).filter(Boolean).join(' · ');
+    let current = null;
+
+    function refresh() {
+      current = TI.rowsToPlayers(table, map, { max: room, existingNames });
+      const n = current.players.length;
+      add.textContent = n ? `Přidat ${n} ${ui.plural(n, 'hráče', 'hráče', 'hráčů')}` : 'Není koho přidat';
+      add.disabled = !n;
+      const parts = [`Přidá se ${n} ${ui.plural(n, 'hráč', 'hráči', 'hráčů')}.`];
+      if (current.skipped.duplicates) parts.push(`Už v soupisce jsou nebo se opakují: ${current.skipped.duplicates}.`);
+      if (current.skipped.overLimit) parts.push(`Nad limit ${MAX_PLAYERS} hráčů: ${current.skipped.overLimit}.`);
+      summary.textContent = parts.join(' ') + (current.issues.length ? ' ' + current.issues.slice(0, 4).join(' ') : '');
+      preview.replaceChildren(
+        ...current.players.slice(0, 5).map((p) => h('div', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: p.name }), h('span', { text: [p.positions.join('/') || 'pozice neuvedena', p.age ? `věk ${p.age}` : 'věk neuveden', `${Object.keys(p.attributes).length} atributů`, p.injured ? 'zraněný' : null].filter(Boolean).join(' · ') }))))
+      );
+    }
+
+    const rows = map.map((c, k) => {
+      const sel = h('select', { 'aria-label': 'Význam sloupce ' + c.header, 'data-col': String(c.index) }, TI.ROLES.map((r) => h('option', { value: r, text: TI.ROLE_LABEL[r], selected: r === c.role })));
+      selects.push(sel);
+      sel.addEventListener('change', () => {
+        c.role = sel.value;
+        if (UNIQUE_ROLES.includes(c.role)) {
+          // jeden význam jen u jednoho sloupce: ostatní se vypnou
+          map.forEach((o, j) => {
+            if (j !== k && o.role === c.role) {
+              o.role = 'ignore';
+              selects[j].value = 'ignore';
+            }
+          });
+        }
+        refresh();
+      });
+      return h('div', { class: 'book', 'data-header': c.header }, h('div', { class: 'meta' }, h('b', { text: c.header }), h('span', { text: example(c.index) || '(prázdné)' }), h('span', { class: 'hint', text: c.reason })), sel);
+    });
+
+    add.addEventListener('click', async () => {
+      if (!confirm.checked) return toast('Nejdřív potvrď, že sloupce odpovídají souboru.');
+      if (!current || !current.players.length) return;
+      add.disabled = true;
+      let n = 0;
+      for (const p of current.players) {
+        await app.store.put('player', { careerId: app.career().id, name: p.name, positions: p.positions, role: p.role, duty: p.duty, foot: 'unknown', age: p.age, attributes: p.attributes, strengths: [], weaknesses: [], flags: { injury: p.injured, fatigue: false }, notes: p.notes, source: 'export', prov: { all: 'user_entered' } });
+        n++;
+      }
+      toast(`Z exportu přidáno hráčů: ${n} (soubor ${fileName}).`, 5000);
+      redraw();
+    });
+
+    box.append(
+      h('div', { class: 'books', id: 'exportColumns' }, rows),
+      summary,
+      preview,
+      h('label', { class: 'checkline' }, confirm, h('span', { text: 'Zkontroloval jsem, že sloupce odpovídají souboru.' })),
+      h('div', { class: 'actions' }, add)
+    );
+    refresh();
   }
 
   // ------------------------------------------------------------------ čtení soupisky ze screenshotu
@@ -341,11 +449,14 @@ Odpověz POUZE JSON objektem:
     // Seznam se překresluje při každé změně (i z druhého zařízení), karta se screenshotem ne:
     // jinak by změna uprostřed výběru souboru vybraný obrázek zahodila.
     const listBox = h('div');
+    const exportBox = h('div');
     const shotBox = h('div');
     const drawList = () => listBox.replaceChildren(listCard(app, drawList));
+    const drawExport = () => exportBox.replaceChildren(exportCard(app, () => (drawList(), drawExport())));
     if (!app.requireCareer(root, 'Soupiska')) return;
-    root.replaceChildren(listBox, shotBox);
+    root.replaceChildren(listBox, exportBox, shotBox);
     drawList();
+    drawExport();
     shotBox.replaceChildren(screenshotCard(app, drawList));
     app.watch(['player'], () => root.contains(listBox) && drawList());
   }

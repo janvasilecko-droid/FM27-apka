@@ -70,10 +70,10 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 558 | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 578 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 588 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 622 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
@@ -85,6 +85,9 @@ Zkoušku 12 jsem ověřil i opačně: po vypnutí kontroly adres (povolení `jav
 ověřeno i opačně (po ignorování pravidla rámečku spadly 4 body). Skutečný rámeček claude.ai se z cloudu ověřit nedá.
 14 načíst z obrazovky hry: šedé tlačítko „Načíst“, čtení taktiky z obrazovky s potvrzením, jeden snímek okna hry, soupiska a soupeř z okna hry (35);
 ověřeno i opačně (po vypuštění potvrzení a po hádání rolí zkouška spadla). Čtení skutečné obrazovky FM27 skutečným Claude se z cloudu ověřit nedá.
+15 načtení hráčů z tabulky exportu: CSV (UTF-8 s BOM), TSV (UTF-16), stará česká znaková sada (windows-1250), HTML tabulka, JSON ve tvaru čtečky `fmsave` (podle její
+dokumentace), úprava významu sloupce uživatelem, limit 60 hráčů, soubory bez tabulky, prázdné a příliš velké, nepřátelský text v souboru (34); skryté údaje hry
+(CA a PA, skryté atributy, osobnost) se nenačtou a u sloupce je vidět proč. Skutečné soubory cizích nástrojů se z cloudu ověřit nedají.
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 
