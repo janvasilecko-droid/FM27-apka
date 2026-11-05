@@ -255,6 +255,28 @@
   });
 
   // ------------------------------------------------------------------ vykreslení kostry
+  // Ikony levého menu: jednoduché obrysové značky na mřížce 24 × 24, vlastní kresba (žádná cizí sada ani znaky hry).
+  // Jsou jen ozdoba (aria-hidden): význam nese popisek tlačítka. Obrazovka bez ikony dostane tečku.
+  const NAV_ICONS = {
+    live: [['circle', { cx: 12, cy: 12, r: 2 }], ['path', { d: 'M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.2 5.2a9.6 9.6 0 0 0 0 13.6M18.8 5.2a9.6 9.6 0 0 1 0 13.6' }]],
+    tym: [['circle', { cx: 9, cy: 8.2, r: 3.1 }], ['path', { d: 'M3.5 19.5V19a5.5 5.5 0 0 1 11 0v.5' }], ['circle', { cx: 17, cy: 9, r: 2.5 }], ['path', { d: 'M15.8 14.3a4.6 4.6 0 0 1 5.7 4.5v.7' }]],
+    taktiky: [['rect', { x: 3, y: 5, width: 18, height: 14, rx: 2.5 }], ['path', { d: 'M12 5v14M3 9.5h2.6v5H3M21 9.5h-2.6v5H21' }], ['circle', { cx: 12, cy: 12, r: 2.6 }]],
+    soupere: [['circle', { cx: 10.5, cy: 10.5, r: 6.2 }], ['path', { d: 'M15.2 15.2L20 20M10.5 7.8v5.4M7.8 10.5h5.4' }]],
+    laborator: [['path', { d: 'M9.5 3.5h5M10.3 3.5v5.6l-4.9 8.5a2 2 0 0 0 1.7 3h9.8a2 2 0 0 0 1.7-3l-4.9-8.5V3.5M8 14.5h8' }]],
+    skola: [['path', { d: 'M2.8 9.2L12 4.6l9.2 4.6L12 13.8 2.8 9.2zM6.5 11.6V16c0 1.4 2.5 2.8 5.5 2.8s5.5-1.4 5.5-2.8v-4.4M21.2 9.2v5.3' }]],
+    historie: [['circle', { cx: 12, cy: 12, r: 8.5 }], ['path', { d: 'M12 7.5V12l3.2 2' }]],
+    trener: [['path', { d: 'M4.5 5h15A1.5 1.5 0 0 1 21 6.5v9a1.5 1.5 0 0 1-1.5 1.5H12l-4.5 3.5V17h-3A1.5 1.5 0 0 1 3 15.5v-9A1.5 1.5 0 0 1 4.5 5zM8 9.5h8M8 12.8h5' }]],
+    zdroje: [['path', { d: 'M12 6.6C10.4 5.2 8 4.6 4.2 4.6v12.9c3.8 0 6.2.6 7.8 2 1.6-1.4 4-2 7.8-2V4.6c-3.8 0-6.2.6-7.8 2zM12 6.6v12.9' }]],
+    nastaveni: [['path', { d: 'M4 7h8.5M17.5 7H20M4 17h2.5M11.5 17H20' }], ['circle', { cx: 15, cy: 7, r: 2.5 }], ['circle', { cx: 9, cy: 17, r: 2.5 }]],
+  };
+  function navIcon(hash) {
+    const parts = NAV_ICONS[hash] || [['circle', { cx: 12, cy: 12, r: 3 }]];
+    return ui.svg(
+      'svg',
+      { class: 'navico', viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' },
+      parts.map(([tag, attrs]) => ui.svg(tag, attrs))
+    );
+  }
   function renderNav() {
     const nav = $('#nav');
     nav.replaceChildren(
@@ -262,13 +284,17 @@
         .slice()
         .sort((a, b) => a.order - b.order)
         .map((s) =>
-          h('button', {
-            class: 'navbtn' + (s.id === 'live' ? ' live' : ''),
-            id: 'nav-' + s.hash,
-            type: 'button',
-            text: s.label,
-            onclick: () => app.go(s.hash),
-          })
+          h(
+            'button',
+            {
+              class: 'navbtn' + (s.id === 'live' ? ' live' : ''),
+              id: 'nav-' + s.hash,
+              type: 'button',
+              onclick: () => app.go(s.hash),
+            },
+            navIcon(s.hash),
+            h('span', { class: 'navlabel', text: s.label })
+          )
         )
     );
   }

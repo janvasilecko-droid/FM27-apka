@@ -163,6 +163,8 @@ module.exports = async function run(env) {
   await until(async () => (await phone.page.locator('#playerList .player').count()) === 13, 8000);
   check('03 telefon: soupiska se synchronizovala', (await phone.page.locator('#playerList .player').count()) === 13, await phone.page.locator('#playerList .player').count());
   await nav(phone.page, 'taktiky');
+  // Taktiky dorazí ze synchronizace o chvilku později než soupiska; obrazovka se po jejich příchodu překreslí sama, proto se čeká (stejně jako u hráčů).
+  await until(async () => (await phone.page.locator('#tacSelect option').count()) === 2, 8000);
   check('03 telefon: taktiky se synchronizovaly', (await phone.page.locator('#tacSelect option').count()) === 2, await phone.page.locator('#tacSelect option').count());
 
   // ---------- nález revize: změna z druhého zařízení nesmí smazat rozepsané úpravy editoru

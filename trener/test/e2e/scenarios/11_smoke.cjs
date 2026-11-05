@@ -91,6 +91,15 @@ module.exports = async function run(env) {
   const server = new FakeDbServer();
   const empty = await newContext(browser, { db: server, uid: 'empty', viewport: { width: 1280, height: 900 }, colorScheme: 'dark' });
   await open(empty.page, 'live');
+  // Levé menu: každá z deseti sekcí má vlastní ikonu (jen ozdoba, skrytá čtečkám) a popisek, který tlačítko pojmenovává.
+  const navInfo = await empty.page.evaluate(() =>
+    [...document.querySelectorAll('#nav .navbtn')].map((b) => {
+      const svg = b.querySelector('svg.navico');
+      return { id: b.id, label: (b.querySelector('.navlabel') || {}).textContent || '', icon: svg ? [...svg.children].map((e) => e.getAttribute('d') || e.tagName + e.getAttribute('cx') + e.getAttribute('cy') + e.getAttribute('r')).join('|') : '', hidden: svg ? svg.getAttribute('aria-hidden') : null, name: b.textContent.trim() };
+    })
+  );
+  check('11 menu: deset sekcí, každá s ikonou a popiskem', navInfo.length === SCREENS.length && navInfo.every((n) => n.icon && n.label.trim() && n.name === n.label.trim()), navInfo.map((n) => n.id));
+  check('11 menu: ikony jsou jen ozdoba (skryté čtečkám) a každá je jiná', navInfo.every((n) => n.hidden === 'true') && new Set(navInfo.map((n) => n.icon)).size === navInfo.length, navInfo.map((n) => n.hidden));
   await sweep(empty.page, 'prázdná aplikace, tmavý vzhled, počítač');
   await empty.page.setViewportSize({ width: 390, height: 844 });
   await empty.page.emulateMedia({ colorScheme: 'light' });

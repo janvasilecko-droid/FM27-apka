@@ -50,15 +50,16 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 621 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (18 scénářů, 717 kontrol), falešné `db`, generátor syntetických souborů |
+| `src/styles.css` | celý vzhled: barvy jako proměnné (tmavý a světlý vzhled), karty, levé menu, tlačítka, graf, hřiště; hlídá ho `test/styles.test.mjs` |
+| `test/*.test.mjs` | 634 testů čistých modulů, úložiště a barev vzhledu |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (18 scénářů, 719 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 621 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 634 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 

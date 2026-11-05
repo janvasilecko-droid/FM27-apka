@@ -13,7 +13,12 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
   „Zdrojích znalostí“, volba „Hledat i na webu“ u Osobního trenéra a u lekce ve Škole, zkušební hledání v Nastavení. Cesty: konektor
   „Parallel Search“ (stránka v Claude, `mcp`) a `web_search` od Anthropic přes klíč (samostatná verze, účtuje se zvlášť). **Neověřeno proti
   živým službám**, nic z webu není `verified`, v Live Coachi se nehledá. Kód: `trener/src/websources.js`, `web.js`; zkouška 12.
-- **Zkoušky**: 621 testů jádra, 143 + 11 v Pythonu, 717 kontrol v prohlížeči (18 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
+- **Vzhled** (5. 11. 2026, na přání majitele „udělej to modernější graficky, třeba ve stylu FM 27“): tmavý grafitově modrý podklad s limetkovým
+  akcentem, zaoblené karty, levé menu s ikonami (na telefonu pruh nahoře), segmentové přepínače, zelené hřiště v laboratoři, světlý i tmavý vzhled.
+  **Jen inspirace stylem Football Manageru: žádné logo, písmo ani obrázky hry.** Barvy jsou proměnné v `trener/src/styles.css`; kontrast písma
+  v obou vzhledech hlídá `trener/test/styles.test.mjs` (a zkouška 11 na skutečných obrazovkách). Písmo Inter a Barlow se stahuje z Google Fonts
+  (bez připojení nastoupí systémové písmo, nic se nerozbije).
+- **Zkoušky**: 634 testů jádra, 143 + 11 v Pythonu, 719 kontrol v prohlížeči (18 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
   `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
   skutečné službě ani skutečnému FM27**.
 - Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).

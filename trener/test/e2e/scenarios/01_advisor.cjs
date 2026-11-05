@@ -258,11 +258,23 @@ module.exports = async function run(env) {
     check('A15 zkouška hledání', /Hledání funguje/.test(await text(page, '#testOut')), await text(page, '#testOut'));
 
     // A16: téma přepnuté ručně přebije systém
-    await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
-    const bgLight = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'));
-    const bgDark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    check('A16 ruční volba tématu přebije systém v obou směrech', bgLight === 'rgb(242, 245, 239)' && bgDark === 'rgb(11, 17, 24)', { bgLight, bgDark });
+    // Barvy se neopisují ze stylů (při změně palety by zkouška zbytečně spadla): tělo stránky musí mít barvu pozadí vybraného tématu
+    // (--bg) a světlé téma musí být skutečně světlejší než tmavé, takže ruční volba přebila systém v obou směrech.
+    const bgOf = (theme) =>
+      page.evaluate((t) => {
+        document.documentElement.dataset.theme = t;
+        const probe = document.createElement('div');
+        probe.style.background = 'var(--bg)';
+        document.body.append(probe);
+        const token = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        const body = getComputedStyle(document.body).backgroundColor;
+        const [r, g, b] = body.match(/\d+/g).slice(0, 3).map(Number);
+        return { body, token, lightness: 0.2126 * r + 0.7152 * g + 0.0722 * b };
+      }, theme);
+    const bgLight = await bgOf('light');
+    const bgDark = await bgOf('dark');
+    check('A16 ruční volba tématu přebije systém v obou směrech', bgLight.body === bgLight.token && bgDark.body === bgDark.token && bgLight.lightness > bgDark.lightness + 100, { bgLight, bgDark });
     await page.evaluate(() => delete document.documentElement.dataset.theme);
 
     // A17: rada, která běží, přežije odchod z obrazovky (nález revize: po návratu se „Poradit“ znovu zapnulo a Stop rušil jen druhé volání)
