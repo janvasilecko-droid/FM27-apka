@@ -249,11 +249,18 @@
   }
 
   // ---------------------------------------------------------------- obsah zdrojů: tvary, které se čtou jen z viditelných údajů
-  /** parseImage(content) → {headerHex, png: Uint8Array|null, pngSize}. Obrázek je 10bajtová hlavička a volitelné PNG; PNG se pozná podle podpisu, ne podle příznaku. */
+  /** parseImage(content) → {headerHex, version, hasImage, payloadLength, lengthMatches, png, pngSize, width, height}.
+      Obrázek je 10bajtová hlavička (bajt verze, bajt příznaku, u32 nula, u32 délka dat) a volitelná data; PNG se pozná podle podpisu, ne podle příznaku.
+      Význam bajtů hlavičky je odvozený ze tří souborů (příznak 0, 0, 1; délka dat u obrázku = délka PNG). */
   function parseImage(content) {
     const c = toBytes(content);
-    if (!c || c.length < 10) return { headerHex: '', png: null, pngSize: 0, width: null, height: null };
-    const out = { headerHex: hex(c, 0, 10), png: null, pngSize: 0, width: null, height: null };
+    const out = { headerHex: '', version: null, hasImage: null, payloadLength: null, lengthMatches: null, png: null, pngSize: 0, width: null, height: null };
+    if (!c || c.length < 10) return out;
+    out.headerHex = hex(c, 0, 10);
+    out.version = c[0];
+    out.hasImage = c[1];
+    out.payloadLength = u32(c, 6);
+    out.lengthMatches = out.payloadLength === c.length - 10;
     if (c.length >= 10 + 8 + 25 && eq(c, 10, PNG_SIGNATURE)) {
       out.png = c.subarray(10);
       out.pngSize = out.png.length;

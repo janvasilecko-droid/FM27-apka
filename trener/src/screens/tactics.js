@@ -261,7 +261,16 @@ Odpověz POUZE JSON objektem:
 
   // ------------------------------------------------------------------ čtení .fmf (rozšifrování a rozbalení v tomto zařízení)
   const FC = () => window.TrenerFmfContainer;
+  const TAC = () => window.TrenerFmfTac;
   const SRC_LABEL = { '.tac': 'Taktika (.tac)', '.img': 'Obrázek (.img)', '.aom': 'Detaily (.aom)' };
+
+  /** Větou: jak dopadlo čtení stavby payloadu taktiky (jen stavba, ne význam čísel). */
+  function structureText(s) {
+    if (!s) return 'nepřečtena (chybí čtečka)';
+    if (!s.ok) return `NEODPOVÍDÁ popsané stavbě (${s.error.replace(/\.$/, '')}${s.offset !== null ? `, bajt ${s.offset}` : ''}); nic se z ní nepřebírá`;
+    const places = s.pairsAsExpected && s.slotsArePermutation ? '11 míst očíslovaných 0 až 10' : `počet nebo číslování míst se liší od očekávaných 11 (${s.pairs} dvojic)`;
+    return `přečtena celá, každý bajt zařazen: ${s.pairs} dvojic bloků (${s.blocks} bloků celkem), ${s.items} položek, ${s.idEntries} záznamů seznamu id, ${s.footerLists} seznamů v patičce; ${places}`;
+  }
 
   /** Obrázek z PNG bajtů jako data URL (bez blob adres, aby ho nezablokovala pravidla stránky). */
   function pngDataUrl(png) {
@@ -272,7 +281,8 @@ Odpověz POUZE JSON objektem:
 
   function showFmfRead(app, file, box, read) {
     const Fc = FC();
-    const report = Fc.safeReport(read);
+    const structure = TAC() && read.tac ? TAC().safeReport(TAC().parse(read.tac)) : null;
+    const report = Object.assign({}, Fc.safeReport(read), { structure });
     const tacEntry = read.entries.find((e) => e.ext === '.tac');
     const rows = [
       ['Název taktiky (z manifestu)', read.title || '–'],
@@ -280,7 +290,9 @@ Odpověz POUZE JSON objektem:
       ['Velikost souboru', `${read.size} B`],
     ];
     for (const e of read.entries) rows.push([SRC_LABEL[e.ext] || e.path, `${e.size} B zašifrováno → ${e.content ? e.content.length : '?'} B rozbaleno, ${e.ok ? 'kontroly sedí' : 'NEOVĚŘENO: ' + (e.issues.join('; ') || 'neznámý důvod')}`]);
+    rows.push(['Struktura taktiky (stavba souboru)', structureText(structure)]);
     rows.push(['Pole taktiky (formace, role, instrukce…)', 'zatím nedekódována, nic z nich není ověřeno']);
+    const verified = read.verified.concat(structure && structure.ok ? ['stavba payloadu taktiky souhlasí s popsanou gramatikou (každý bajt zařazen, všechny pevné bajty sedí; význam čísel to nedokazuje)'] : []);
     const bad = read.entries.filter((e) => !e.ok);
     const logo = read.image && read.image.png ? h('img', { id: 'fmfLogo', alt: 'Obrázek uložený v souboru taktiky', src: pngDataUrl(read.image.png), style: 'max-width:250px;max-height:200px;border-radius:8px;margin:8px 0' }) : null;
     setNote(
@@ -294,7 +306,7 @@ Odpověz POUZE JSON objektem:
       ),
       logo,
       h('div', { class: 'diag', id: 'fmfReadRows' }, rows.map(([k, v]) => h('div', null, h('span', { text: k }), h('span', { text: v })))),
-      read.verified.length ? h('ul', { class: 'list', id: 'fmfVerified' }, read.verified.map((v) => h('li', { text: 'Ověřeno: ' + v + '.' }))) : null,
+      verified.length ? h('ul', { class: 'list', id: 'fmfVerified' }, verified.map((v) => h('li', { text: 'Ověřeno: ' + v + '.' }))) : null,
       h('div', { class: 'actions' }, h('button', {
         class: 'btn small',
         type: 'button',

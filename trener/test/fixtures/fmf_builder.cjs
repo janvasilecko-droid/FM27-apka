@@ -78,17 +78,19 @@ const tacContent = (title, n, seed) => {
 };
 const aomContent = (title, handle) => Buffer.concat([Buffer.from([0x03, 0x01, 0x6d, 0x6f, 0x61, 0x2e, 0x04, 0x00]), str('TACTICS_TYPE_HANDLER'), str(title), Buffer.alloc(10), Buffer.alloc(16, 0xff), str(handle), Buffer.from([0x02, 0x00, 0x01, 0x00])]);
 const imgHeader = Buffer.from([0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0xd2, 0x00, 0x01, 0x00]);
+/** Obsah zdroje .img jako ve skutečných souborech: bajt verze 1, bajt příznaku, u32 nula, u32 délka dat a data; bez obrázku samé nuly za verzí. */
+const imageContent = (png) => (png.length ? Buffer.concat([Buffer.from([1, 1, 0, 0, 0, 0]), u32le(png.length), png]) : Buffer.from([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
 /** Obvyklý soubor: obrázek (výchozí PNG 5 × 3), taktika, detaily v adresáři _data. */
 function standardFmf(seed, opts) {
   const o = opts || {};
   return buildFmf({
     title: TITLE,
     resources: [
-      { dir: '', name: 'image', ext: '.img', content: Buffer.concat([imgHeader, o.png === undefined ? tinyPng(5, 3) : o.png]) },
+      { dir: '', name: 'image', ext: '.img', content: imageContent(o.png === undefined ? tinyPng(5, 3) : o.png) },
       { dir: '', name: TITLE, ext: '.tac', content: o.tac || tacContent(TITLE, 3000, seed), noSum: o.noSum },
       { dir: '_data', name: 'details', ext: '.aom', content: aomContent(TITLE, o.handle || 'autor_test') },
     ],
   }, seed);
 }
 
-module.exports = { PREAMBLE, FOOTER, zc, zcNoSum, u32le, u64le, i64le, str, prng, aesEnc, buildFmf, tinyPng, tacContent, aomContent, imgHeader, standardFmf, TITLE };
+module.exports = { PREAMBLE, FOOTER, zc, zcNoSum, u32le, u64le, i64le, str, prng, aesEnc, buildFmf, tinyPng, tacContent, aomContent, imgHeader, imageContent, standardFmf, TITLE };

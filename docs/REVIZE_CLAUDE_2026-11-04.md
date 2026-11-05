@@ -38,6 +38,8 @@ Dál (neověřeno experimentem, jen z čtení kódu):
 Na offsetech 26 a 30 stojí 4bajtová little-endian hodnota 16. Inspektor ho odmítne (nemá pozorovanou hlavičku).
 **Co to je, nevím.** Může být šifrovaný i komprimovaný; hádat nebudu (zadání: „Nehádej interní strukturu“).
 
+*Dodatek (5. 11. 2026):* po obdržení tří skutečných exportů se ukázalo, že je to **výřez ze souboru `.fmf` posunutý o 26 bajtů** (od bajtu 221 do 966 souboru Underdog; skutečný záznam je od bajtu 247 do 992). Posuny v manifestu se čtou od bajtu 26, ne od začátku souboru; proto výřez začínal koncem předchozího záznamu a chyběl mu konec včetně kontrolního součtu. Skutečná struktura: `docs/FORMAT_FMF.md`.
+
 Jak to rozhodnout bez hádání, potřebuju z FM27 tři exporty: tutéž taktiku dvakrát beze změny a jednou s jedinou změnou
 (např. jiná mentalita). Shodné soubory = deterministický formát; zcela odlišné bajty u stejné taktiky = nejspíš šifrování
 s náhodnou složkou (pak je import `.fmf` pravděpodobně nereálný a zbývá doplnění screenshotem nebo ručně);

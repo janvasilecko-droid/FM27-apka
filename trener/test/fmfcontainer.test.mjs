@@ -12,7 +12,7 @@ const source = readFileSync(new URL('../src/fmfcontainer.js', import.meta.url), 
 
 // ---------------------------------------------------------------- pomůcky: zapisovač syntetického .fmf je ve sdíleném souboru (i pro zkoušku v prohlížeči)
 const B = require('./fixtures/fmf_builder.cjs');
-const { zc, u32le, u64le, i64le, str, prng, aesEnc, buildFmf, tinyPng, tacContent, aomContent, imgHeader, TITLE } = B;
+const { zc, u32le, u64le, i64le, str, prng, aesEnc, buildFmf, tinyPng, tacContent, aomContent, imgHeader, imageContent, TITLE } = B;
 const zcNoSum = B.zcNoSum;
 const standard = B.standardFmf;
 const deps = {
@@ -146,7 +146,8 @@ test('decode: syntetický export se rozšifruje, rozbalí a všechny kontroly se
   assert.equal(r.details.handlerType, 'TACTICS_TYPE_HANDLER');
   assert.equal(r.details.title, TITLE);
   assert.equal(r.details.authorHandle, 'autor_test');
-  assert.equal(r.image.headerHex, '01 01 00 00 00 00 d2 00 01 00');
+  assert.deepEqual({ version: r.image.version, hasImage: r.image.hasImage, lengthMatches: r.image.lengthMatches }, { version: 1, hasImage: 1, lengthMatches: true });
+  assert.equal(r.image.payloadLength, tinyPng(5, 3).length);
   assert.equal(r.image.width, 5);
   assert.equal(r.image.height, 3);
   assert.ok(r.verified.length >= 2);
@@ -347,8 +348,15 @@ test('parseDetails, parseImage a parseTacHeader: čtou jen to, co je vidět, a n
   // přezdívka s jiným než tisknutelným ASCII se nepřevezme
   const weird = Buffer.concat([aomContent('X', 'a_b').subarray(0, 8 + 4 + 20 + 4 + 1), Buffer.alloc(10), Buffer.alloc(16, 0xff), str('a\u0001b')]);
   assert.equal(C.parseDetails(new Uint8Array(weird)).authorHandle, null);
-  const img = C.parseImage(new Uint8Array(Buffer.concat([imgHeader, tinyPng(7, 4)])));
+  const img = C.parseImage(new Uint8Array(imageContent(tinyPng(7, 4))));
   assert.equal(img.width, 7);
+  assert.equal(img.lengthMatches, true);
+  // hlavička, která slibuje jinou délku dat, než je skutečná, se pozná (obrázek se i tak ukáže podle podpisu PNG)
+  const lying = Buffer.from(imageContent(tinyPng(7, 4)));
+  lying.writeUInt32LE(5, 6);
+  assert.equal(C.parseImage(new Uint8Array(lying)).lengthMatches, false);
+  assert.deepEqual(C.parseImage(new Uint8Array(imageContent(Buffer.alloc(0)))).hasImage, 0);
+
   assert.equal(img.height, 4);
   assert.equal(img.png[0], 0x89);
   assert.equal(C.parseImage(new Uint8Array(imgHeader)).png, null);
