@@ -25,6 +25,7 @@
   const feed = (FM27.feed = {
     session,
     prefs,
+    savePrefs,
     // Odstupy dotazů v milisekundách (zkoušky je zkracují): dokud se zápas nehraje, během zápasu, po chybě.
     timing: { wait: 4000, live: 3000, error: 8000 },
     subscribe(fn) {

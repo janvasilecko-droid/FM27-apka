@@ -114,16 +114,27 @@
       FM27.bus.emit('career', app.career());
       renderScreen();
     },
-    async createCareer(fields) {
+    /** Založí kariéru. `opts.prov` ({fields, via} z careerProvenance) říká, odkud je klub, soutěž a sezóna: ze snímku obrazovky hry
+        (potvrzeno tím, že uživatel kariéru založil), z pluginu, nebo zadal uživatel. Bez něj je všechno zadání uživatele. */
+    async createCareer(fields, opts) {
       const club = String(fields.club || '').trim();
       if (!club) throw new Error('Napiš název klubu.');
-      const career = await app.store.put('career', {
+      const doc = {
         club: club.slice(0, 80),
         competition: String(fields.competition || '').trim().slice(0, 80),
         season: String(fields.season || '').trim().slice(0, 20),
         activeTacticId: null,
         createdAt: Date.now(),
-      });
+      };
+      const prov = opts && opts.prov && typeof opts.prov === 'object' ? opts.prov : null;
+      if (prov && prov.fields && typeof prov.fields === 'object') {
+        const ok = ['user_entered', 'screenshot_verified'];
+        const clean = {};
+        for (const k of ['club', 'competition', 'season']) if (doc[k] && ok.includes(prov.fields[k])) clean[k] = prov.fields[k];
+        if (Object.keys(clean).length) doc.prov = clean;
+        if (prov.via === 'fmmatchlens') doc.via = 'fmmatchlens';
+      }
+      const career = await app.store.put('career', doc);
       app.setCareer(career.id);
       return career;
     },
@@ -143,9 +154,24 @@
       const comp = ui.input({ id: 'careerComp', maxlength: 80, placeholder: 'Např. Premier League' });
       const season = ui.input({ id: 'careerSeason', maxlength: 20, placeholder: 'Např. 2026/27' });
       const msg = h('p', { class: 'hint', id: 'careerMsg' });
+      // Klub, soutěž a sezónu umí aplikace načíst ze hry (snímek obrazovky, okno hry, plugin FMMatchLens). Je to jen návrh do políček níž;
+      // původ polí se určí až při založení: co uživatel nechal, jak to navrhla hra, a co přepsal.
+      let proposal = null;
+      const reader =
+        FM27.clubRead && window.TrenerCareerRead
+          ? FM27.clubRead.block({
+              onProposal: (p) => {
+                proposal = p;
+                if (p.club) club.value = p.club;
+                if (p.competition) comp.value = p.competition;
+                if (p.season) season.value = p.season;
+              },
+            })
+          : null;
       return h(
         'div',
         { class: 'careerform' },
+        reader,
         ui.field('Klub', club),
         h('div', { class: 'row' }, ui.field('Soutěž (volitelné)', comp, { grow: true }), ui.field('Sezóna (volitelné)', season, { width: '140px' })),
         h(
@@ -158,7 +184,9 @@
             text: 'Založit kariéru',
             onclick: async () => {
               try {
-                const c = await app.createCareer({ club: club.value, competition: comp.value, season: season.value });
+                const fields = { club: club.value, competition: comp.value, season: season.value };
+                const prov = window.TrenerCareerRead ? window.TrenerCareerRead.careerProvenance(fields, proposal) : null;
+                const c = await app.createCareer(fields, prov ? { prov } : undefined);
                 toast(`Kariéra „${c.club}“ je založená.`);
                 if (onDone) onDone(c);
               } catch (e) {
@@ -306,12 +334,16 @@
     }
   }
 
+  function openCareerDrawer() {
+    ui.openDrawer('Nová kariéra', [app.careerForm(() => ui.closeDrawer())]);
+  }
+
   function renderCareerBar() {
     const bar = $('#careerbar');
     if (!bar) return;
     bar.replaceChildren();
     const careers = app.careers();
-    const open = () => ui.openDrawer('Nová kariéra', [app.careerForm(() => ui.closeDrawer())]);
+    const open = openCareerDrawer;
     if (!careers.length) {
       bar.append(h('button', { class: 'btn small', id: 'careerNew', type: 'button', text: 'Založit kariéru', onclick: open }));
       return;
@@ -341,11 +373,25 @@
         h('div', { class: 'meta' }, h('b', { text: title }), h('span', { text }), h('span', { class: 'chips' }, noVision ? ui.chip('good', 'bez čtení obrázků a bez AI') : ui.chip(vision ? 'good' : 'warn', vision ? 'jde načíst' : 'nejde: chybí Claude se čtením obrázků'))),
         h('button', { class: 'btn small', type: 'button', text: 'Otevřít', onclick: () => go(hash) })
       );
+    // Klub se nenačítá na žádné z obrazovek, ale při zakládání kariéry: tlačítko otevře formulář nové kariéry s načtením ze hry.
+    const clubRow = h(
+      'div',
+      { class: 'book', 'data-load': 'kariera' },
+      h(
+        'div',
+        { class: 'meta' },
+        h('b', { text: 'Klub a kariéra' }),
+        h('span', { text: 'Klub, soutěž a sezóna ze snímku obrazovky hry (nebo z pluginu FMMatchLens, když běží zápas). Použije se při zakládání kariéry.' }),
+        h('span', { class: 'chips' }, ui.chip(vision ? 'good' : 'warn', vision ? 'jde načíst' : 'nejde: chybí Claude se čtením obrázků'), app.standalone ? ui.chip('good', 'nebo z pluginu při zápase') : null)
+      ),
+      h('button', { class: 'btn small', type: 'button', text: 'Nová kariéra', onclick: () => (ui.closeDrawer(), openCareerDrawer()) })
+    );
     ui.openDrawer('Načíst aktuální hru', [
       h('p', { class: 'lead', id: 'loadLead', text: grab ? 'Aplikace čte to, co je právě vidět na obrazovce hry. V každé z těchto sekcí je tlačítko „Načíst z okna hry“: sdílíš okno hry a vezme se jeden snímek.' : 'Aplikace čte to, co je právě vidět na obrazovce hry. Snímek vlož ručně (ve Windows Win+Shift+S a pak Ctrl+V, na telefonu fotka). Tlačítko „Načíst z okna hry“ je jen tam, kde to stránka smí (samostatná verze).' }),
       h(
         'div',
         { class: 'books', id: 'loadList' },
+        clubRow,
         row('Taktika', 'Formace, mentalita, instrukce a role z obrazovky taktiky.', 'taktiky'),
         row('Soupiska', 'Hráči a jejich atributy z obrazovky týmu.', 'tym'),
         row('Soupeř', 'Taktika, rozestavení a zpráva skauta o soupeři.', 'soupere'),

@@ -70,16 +70,18 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 634 (z toho 13 hlídá barvy a kontrast vzhledu) | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 661 (z toho 13 hlídá barvy a kontrast vzhledu a 27 čtení klubu ze hry) | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 143 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 719 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 754 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (100; vč. povinného „proč“ u změny a opravného kola, když chybí), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (34; vč. „Co udělat“ a „Proč“ u každého kroku), 09 hlas a oznámení (57),
 10 samostatná verze: vlastní klíč, service worker, offline, instalace (47), 11 průchod všemi obrazovkami: zbloudilý text,
 vodorovné posouvání, čitelnost písma ve světlém i tmavém vzhledu, ikony a popisky menu (27), 12 zdroje z webu: konektor Parallel Search (zkušební náhražka),
 karty a uložení zdroje, rada a lekce se zdroji z webu, chyby konektoru, samostatná verze s web search přes klíč Anthropic (falešné HTTP API) (86).
+19 klub ze hry při zakládání kariéry: ze snímku, z okna hry a z pluginu (falešný), návrh a potvrzení, původ polí, podvržené odpovědi a názvy, cizí adresa pluginu, bez AI (35;
+ověřeno šesti záměrnými poruchami, každá zkoušku shodila). Skutečné čtení FM27 a skutečný plugin se nezkoušely.
 Zkoušku 12 jsem ověřil i opačně: po vypnutí kontroly adres (povolení `javascript:` a `http:`) spadla v 15 bodech.
 13 sdílení obrazovky ve stránce v Claude: rámeček z jiného původu napodobuje claude.ai s povolením (`allow="display-capture"`) a bez něj (14);
 ověřeno i opačně (po ignorování pravidla rámečku spadly 4 body). Skutečný rámeček claude.ai se z cloudu ověřit nedá.

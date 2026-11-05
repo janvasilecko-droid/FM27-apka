@@ -43,6 +43,14 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
   **taktika** (formace, mentalita, instrukce, role přesně tak, jak je hra píše). Všechno přečtené je návrh k potvrzení; názvy hry se nepřekládají
   ani nedoplňují; role se přiřadí jen k jednoznačné pozici (jinak skončí v poznámce); neznámá formace se nikdy nenahradí jinou.
 - Šedé tlačítko „Načíst“ nahoře ukáže, co jde načíst, a vede na příslušnou obrazovku.
+- **Klub, soutěž a sezóna při zakládání kariéry** (6. 11. 2026, na přání majitele „ten klub si má aplikace načíst z FM“): formulář kariéry má blok „Načíst klub ze hry“.
+  (1) **Ze snímku obrazovky hry** (vložený soubor, nebo „Načíst z okna hry“ jedním kliknutím): Claude přepíše jen to, co je čitelné (klub, který uživatel řídí, soutěž,
+  sezónu), jinak null; klub se nehádá z loga ani z barev a při dvou viditelných týmech se neurčuje. (2) **Z pluginu FMMatchLens** (samostatná verze, jen když ve hře běží
+  zápas): klub je tým, který řídí člověk (`isHumanControlled`), soutěž z pluginu; sezónu plugin neposílá. Nepozná-li se z dat, který tým je tvůj, vybíráš sám. Výsledek jen vyplní
+  políčka jako **návrh**; kariéra vznikne až kliknutím na „Založit kariéru“. Názvy se čistí (zalomení, neviditelné znaky, značky, odkazy a věty se nepřevezmou), sezóna musí být dva
+  po sobě jdoucí roky. Původ polí je uložený v kariéře: nechané tak, jak navrhla obrazovka, je „z obrazovky, potvrzeno“; z pluginu „zadal uživatel“ s označením nástroje;
+  přepsané nebo napsané je zadání uživatele. Z pluginu se nebere nic víc než název týmu a soutěž (žádní hráči ani skryté údaje). **Čtení skutečné obrazovky FM27 ani
+  skutečný plugin jsem nezkoušel** (zkoušky používají náhražky).
 - **Živá data zápasu a sestava z FMMatchLens** (samostatná verze, Windows, plugin musí běžet ve hře): karta „Živá data z FMMatchLens“ v Live Coachi a „Sestava z
   FMMatchLens“ v Můj tým. Aplikace volá **jen tento počítač** (127.0.0.1 nebo localhost; cizí adresa i adresa v místní síti se odmítne), čte `/api/health`,
   `/api/match/meta` a `/api/match/current` a skládá z nich snímky časové osy **bez čtení obrazovky a bez volání AI**. Nový snímek vznikne podle **herního času** (každých
