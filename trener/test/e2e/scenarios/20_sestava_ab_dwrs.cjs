@@ -319,6 +319,7 @@ module.exports = async function run(env) {
   // ---------- vzhled (snímek se dělá se zapnutou sestavou B)
   await pg.click('#bestRun');
   await pg.waitForSelector('#bestRows [data-b]');
+  await pg.evaluate(() => { const t = document.querySelector('#toast'); if (t) t.hidden = true; }); // oznámení by zakrylo snímek
   await openAll('#bestInjury');
   await pg.locator('#bestCard').screenshot({ path: `${env.OUT}/20_sestava_ab.png` });
 
