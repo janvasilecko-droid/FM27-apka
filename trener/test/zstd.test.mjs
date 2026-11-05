@@ -710,6 +710,13 @@ test('popis tabulky FSE: tisíce náhodných platných popisů se přečtou pře
     const g = writeNCount(gap, maxLog);
     assert.throws(() => readFseDescription(Uint8Array.from(g.bytes), 0, g.bytes.length, maxLog, maxSym), /víc symbolů/, name + ' řada nul');
   }
+  // hranice u řady nul: poslední symbol přesně na největším povoleném čísle projde, o jedno místo dál se odmítne (řada nul přeleze mez)
+  for (const [name, maxLog, maxSym] of FSE_KINDS) {
+    const okEdge = writeNCount([1, ...new Array(maxSym - 1).fill(0), (1 << maxLog) - 1], maxLog);
+    assert.equal(readFseDescription(Uint8Array.from(okEdge.bytes), 0, okEdge.bytes.length, maxLog, maxSym).counts.length, maxSym + 1, name + ' poslední symbol na hranici');
+    const overEdge = writeNCount([1, ...new Array(maxSym).fill(0), (1 << maxLog) - 1], maxLog);
+    assert.throws(() => readFseDescription(Uint8Array.from(overEdge.bytes), 0, overEdge.bytes.length, maxLog, maxSym), /víc symbolů/, name + ' poslední symbol o jedno místo za hranicí');
+  }
   // řada nul ze samých jedniček (příznaky „další tři nuly“): odmítne se hned po překročení meze, ne až na konci popisu, a rychle i u dlouhého popisu
   for (const [name, maxLog, maxSym] of FSE_KINDS) {
     const flood = Uint8Array.from([0x10, 0xfe, ...new Array(200000).fill(0xff)]); // přesnost 5, první symbol s počtem 0, pak jen příznaky „tři nuly“
