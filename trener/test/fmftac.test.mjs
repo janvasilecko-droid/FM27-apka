@@ -508,8 +508,18 @@ test('displayText: odstraní řídicí, neviditelné a obousměrné znaky, slou�
   assert.equal(T.displayText('a' + cp(0x202e) + 'b' + cp(0x200b) + 'c' + cp(0xfeff) + 'd' + cp(0x2060) + 'e' + cp(0x85) + 'f' + cp(0x7f) + 'g'), 'a b c d e f g');
   // okraje každého zakázaného rozsahu: první i poslední znak
   for (const code of [0x00, 0x1f, 0x7f, 0x9f, 0x200b, 0x200f, 0x2028, 0x202e, 0x2060, 0x2064, 0xfeff]) assert.equal(T.displayText('a' + cp(code) + 'b'), 'a b', `znak ${code.toString(16)}`);
-  // těsně za rozsahy a běžné znaky se musí zachovat
-  for (const code of [0x20ac, 0xa0 + 1, 0xe1, 0x17e, 0x2010, 0x2065 + 1, 0x2fff, 0x2070]) assert.equal(T.displayText('a' + cp(code) + 'b'), 'a' + cp(code) + 'b', `znak ${code.toString(16)} se musí zachovat`);
+  // obousměrné izolace a další neviditelné nebo záměnné znaky, které vypadají jako nic, ale mění pořadí nebo zdání textu (nález revize)
+  const hidden = [
+    [0x2066, 'LRI'], [0x2067, 'RLI'], [0x2068, 'FSI'], [0x2069, 'PDI'], [0x061c, 'ALM'], [0x206a, 'ISS'], [0x206f, 'NODS'], [0x00ad, 'měkký spojovník'], [0x034f, 'CGJ'], [0x180e, 'mongolský oddělovač samohlásek'],
+    [0x115f, 'hangulská výplň'], [0x1160, 'hangulská výplň'], [0x3164, 'hangulská výplň'], [0xffa0, 'hangulská výplň půlené šířky'], [0x2800, 'braillská prázdná buňka'], [0xfe00, 'variační selektor 1'], [0xfe0f, 'variační selektor 16'],
+    [0xfff9, 'interlineární anotace'], [0xfffa, 'interlineární anotace'], [0xfffb, 'interlineární anotace'], [0xfffc, 'náhradní objekt'], [0xe0001, 'značka jazyka'], [0xe0041, 'tag A'], [0xe007f, 'zrušení tagů'], [0xe0100, 'variační selektor 17'], [0xe01ef, 'variační selektor 256'],
+  ];
+  for (const [code, name] of hidden) assert.equal(T.displayText('a' + cp(code) + 'b'), 'a b', `U+${code.toString(16)} (${name}) se musí odstranit`);
+  // název, který by izolací obrátil „exe“ na „gpj“, se po čištění nesmí dát obrátit
+  const spoof = 'Taktika ' + cp(0x2067) + 'gpj.exe' + cp(0x2069) + ' 4-3-3';
+  assert.equal(T.displayText(spoof), 'Taktika gpj.exe 4-3-3');
+  // těsně za rozsahy a běžné znaky (písmena s diakritikou, měna, pomlčka, emoji, čínština, arabština, kombinující čárka) se musí zachovat
+  for (const code of [0x20ac, 0xa0 + 1, 0xe1, 0x17e, 0x2010, 0x2fff, 0x2070, 0x1f600, 0x4e2d, 0x0627, 0x0301]) assert.equal(T.displayText('a' + cp(code) + 'b'), 'a' + cp(code) + 'b', `znak ${code.toString(16)} se musí zachovat`);
   assert.equal(T.displayText('ěščř ŽÝÁÍ'), 'ěščř ŽÝÁÍ');
   assert.equal(T.displayText(null), '');
   assert.equal(T.displayText(undefined), '');
@@ -538,9 +548,10 @@ test('konstanty: značka je zapsaná shodně v modulu i v zapisovači a meze jso
 });
 
 // ---------------------------------------------------------------- skutečné soubory (jen když je složka zadaná; do repozitáře nepatří)
-test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): celý payload taktiky se přečte, každý bajt je zařazen a zápis zpět je bajt po bajtu stejný', async () => {
+test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): celý payload taktiky se přečte, každý bajt je zařazen a zápis zpět je bajt po bajtu stejný', async (t) => {
   const dir = process.env.FMF_SAMPLES_DIR;
-  if (!dir || !existsSync(dir)) return;
+  if (!dir) return t.skip('FMF_SAMPLES_DIR není zadaný (skutečné exporty nejsou v repozitáři)');
+  assert.ok(existsSync(dir), 'FMF_SAMPLES_DIR je zadaný, ale složka neexistuje');
   const files = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.fmf'));
   assert.ok(files.length > 0, 've složce nejsou žádné .fmf');
   // očekávané počty ze tří známých souborů podle velikosti payloadu (názvy taktik se do repozitáře nepíší)

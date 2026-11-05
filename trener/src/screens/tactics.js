@@ -226,7 +226,9 @@ Odpověz POUZE JSON objektem:
         'div',
         { class: report.ok ? 'banner warn' : 'banner bad' },
         h('b', { text: report.ok ? 'Soubor vypadá jako export, ale taktiku z něj zatím číst neumím' : 'Soubor se nepodařilo interpretovat' }),
-        report.ok ? h('p', { text: 'Aplikace zatím nezná vnitřní strukturu .fmf, a nehádá ji. Doplň taktiku ručně (Nová taktika níže) nebo ji nahraj jako ruční plán (.json). Zprávu o souboru si můžeš uložit.' }) : h('p', { text: report.reason }),
+        report.ok
+          ? h('p', { text: note ? 'Z tohoto souboru se tady taktika přečíst nedá (důvod je níže). Doplň ji ručně (Nová taktika níže) nebo ji nahraj jako ruční plán (.json). Zprávu o souboru si můžeš uložit.' : 'Aplikace zná stavbu jen tří zkoumaných exportů FM27; tenhle soubor jí neodpovídá a jeho vnitřek se nehádá. Doplň taktiku ručně (Nová taktika níže) nebo ji nahraj jako ruční plán (.json). Zprávu o souboru si můžeš uložit.' })
+          : h('p', { text: report.reason }),
         zstdNote ? h('p', { class: 'hint', text: zstdNote }) : null
       ),
       h('div', { class: 'diag' }, rows.map(([k, v]) => h('div', null, h('span', { text: k }), h('span', { text: v })))),
@@ -244,7 +246,7 @@ Odpověz POUZE JSON objektem:
   const srcLabel = (ext, path) => (Object.prototype.hasOwnProperty.call(SRC_LABEL, ext) ? SRC_LABEL[ext] : clean(path, 60) || 'zdroj');
   /** Jedna věta o jednom zdroji: co se rozbalilo a co se přitom ověřilo (kontrolní součet je jen tam, kde ho soubor uvádí). */
   function entryText(e) {
-    const size = `${e.size} B zašifrováno → ${e.content ? e.content.length : '?'} B rozbaleno`;
+    const size = `záznam ${e.size} B (s klíčem a IV) → ${e.content ? e.content.length : '?'} B rozbaleno`;
     if (!e.ok) return `${size}, NEOVĚŘENO: ${clean((e.issues || []).join('; ') || 'neznámý důvod', 160)}`;
     const sum = e.checks && e.checks.checksum === 'ok' ? 'velikost sedí s manifestem a kontrolní součet obsahu sedí' : 'velikost sedí s manifestem, kontrolní součet soubor u tohoto zdroje neuvádí (neověřeno)';
     return `${size}, ${sum}`;
@@ -287,7 +289,7 @@ Odpověz POUZE JSON objektem:
         'div',
         { class: 'banner ok', id: 'fmfReadBanner' },
         h('b', { text: `Soubor „${clean(file.name, 80)}“ je přečtený` }),
-        h('p', { text: 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI). Velikosti sedí s manifestem a kontrolní součty obsahu sedí tam, kde je soubor uvádí. Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.' }),
+        h('p', { text: 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI). ' + (bad.length === 0 ? 'U všech zdrojů sedí velikosti s manifestem a kontrolní součty obsahu sedí tam, kde je soubor uvádí. ' : 'U zdrojů, které se podařilo ověřit, sedí velikosti s manifestem a kontrolní součty obsahu tam, kde je soubor uvádí; ostatní jsou níže označené jako neověřené. ') + 'Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.' }),
         bad.length ? h('p', { class: 'hint', text: `Pozor: ${bad.length === 1 ? 'jeden zdroj' : bad.length + ' zdroje'} se nepodařilo ověřit (${bad.map((e) => clean(e.path, 60)).join(', ')}).` }) : null
       ),
       logo,

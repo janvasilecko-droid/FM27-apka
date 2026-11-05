@@ -81,7 +81,7 @@ Key docs: `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/AI_GATEWAY.md`, `docs/FMF_
 
 - **Careers** — localStorage, multi-career, export/import, DEMO seed, ZIP STORE bundle (local only).
 - **Tactics lab** — drag pitch, In/Out phases, variants, geometry heuristics (not FM mechanics), formation templates (labeled, not FMF import).
-- **GYR Beast** — `screenshot_verified` ground truth → editor path; GG/Underdog still `awaiting_screenshots` / pending.
+- **Sample tactic 1** — `screenshot_verified` ground truth → editor path; sample tactics 2 and 3 still `awaiting_screenshots` / pending.
 - **Match history** — tags, interventions, calendar, compare, season narrative (heuristic), 10-point recommendation template (`user_entered`).
 - **Coach playbooks** — `coach_playbooks.js`, provenance **`heuristic_coach`**: Co změnit / Proč / Kde v FM, multi-tag, advice history, outcomes, opposition tweak.
 - **Live Coach** — `getDisplayMedia` local preview + hash timeline + canvas PNG; **desktop capture session** `POST`/`GET` `/api/desktop/capture-session` (meta/hashes/paths only; `ocr: false`).
@@ -95,11 +95,11 @@ Key docs: `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/AI_GATEWAY.md`, `docs/FMF_
 
 | # | Status | Gap |
 |---|---|---|
-| **#5** | PARTIAL | Binary **`fmf_decoded`** formation / roles / instructions. Name + GYR screenshot_verified only. |
+| **#5** | PARTIAL | Binary **`fmf_decoded`** formation / roles / instructions. Name + sample tactic 1 screenshot_verified only. |
 | **#11** | **FAIL** | Real OCR / vision Live screen understanding (keyword bridge ≠ vision PASS). |
 | **#15** | **FAIL** | Sync / Postgres / auth across devices (stub + manual merge only). |
 
-Also: GG/Underdog PNG ground truth still missing; `fm27-tac-payload.bin` remains `unknown_binary`.
+Also: sample tactics 2 and 3 PNG ground truth still missing; `fm27-tac-payload.bin` remains `unknown_binary`.
 
 ---
 

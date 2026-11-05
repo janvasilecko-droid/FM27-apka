@@ -47,7 +47,8 @@
   const HIDDEN_FIELDS = Object.freeze(['ca', 'pa', 'currentability', 'potentialability', 'potential', 'ability', 'personality', 'reputation']);
 
   // ---------------------------------------------------------------- texty ze souboru nebo od uživatele
-  const CONTROL = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\ufeff]+', 'g');
+  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a neviditelné výplně a selektory; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
+  const CONTROL = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u034f\\u115f\\u1160\\u3164\\uffa0\\u2800\\ufe00-\\ufe0f\\ufffc\\u{e0100}-\\u{e01ef}]+', 'gu');
   /** Jednořádkový text bez řídicích a neviditelných znaků, oříznutý na n znaků. Převádí se jen text a konečné číslo; objekt, pole, funkce a podobně dají prázdný text (nikdy „[object Object]“). */
   function text(v, n) {
     const raw = typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : '';

@@ -38,7 +38,7 @@ function buildFmf(spec, seed) {
   const recs = spec.resources.map((r) => {
     const key = rand(16);
     const iv = rand(16);
-    const frame = r.noSum ? zcNoSum(r.content) : zc(r.content);
+    const frame = r.frame ? Buffer.from(r.frame) : r.noSum ? zcNoSum(r.content) : zc(r.content); // r.frame: hotový rámec zstd (jen pro zkoušky nepřátelských souborů); pak je potřeba zadat i r.third
     const rec = Buffer.concat([u32le(16), u32le(16), key, iv, aesEnc(key, iv, frame)]);
     return { ...r, rec, key, iv, third: r.third !== undefined ? r.third : r.content.length };
   });

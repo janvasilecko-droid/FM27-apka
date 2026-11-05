@@ -202,8 +202,8 @@ alerts.js     createAlertPolicy() → {decide(alert, settings, now) → {speak, 
 opponent.js   FIELDS, profileToObservations, buildPlanTurns, searchSeeds, validatePlan, planToText, EXTRACTION_PROMPT, normalizeExtraction
 report.js     buildReportTurns, validateReport (zákaz příčinných slov, povinná opatrná formulace, kontrola změn), reportToText
 labexplain.js buildExplainTurns, validateExplain   // vysvětlení rozestavení: jen z geometrických nálezů, o chování hráčů ve FM27 nic netvrdí
-zstd.js       decompress, decompressFrame, readFrameHeader        // vlastní dekodér zstd (RFC 8878): bez závislostí, se stropy výstupu, bloku a okna
-fmfglue.js    makeFrameDecompressor, makeFirstFrameDecompressor, makeWebAesCtr   // lepidlo čteček .fmf: přesně jeden rámec / první rámec, AES-CTR přes WebCrypto
+zstd.js       decompress, decompressFrame, readFrameHeader        // vlastní dekodér zstd (RFC 8878): bez závislostí, se stropy výstupu, bloku, okna a počtu bloků
+fmfglue.js    makeFrameDecompressor, makeFirstFrameDecompressor, makeWebAesCtr   // lepidlo čteček .fmf: přesně jeden rámec (s rozpočtem bloků na soubor) / první rámec (nejvýš 64 bloků), AES-CTR přes WebCrypto
 ```
 
 Rozhraní AI v prohlížeči (`ai.js`): `FM27.ai.structured({turns, validate, tier, images, signal, purpose, onStep})` → `{status: 'ok'|'needs_more_info', value, verdict}`;

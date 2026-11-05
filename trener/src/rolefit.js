@@ -29,7 +29,8 @@
 
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
-  const INVISIBLE = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\ufeff]+', 'g');
+  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a neviditelné výplně a selektory; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
+  const INVISIBLE = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u034f\\u115f\\u1160\\u3164\\uffa0\\u2800\\ufe00-\\ufe0f\\ufffc\\u{e0100}-\\u{e01ef}]+', 'gu');
   const oneLine = (v, n) => (typeof v === 'string' ? v.replace(INVISIBLE, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
   const r1 = (v) => Math.round(v * 10) / 10;
   const cz = (v) => String(v).replace('.', ','); // české desetinné číslo do textů

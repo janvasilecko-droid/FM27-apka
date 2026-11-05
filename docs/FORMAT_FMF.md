@@ -4,9 +4,9 @@ Popis vznikl vlastním rozborem **tří skutečných exportů z FM27**, které p
 (cizí projekty bez licence jsme nečetli). Soubory ani rozšifrovaný obsah v repozitáři nejsou: je to práce jejich autorů a jsou v nich veřejné přezdívky autorů.
 Kód čtečky: `trener/src/fmfcontainer.js` (čistý modul), zkoušky: `trener/test/fmfcontainer.test.mjs` (syntetické soubory), `trener/test/e2e/scenarios/21_fmf_cteni.cjs`.
 
-**Stav ověření.** Ověřeno na těch třech souborech: (1) analytik našel postup a ověřil ho na všech třech, (2) **tři nezávislí ověřovatelé**, z nichž každý dostal jen textový popis, ho sestavili znovu (v Node i v Pythonu) a došli ke stejnému výsledku,
-(3) naše čtečka v JavaScriptu (napsaná zvlášť) přečte všechny tři soubory v Node i v Chromiu, všechny kontrolní součty sedí a **všech 9 rozbalených zdrojů je bajt po bajtu stejných** jako výstup analytika. **Co se tím nedokazuje:** že totéž platí pro každý export z jiné verze hry nebo z jiného sestavení;
-čtečka proto u každého kroku kontroluje, co se dá, a při jakékoli odchylce soubor nepovažuje za přečtený.
+**Stav ověření.** Ověřeno na těch třech souborech: (1) první rozbor (provedl Claude) našel postup a ověřil ho na všech třech, (2) tři další samostatné běhy Claude, z nichž každý dostal jen textový popis (ne kód prvního rozboru), ho sestavily znovu (v Node i v Pythonu) a došly ke stejnému výsledku; je to shoda opakovaných pokusů téhož modelu, ne ověření člověkem ani oficiální specifikace,
+(3) čtečka v aplikaci (vlastní kód, napsaná zvlášť, s vlastním dekodérem zstd) přečte všechny tři soubory v Node i v Chromiu, všechny kontrolní součty sedí a **všech 9 rozbalených zdrojů (po třech z každého souboru) je bajt po bajtu stejných** jako výstup prvního rozboru, který rozbaloval referenčním dekodérem libzstd (porovnání se znovu provedlo 5. 11. 2026 s kódem z repozitáře). **Co se tím nedokazuje:** že totéž platí pro každý export z jiné verze hry nebo z jiného sestavení;
+čtečka proto u každého kroku kontroluje, co se dá. Vada manifestu nebo zdroje taktiky (`.tac`) znamená, že se soubor nepovažuje za přečtený; jiné odchylky (vadný obrázek nebo detaily, nepokrytá místa v datové části, záznam zčásti mimo ni, jiné hodnoty polí předmluvy) se hlásí jako varování a nic se o nich netvrdí.
 
 ## Rozložení souboru
 
@@ -59,7 +59,7 @@ Značky typovaných záznamů jsou přípony zapsané pozpátku („moa.“ = `.
 
 ## Stavba payloadu taktiky (`.tac` po rozbalení): jen stavba, ne význam
 
-Vznikla rozborem týchž tří souborů, který nezávisle provedli **dva analytici**; každý sestavil vlastní čtečku i zapisovač a obě spotřebují každý bajt všech tří payloadů (4771, 5085 a 6104 bajtů) a zapíšou je zpět bajt po bajtu stejně.
+Vznikla rozborem týchž tří souborů, který samostatně provedly **dva běhy Claude** (nejsou to lidé a shoda dvou pokusů téhož modelu není oficiální specifikace); každý sestavil vlastní čtečku i zapisovač a obě spotřebují každý bajt všech tří payloadů (4771, 5085 a 6104 bajtů) a zapíšou je zpět bajt po bajtu stejně.
 Naše čtečka v JavaScriptu (`trener/src/fmftac.js`, napsaná zvlášť) čte tři skutečné payloady stejně a zkoušky mají vlastní, nezávislý zapisovač (`trener/test/fixtures/fmftac_builder.cjs`). Všechna čísla jsou little endian, řetězec je `u32 délka` + UTF-8 bajty.
 
 ```
@@ -78,7 +78,7 @@ seznam    := značka u32 | počet u32 | (01 00 | id u32){počet}
 **Ověřeno z bajtů (T1)**: tvar a konstanty výše; v každém ze tří souborů je 11 dvojic, 22, 23 a 24 bloků (22 + počet záznamů s příznakem 1), 156, 166 a 205 položek, 0, 23 a 16 záznamů seznamu id a 0, 0 a 3 seznamy v patičce;
 prosté vyhledání bajtů `44 00 02` dává přesně tolik bloků, kolik jich dává rozbor, a každý bajt `02 02 02` a `ff` je gramatikou vysvětlený.
 **Konzistence (T2, jen shoda uvnitř tří souborů, ne důkaz významu)**: klíč položky má vždy právě jeden nastavený bit a v bloku vzestupně; maska bloku má vždy dva bity (jeden z klíčů téhož bloku a jeden z bitů 21 až 23); bajty míst tvoří permutaci 0 až 10;
-selektor (5 bajtů) nese v každém z 69 bloků právě jeden bit 0 až 14 (bit 1 se nevyskytl) a k tomu kód strany {0, bit 20, bit 21}, který se objevuje jen u bitů 4, 7, 10, 13 a 14; že jde o pozici hráče a stranu hřiště, je domněnka. Počty bitů ve čtyřech skupinách po sobě jdoucích bitů odpovídají číslicím formace ve dvou ze tří názvů souborů (třetí název formaci neuvádí), a to je slabá shoda: z 495 možných rozdělení vyhovují čtyři. Spárování bajtu místa s bloky podle shodného selektoru potvrzuje jediný ze tří souborů (9 z 11 míst proti 2 z 11 náhodou), u dalších dvou nerozhoduje. **Co to dokazuje a co ne:** tvar souboru je znám, ale **co které číslo znamená, nevíme**; hypotézy (dvojice = role ve dvou fázích hry, klíč = role, maska = vybraná role s povinností) jsou **neověřené** a čtečka je nepoužívá.
+selektor (5 bajtů) nese v každém z 69 bloků právě jeden bit 0 až 14 (bit 1 se nevyskytl) a k tomu kód strany {0, bit 20, bit 21}, který se objevuje jen u bitů 4, 7, 10, 13 a 14; že jde o pozici hráče a stranu hřiště, je domněnka. Počty bitů v pěti skupinách po sobě jdoucích bitů odpovídají číslicím formace ve dvou ze tří názvů souborů (třetí název formaci neuvádí), a to je slabá shoda: z 495 možných rozdělení vyhovují čtyři. Spárování bajtu místa s bloky podle shodného selektoru potvrzuje jediný ze tří souborů (9 z 11 míst proti 2 z 11 náhodou), u dalších dvou nerozhoduje. **Co to dokazuje a co ne:** tvar souboru je znám, ale **co které číslo znamená, nevíme**; hypotézy (dvojice = role ve dvou fázích hry, klíč = role, maska = vybraná role s povinností) jsou **neověřené** a čtečka je nepoužívá.
 
 **Nevíme:** vnitřek „zabalených 12“ a „čtveřice4“, význam `a` a `b` v hlavičce, význam `maska2` a `hodnota` u položek, význam id v seznamu a v patičce a proč za záznamem s příznakem 1 následuje blok, vnitřek 12 záznamů po 13 bajtech, význam bajtu konce.
 Ověření významu potřebuje údaje z obrazovky hry pro tytéž taktiky (viz „Co dál“).
@@ -90,8 +90,8 @@ Co čtečka přijme, to se zapíše zpět bajt po bajtu stejně (zkouška na 400
 
 - Ověří předmluvu, patní značku, manifest (spotřebuje se celý), meze záznamů, délky klíče a IV, tvar zstd rámce (přesná délka, žádné bajty navíc), shodu velikosti po rozbalení s manifestem a kontrolní součet XXH64.
 - Potom přečte **stavbu** payloadu taktiky (`fmftac.js`, viz výše); když stavba nesedí, kontejner zůstane přečtený a obrazovka řekne „stavba neodpovídá, nic se z ní nepřebírá“.
-- Limity proti zneužití: soubor do 24 MiB, manifest do 1 MiB, nejvýš 64 souborů, jeden zdroj po rozbalení do 16 MiB, celkem 32 MiB; manifest, který slibuje větší velikost, se odmítne dřív, než se cokoli rozbalí.
-- Vše běží v zařízení; nic se neposílá na internet ani do AI. Zpráva o souboru obsahuje jen velikosti a výsledky kontrol, ne obsah taktiky, obrázek ani přezdívku autora. Do úložiště aplikace se z `.fmf` zatím nic neukládá.
+- Limity proti zneužití: soubor do 24 MiB, manifest do 1 MiB, nejvýš 64 souborů, jeden zdroj po rozbalení do 16 MiB, celkem 32 MiB; záznam, který by podle manifestu po rozbalení přesáhl limit, se nerozbaluje (kontrola je po záznamech). Rozbalení zstd je vlastní (`trener/src/zstd.js`) a práci má omezenou: strop výstupu, největší blok 128 KiB, okno do 128 MiB, počet bloků úměrný povolenému výstupu (jeden na každý KiB + 16, jinak se stavba tabulek v každém bloku dá zneužít ke zdržení stránky) a rozpočet 40 000 bloků na jeden soubor.
+- Vše běží v zařízení; nic se neposílá na internet ani do AI. Zpráva o souboru obsahuje název souboru, název taktiky a cesty zdrojů z manifestu, velikosti a výsledky kontrol, ne obsah taktiky, obrázek ani přezdívku autora. Do úložiště aplikace se z `.fmf` zatím nic neukládá.
 - Soubor, který nesedí na tento popis (starší nebo cizí), jde na původní kontrolu bez hádání; soubor se správnou hlavičkou, který nejde přečíst, se hlásí jako poškozený nebo z jiné verze hry.
 
 ## Co dál

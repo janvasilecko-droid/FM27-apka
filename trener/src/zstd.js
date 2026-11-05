@@ -1,12 +1,15 @@
 /* FM27 Tactical Coach: dekomprese Zstandard (RFC 8878), vlastní, přísná a s omezenou prací (čistý modul bez DOM a sítě).
 
-   PROČ VLASTNÍ: soubory .fmf z FM27 jsou zabalené do zstd a čte je prohlížeč nepřátelskému souboru napospas. Knihovna třetí strany (fzstd) umí ze 53 bajtů souboru udělat několikaminutové zamrznutí
-   stránky (jediný blok s desítkami tisíc sekvencí), z 25 bajtů rámce přidělit gigabajty paměti a vadné rámce nepozná. Tenhle modul proto
+   PROČ VLASTNÍ: soubory .fmf z FM27 jsou zabalené do zstd a čte je prohlížeč nepřátelskému souboru napospas. Knihovna třetí strany (fzstd) umí ze 53 bajtů souboru udělat zamrznutí stránky na víc než dvě minuty
+   (jediný blok s desítkami tisíc sekvencí), z 25 bajtů rámce přidělit gigabajty paměti a vadné rámce nepozná. Tenhle modul proto
    - nepřipouští víc výstupu, než je zadaný strop (kontroluje se před každým zápisem, ne až po bloku),
-   - drží každý blok v mezích specifikace (nejvýš 128 KiB výstupu na blok), takže práce na jeden blok je omezená a celková práce je úměrná stropu výstupu,
-   - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz za začátek výstupu nebo dál než okno rámce (kód 'window'), okno nad 128 MiB, slovník, který nemáme); u konce proudů bitů je přísnější než libzstd:
-     proud literálů musí mít koncovou značku a být spotřebovaný přesně (kód 'litend') a proud sekvencí také (kód 'inexact' zůstalo něco nepřečteno, kód 'overread' bylo čteno za začátek), kdežto libzstd 1.5.7 to podle pozorování
-     (zkouška test/zstd.test.mjs s referenčním dekodérem) u čtyřproudých literálů nekontroluje a u sekvencí čtení za konec přijme; platný rámec z libzstd tyhle podmínky vždy splní,
+   - drží každý blok v mezích specifikace (nejvýš 128 KiB výstupu na blok), takže práce na jeden blok je omezená, a počet bloků v rámci je omezený podle stropu výstupu (aspoň 1 KiB na blok, kód 'blocks'):
+     tabulky Huffmana a FSE se staví v každém bloku znovu, takže bez toho by rámec z drobných bloků zdržel stránku, i když by vydal jen pár bajtů; celková práce je tak úměrná stropu výstupu,
+   - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz před začátek výstupu, okno nad 128 MiB, slovník, který nemáme). Od libzstd 1.5.7 se liší jen ve třech případech
+     (pozorováno zkouškou test/zstd.test.mjs proti referenčnímu dekodéru), v nichž je libzstd shovívavější než specifikace a my ne; každý z nich má vlastní kód chyby: 'litend' (proud literálů bez koncové značky nebo
+     nepřesně spotřebovaný; libzstd to u čtyřproudých literálů na své rychlé cestě nekontroluje), 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti) a 'blocksize'
+     (blok větší než okno, když rámec uvádí velikost obsahu). U sekvencí se s libzstd shodujeme: odmítá nepřečtené bity (u nás 'inexact'), čtení za začátek proudu ('overread') i nulový opakovaný posun.
+     Platný rámec z libzstd tyhle podmínky vždy splní,
    - nestahuje nic z internetu a funguje i bez připojení.
    Nepodporuje: slovníky, přeskočitelné rámce, více rámců za sebou (volající si hlídá délku rámce sám) a kontrolní součet rámce (ten ověřuje volající: fmfcontainer.js, XXH64).
    Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba je vždy ZstdError (nikdy jiná výjimka z tohoto modulu). */
@@ -21,6 +24,10 @@
   const DEFAULT_MAX_OUTPUT = 16 * 1024 * 1024;
   /** Největší okno, které přijmeme: 128 MiB, tedy stejný strop jako výchozí nastavení libzstd (RFC 8878 doporučuje podporu aspoň 8 MiB a dovoluje strop volit). Okno samo paměť nestojí (výstup se skládá do jednoho pole a je omezený zvlášť), jde o shodu s referenčním dekodérem. */
   const MAX_WINDOW = 2 ** 27;
+  /** Počet bloků v rámci je omezený podle povoleného výstupu: v průměru musí blok vydat aspoň 1 KiB (+ rezerva 16 bloků). Tabulky Huffmana a FSE se staví v každém bloku znovu, a tak by rámec z milionů drobných
+      bloků zdržel stránku řádově sekundy až minuty, i když by vydal jen pár bajtů (platné rámce z libzstd mají bloky po 128 KiB, kromě posledního). */
+  const BYTES_PER_BLOCK = 1024;
+  const BLOCK_SLACK = 16;
   const MAX_HUF_BITS = 12;
 
   class ZstdError extends Error {
@@ -525,11 +532,12 @@
       p += fcsSize;
     }
     if (single) windowSize = contentSize;
-    if (windowSize > MAX_WINDOW) fail('Rámec chce okno větší než povolených 128 MiB.', 'limit');
+    if (windowSize > MAX_WINDOW) fail('Rámec chce okno větší než povolených 128 MiB.', 'bigwindow');
     return { windowSize, contentSize, hasChecksum, headerLength: p };
   }
 
-  /** decompressFrame(bytes, opts) → {data, length}: rozbalí PRÁVĚ JEDEN rámec od začátku. opts: {maxOutput (výchozí 16 MiB), exact (true = za rámcem nesmí být žádné bajty)}.
+  /** decompressFrame(bytes, opts) → {data, length, blocks}: rozbalí PRÁVĚ JEDEN rámec od začátku. opts: {maxOutput (výchozí 16 MiB), exact (true = za rámcem nesmí být žádné bajty),
+      maxBlocks (nejvýš tolik bloků; platí menší z tohoto čísla a odvozeného stropu 1 blok na každý KiB povoleného výstupu + 16, kód chyby 'blocks')}.
       Kontrolní součet rámce se jen přeskočí (ověřuje ho volající). */
   function decompressFrame(input, opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -539,47 +547,57 @@
     const h = readFrameHeader(b);
     if (h.contentSize !== null && h.contentSize > max) fail('Rámec slibuje větší obsah, než je povoleno.', 'limit');
     const blockMax = Math.min(h.windowSize, BLOCK_MAX);
+    const derivedBlocks = Math.ceil((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK) + BLOCK_SLACK;
+    const maxBlocks = Number.isInteger(o.maxBlocks) && o.maxBlocks > 0 ? Math.min(derivedBlocks, o.maxBlocks) : derivedBlocks;
+    let blocks = 0;
     const out = { buf: new Uint8Array(Math.min(max, h.contentSize !== null ? h.contentSize : 4096, 1 << 20)), len: 0, max };
     const state = { huf: null, tables: { ll: null, of: null, ml: null }, rep: [1, 4, 8] };
-    let p = h.headerLength;
-    for (let last = false; !last; ) {
-      if (p + 3 > b.length) fail('Rámec je useknutý (hlavička bloku).');
-      const hdr = b[p] | (b[p + 1] << 8) | (b[p + 2] << 16);
-      p += 3;
-      last = !!(hdr & 1);
-      const type = (hdr >> 1) & 3;
-      const size = hdr >> 3;
-      const blockStart = out.len;
-      if (type === 3) fail('Neplatný typ bloku zstd.');
-      if (type === 1) {
-        if (size > blockMax) fail('Blok je větší než největší blok.');
-        if (p + 1 > b.length) fail('Rámec je useknutý (blok RLE).');
-        ensure(out, size);
-        out.buf.fill(b[p], out.len, out.len + size);
-        out.len += size;
-        p += 1;
-      } else {
-        if (size > blockMax) fail('Blok je větší než největší blok.');
-        if (p + size > b.length) fail('Rámec je useknutý (blok).');
-        if (type === 0) {
+    try {
+      let p = h.headerLength;
+      for (let last = false; !last; ) {
+        if (p + 3 > b.length) fail('Rámec je useknutý (hlavička bloku).');
+        const hdr = b[p] | (b[p + 1] << 8) | (b[p + 2] << 16);
+        p += 3;
+        last = !!(hdr & 1);
+        const type = (hdr >> 1) & 3;
+        const size = hdr >> 3;
+        const blockStart = out.len;
+        if (++blocks > maxBlocks) fail('Rámec má příliš mnoho bloků vzhledem k povolenému výstupu.', 'blocks');
+        if (type === 3) fail('Neplatný typ bloku zstd.');
+        if (type === 1) {
+          if (size > blockMax) fail('Blok je větší než největší blok.', 'blocksize');
+          if (p + 1 > b.length) fail('Rámec je useknutý (blok RLE).');
           ensure(out, size);
-          out.buf.set(b.subarray(p, p + size), out.len);
+          out.buf.fill(b[p], out.len, out.len + size);
           out.len += size;
+          p += 1;
         } else {
-          const end = p + size;
-          const lit = decodeLiterals(b, p, end, state, blockMax);
-          execSequences(b, lit.next, end, lit.lits, out, state, blockStart, blockMax, h.windowSize);
+          if (size > blockMax) fail('Blok je větší než největší blok.', 'blocksize');
+          if (p + size > b.length) fail('Rámec je useknutý (blok).');
+          if (type === 0) {
+            ensure(out, size);
+            out.buf.set(b.subarray(p, p + size), out.len);
+            out.len += size;
+          } else {
+            const end = p + size;
+            const lit = decodeLiterals(b, p, end, state, blockMax);
+            execSequences(b, lit.next, end, lit.lits, out, state, blockStart, blockMax, h.windowSize);
+          }
+          p += size;
         }
-        p += size;
       }
+      if (h.hasChecksum) {
+        if (p + 4 > b.length) fail('Rámec je useknutý (kontrolní součet).');
+        p += 4;
+      }
+      if (h.contentSize !== null && h.contentSize !== out.len) fail('Rozbalená velikost nesedí s velikostí uvedenou v rámci.');
+      if (o.exact === true && p !== b.length) fail('Za rámcem jsou bajty navíc.');
+      return { data: out.buf.slice(0, out.len), length: p, blocks };
+    } catch (e) {
+      // počet zpracovaných bloků se přidá ke každé chybě dekodéru: volající (fmfglue.js) si tak účtuje i práci, která nakonec nic nevydala
+      if (e instanceof ZstdError) e.blocks = blocks;
+      throw e;
     }
-    if (h.hasChecksum) {
-      if (p + 4 > b.length) fail('Rámec je useknutý (kontrolní součet).');
-      p += 4;
-    }
-    if (h.contentSize !== null && h.contentSize !== out.len) fail('Rozbalená velikost nesedí s velikostí uvedenou v rámci.');
-    if (o.exact === true && p !== b.length) fail('Za rámcem jsou bajty navíc.');
-    return { data: out.buf.slice(0, out.len), length: p };
   }
 
   /** decompress(bytes, opts) → Uint8Array. Chyba je vždy ZstdError. */
@@ -595,5 +613,5 @@
   /** Interní funkce zveřejněné jen pro zkoušky (kruhová zkouška popisu tabulky FSE); aplikace je nepoužívá. */
   const internals = Object.freeze({ readFseDescription, buildFse });
 
-  return { ZstdError, internals, LIMITS: Object.freeze({ maxOutput: DEFAULT_MAX_OUTPUT, blockMax: BLOCK_MAX, maxHufBits: MAX_HUF_BITS, maxWindow: MAX_WINDOW }), readFrameHeader, decompressFrame, decompress };
+  return { ZstdError, internals, LIMITS: Object.freeze({ maxOutput: DEFAULT_MAX_OUTPUT, blockMax: BLOCK_MAX, maxHufBits: MAX_HUF_BITS, maxWindow: MAX_WINDOW, bytesPerBlock: BYTES_PER_BLOCK, blockSlack: BLOCK_SLACK }), readFrameHeader, decompressFrame, decompress };
 });

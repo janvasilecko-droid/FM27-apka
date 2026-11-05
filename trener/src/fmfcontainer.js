@@ -9,9 +9,10 @@
      záznam   = u32 16 | u32 16 | klíč[16] | IV[16] | AES-128-CTR šifrotext JEDNOHO zstd rámce (klíč a IV leží v záznamu, žádná derivace, žádný podpis)
      zstd rámec: bez uvedené velikosti obsahu, s kontrolním součtem (spodních 32 bitů XXH64 obsahu), jeden blok
    Co formát NEPOKRÝVÁ: žádný podpis ani MAC, jediná kontrola celistvosti je kontrolní součet zstd (chrání před poškozením, ne před úpravou).
-   Obsah taktiky (.tac) je tu jen rozšifrovaný a rozbalený; pole taktiky se dekódují jinde (fmftactic.js, až budou ověřená).
+   Obsah taktiky (.tac) je tu jen rozšifrovaný a rozbalený; pole taktiky se čtou jinde (fmftac.js: zatím jen stavba payloadu, ne význam čísel).
 
-   POCTIVOST: co se nepodaří ověřit (délka, kontrolní součet, tvar záznamu), se hlásí a soubor se nepovažuje za přečtený. Žádné skryté údaje se neberou.
+   POCTIVOST: co se nepodaří ověřit (délka, kontrolní součet, tvar záznamu), se hlásí. Vada manifestu nebo zdroje taktiky (.tac) znamená, že se soubor nepovažuje za přečtený; vada jiného zdroje
+   (obrázek, detaily) a odchylky v rozložení souboru jsou varování a dotčený zdroj se nepoužije. Žádné skryté údaje se neberou.
    Čistá funkce: vstup se nemění. Autorský účet (přezdívka) z detailů je ze souboru a jen se zobrazí; nikdy se neukládá ani neposílá. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -390,18 +391,22 @@
         seen.add(e.path);
       }
       if (man.entries.filter((e) => e.ext === '.tac').length > 1) return fail('V souboru je víc zdrojů taktiky (.tac); nepoznám, který je ten pravý.');
-      // rozložení záznamů v datové části: překryv je vada, nepokrytá místa se jen hlásí (v prozkoumaných exportech jich není)
+      // rozložení záznamů v datové části: překryv je vada, nepokrytá místa a záznamy (zčásti) mimo datovou část se jen hlásí (v prozkoumaných exportech nejsou)
       const sorted = man.entries.slice().sort((a, b) => a.offset - b.offset);
+      const dataLen = dataEnd - BASE;
       let cursor = 0;
       let strayBytes = 0;
+      let outside = 0;
       for (const e of sorted) {
         if (e.offset < cursor) return fail('Záznamy v datové části se překrývají: soubor je poškozený nebo upravený.');
-        strayBytes += e.offset - cursor;
+        strayBytes += Math.min(e.offset, dataLen) - Math.min(cursor, dataLen);
+        if (e.offset + e.size > dataLen) outside++;
         cursor = e.offset + e.size;
       }
-      strayBytes += Math.max(0, dataEnd - BASE - cursor);
-      res.layout = { entries: man.entries.length, strayBytes, contiguous: strayBytes === 0 };
+      strayBytes += Math.max(0, dataLen - cursor);
+      res.layout = { entries: man.entries.length, strayBytes, outside, contiguous: strayBytes === 0 && outside === 0 };
       if (strayBytes > 0) res.warnings.push(`${strayBytes} bajtů v datové části nepatří žádnému záznamu z manifestu; nevím, co v nich je, a nečtu je`);
+      if (outside > 0) res.warnings.push(`${outside} ${outside === 1 ? 'záznam z manifestu leží' : 'záznamů z manifestu leží'} zčásti nebo celý mimo datovou část; takové záznamy se nečtou`);
       let total = 0;
       for (const e of man.entries) {
         const entry = { path: e.path, dir: e.dir, name: e.name, ext: e.ext, offset: e.offset, size: e.size, third: e.third, ok: false, issues: [], checks: { keyIvFields: false, frameMagic: false, frameExact: false, lengthMatchesManifest: false, checksum: 'absent' }, content: null };
@@ -472,7 +477,7 @@
       const img = res.entries.find((x) => x.ext === '.img' && x.ok);
       if (img) res.image = parseImage(img.content);
       const okCount = res.entries.filter((x) => x.ok).length;
-      const summed = res.entries.filter((x) => x.checks.checksum === 'ok').length;
+      const summed = res.entries.filter((x) => x.ok && x.checks.checksum === 'ok').length; // počítají se jen zdroje, které se vůbec ověřily: věta níže je o nich
       res.verified.push(`${okCount} z ${res.entries.length} zdrojů dešifrováno a rozbaleno, velikosti sedí s manifestem; kontrolní součet zstd souhlasí u ${summed} z nich`);
       if (res.tacHeader.tagOk) res.verified.push('payload taktiky začíná značkou „cat.“' + (res.tacHeader.titleMatches ? ' a obsahuje stejný název jako manifest' : ''));
       if (res.tacHeader.tagOk && res.tacHeader.titleMatches === false) res.warnings.push('název taktiky v manifestu se liší od názvu uvnitř payloadu taktiky');
@@ -484,7 +489,7 @@
     }
   }
 
-  /** Bezpečná zpráva o čtení: jen velikosti a výsledky kontrol, žádný obsah taktiky, žádný obrázek, žádná přezdívka autora. */
+  /** Bezpečná zpráva o čtení: velikosti, výsledky kontrol a názvy z manifestu (název taktiky, cesty zdrojů); žádný obsah taktiky, žádný obrázek, žádná přezdívka autora. */
   function safeReport(res) {
     if (!isObj(res)) return null;
     return {

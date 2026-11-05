@@ -17,7 +17,7 @@ Značení:
 | # | Požadavek | Stav | Co je ověřené (zkouška) | Co ověřené není | Co udělat |
 |---|---|---|---|---|---|
 | 1 | Přihlášení na počítači i telefonu | **Ověřeno v simulaci** (stránka v Claude) | Stránka v Claude pozná uživatele (`user`) a data ukládá do jeho soukromé části (`data/users/<id>`). Zkouška 02: dvě okna (počítač a telefon) stejného účtu se vidí; jiný účet cizí data nevidí; na serveru je jen soukromá podsložka. | Skutečné přihlášení na claude.ai na obou zařízeních, skutečné povolení `db`. **Samostatná verze se nepřihlašuje a data nesynchronizuje** (jsou jen v zařízení, přenos exportem). | Otevři odkaz na počítači i v telefonu pod stejným účtem Claude, potvrď povolení. |
-| 2 | Nahrání skutečného exportu taktiky | **Částečně** | Import ručního plánu (`takticky-plan.json`, formát z původní složky) i kontroly vstupu: zkouška 03. Soubor `.fmf`: aplikace najde kontejner a seznam zdrojů (`.tac`, `.img`, `.aom`) podle jediného pozorovaného vzorku. | **Pole taktiky uvnitř `.fmf` se nedekódují** (nikdo je neodhalil, hádat se nesmí). Skutečný export FM27 jsem neměl, zkoušeno na syntetickém kontejneru. | Pošli tři exporty `.fmf` s předem známým nastavením (postup v `docs/REVIZE_CLAUDE_2026-11-04.md`, část 2). |
+| 2 | Nahrání skutečného exportu taktiky | **Částečně** | Import ručního plánu (`takticky-plan.json`, formát z původní složky) i kontroly vstupu: zkouška 03. Soubor `.fmf`: aplikace ho v zařízení rozšifruje a rozbalí (vlastní dekodér zstd), ukáže název, obrázek a výsledky kontrol a přečte **stavbu** taktiky; formát je odvozený ze tří skutečných exportů (`docs/FORMAT_FMF.md`), zkouška 21 (syntetické soubory, s `FMF_SAMPLES_DIR` i skutečné exporty). | **Význam polí taktiky (formace, role, instrukce, mentalita) se z `.fmf` nepřebírá** (není ověřený, hádat se nesmí). Exporty z jiných verzí hry vyzkoušené nejsou. | Pošli snímek obrazovky taktiky ze hry pro každý ze tří souborů (formace s rolemi a povinnostmi, instrukce, mentalita). |
 | 3 | Zobrazení rozpoznaných taktických údajů | **Ověřeno v simulaci** (plán), **částečně** (`.fmf`) | Z plánu se zobrazí rozestavení, role, povinnosti, instrukce i původ každého údaje; u `.fmf` kontejner a výslovná věta, že pole taktiky se nečtou. Zkoušky 03 a 04. | Údaje z `.fmf` (viz bod 2). | Viz bod 2. |
 | 4 | Doplnění soupisky | **Ověřeno v simulaci** | Ruční zadání s kontrolou (pozice, atributy 1 až 20, věk), úprava, smazání, import z plánu, návrh ze screenshotu **až po potvrzení uživatelem**. Zkouška 03 (37 kontrol). | Čtení skutečného screenshotu soupisky z FM27 (zkouška používá náhradní čtečku). | Vyzkoušej na vlastním screenshotu soupisky. |
 | 5 | AI zná uloženou taktiku a hráče | **Ověřeno** (že se kontext posílá) | Do každé rady jde soupiska, aktivní taktika s rolemi a instrukcemi, paměť z minulých zápasů; označené původem. Zkoušky 03 a 07 čtou přímo text zadání pro model. | Jak skutečný Claude s kontextem naloží. | Zeptej se v „Osobním trenérovi“ a zkontroluj, zda rada zmiňuje tvé hráče. |
@@ -37,7 +37,7 @@ Značení:
 | Etapa | Stav |
 |---|---|
 | 1 Základ | Hotovo: deset sekcí, kariéry, synchronizace (stránka v Claude), nastavení, záloha a smazání dat. |
-| 2 Taktiky | Hotovo, **`.fmf` jen kontejner** (pole taktiky se z něj nedekódují). Plán JSON, **čtení taktiky z obrazovky hry** (návrh k potvrzení), editor 11 pozic, laboratoř s tahem hráčů, porovnání taktik, soupeř zrcadlově. |
+| 2 Taktiky | Hotovo, **`.fmf`: kontejner a stavba payloadu taktiky** (význam polí formace, role a instrukcí se z něj zatím nepřebírá). Plán JSON, **čtení taktiky z obrazovky hry** (návrh k potvrzení), editor 11 pozic, laboratoř s tahem hráčů, porovnání taktik, soupeř zrcadlově. |
 | 3 AI trenér | Hotovo: rada s kontextem, pamětí, knihami, obrázky; kontrola poctivosti a jedna oprava. |
 | 4 Live Coach | Hotovo: ruční vkládání snímků (v Claude), sdílení obrazovky (samostatná verze), brána změn, časová osa, detektory, vyhodnocení změny. |
 | 5 Hlas | Hotovo: výstup, tichý režim, hlasitost, četnost; vstup v samostatné verzi. |
@@ -70,7 +70,7 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 790 (z toho 13 hlídá barvy a kontrast vzhledu, 27 čtení klubu ze hry, 40 DWRS, 38 sestavu A + B, 26 čtečku kontejneru `.fmf` a 25 čtečku stavby taktiky) | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 884 (z toho 13 hlídá barvy a kontrast vzhledu, 27 čtení klubu ze hry, 40 DWRS, 38 sestavu A + B, 47 přestupy, 30 čtečku kontejneru `.fmf`, 25 čtečku stavby taktiky, 30 dekodér zstd, 9 jeho lepidlo a 7 čištění cizích textů; 2 zkoušky běží jen se skutečnými exporty z FM27 a bez libzstd (Python `zstandard`) se jedna zkouška hlásí jako přeskočená, porovnání s libzstd se pak nedělá) | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 143 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
 | Prohlížeč, celá aplikace (`trener/test/e2e/`) | 839 (836 bez skutečných souborů `.fmf`) | viz `trener/README.md` |

@@ -9,6 +9,10 @@
   'use strict';
 
   const DEFAULT_MAX_OUT = 16 * 1024 * 1024;
+  /** Rámec, který starší kontrola zkouší jako manifest, má mít bloků jen pár (v prozkoumaných exportech jeden); víc kandidátů nesmí zdržet stránku. */
+  const FIRST_FRAME_MAX_BLOCKS = 64;
+  /** Všechny rámce jednoho souboru dohromady: v prozkoumaných exportech jsou čtyři bloky, takže 40 000 je štědrá mez, která ale zdrží nejvýš o jednotky sekund. */
+  const DEFAULT_TOTAL_BLOCKS = 40000;
   const okZstd = (zstd) => !!zstd && typeof zstd.decompressFrame === 'function';
   const limitOf = (maxOut) => (Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT);
 
@@ -19,7 +23,7 @@
     return function decompress(bytes, maxBytes) {
       if (!okZstd(zstd)) return null;
       try {
-        return zstd.decompressFrame(bytes, { maxOutput: limitOf(maxBytes) }).data;
+        return zstd.decompressFrame(bytes, { maxOutput: limitOf(maxBytes), maxBlocks: FIRST_FRAME_MAX_BLOCKS }).data;
       } catch (e) {
         if (e && e.code === 'limit') throw e;
         return null;
@@ -27,12 +31,24 @@
     };
   }
 
-  /** Rozbalí PŘESNĚ jeden zstd rámec (za rámcem nesmí být žádné bajty) a hlídá velikost výstupu:
-      funkce (bytes, maxOut) → Uint8Array nebo vyhodí chybu (neplatný nebo useknutý rámec, bajty navíc, výstup větší než maxOut). zstd: modul TrenerZstd. */
-  function makeFrameDecompressor(zstd) {
+  /** Rozbalí PŘESNĚ jeden zstd rámec (za rámcem nesmí být žádné bajty) a hlídá velikost výstupu a počet bloků:
+      funkce (bytes, maxOut) → Uint8Array nebo vyhodí chybu (neplatný nebo useknutý rámec, bajty navíc, výstup větší než maxOut, příliš mnoho bloků). zstd: modul TrenerZstd.
+      Každá vytvořená funkce má svůj rozpočet bloků (opts.maxTotalBlocks, výchozí 40 000) pro všechny rámce, které zkusí rozbalit (včetně těch, které selžou), aby soubor s mnoha záznamy z drobných bloků nezdržel stránku. */
+  function makeFrameDecompressor(zstd, opts) {
+    let budget = opts && Number.isInteger(opts.maxTotalBlocks) && opts.maxTotalBlocks > 0 ? opts.maxTotalBlocks : DEFAULT_TOTAL_BLOCKS;
     return function zstdOne(bytes, maxOut) {
       if (!okZstd(zstd)) throw new Error('Rozbalení zstd není k dispozici.');
-      return zstd.decompressFrame(bytes, { maxOutput: limitOf(maxOut), exact: true }).data;
+      if (budget <= 0) throw new Error('Soubor má příliš mnoho bloků dohromady; další rámce se nerozbalují.');
+      let r;
+      try {
+        r = zstd.decompressFrame(bytes, { maxOutput: limitOf(maxOut), exact: true, maxBlocks: budget });
+      } catch (e) {
+        // i rámec, který nakonec selže, stál práci: účtuje se, kolik bloků dekodér stihl zpracovat (aspoň jeden), jinak by rozpočet obešel soubor se spoustou rámců vadných až na konci
+        budget -= e && Number.isInteger(e.blocks) && e.blocks > 0 ? e.blocks : 1;
+        throw e;
+      }
+      budget -= Number.isInteger(r.blocks) ? r.blocks : 1;
+      return r.data;
     };
   }
 

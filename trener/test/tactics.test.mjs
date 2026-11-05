@@ -1429,6 +1429,12 @@ test('inspectFmf: rozbalovač, který hlásí chybu s kódem limit, znamená „
   const plain = T.inspectFmf(fmfFile(frame(manifest(TOKENS))), { decompress: () => { throw new Error('jiná chyba'); } });
   assert.equal(plain.frames[0].reason, 'nejde rozbalit');
   assert.doesNotMatch(plain.reason, /překročil limit/);
+  // jiné kódy chyb dekodéru (obří okno, příliš mnoho bloků, odkaz za okno, vadný proud) nejsou „překročil limit 1 MiB“: tohle hlášení patří jen kódu limit
+  for (const code of ['bigwindow', 'blocks', 'window', 'blocksize', 'litend', 'inexact', 'overread', 'corrupt', 'dictionary', 'magic', 'input', 'internal', undefined]) {
+    const r = T.inspectFmf(fmfFile(frame(manifest(TOKENS))), { decompress: () => { const e = new Error('chyba dekodéru'); e.code = code; throw e; } });
+    assert.equal(r.frames[0].reason, 'nejde rozbalit', 'kód ' + code);
+    assert.doesNotMatch(r.reason, /překročil limit/, 'kód ' + code);
+  }
 });
 
 test('inspectFmf: limity (soubor 5 MiB, manifest 1 MiB, nejvýš 16 kandidátů)', () => {

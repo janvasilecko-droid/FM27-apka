@@ -20,3 +20,8 @@ Thumbs.db
 
 # Výstupy zkoušek v prohlížeči
 trener/test/e2e/out/
+
+# Cizí taktiky: exporty z FM27 (.fmf) a jejich rozšifrovaný obsah jsou práce jejich autorů a jsou v nich přezdívky; repozitář je veřejný, takže sem nepatří.
+*.fmf
+*.tac
+*.aom

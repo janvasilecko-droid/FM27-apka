@@ -20,8 +20,8 @@ const deps = {
   zstd: (b, max) => new Uint8Array(zlib.zstdDecompressSync(b, { maxOutputLength: max })),
   aesCtr: async (key, iv, data) => { const d = crypto.createDecipheriv('aes-128-ctr', key, iv); return new Uint8Array(Buffer.concat([d.update(data), d.final()])); },
 };
-// stejné závislosti, ale s vlastním dekodérem zstd z aplikace (zstd.js přes fmfglue.js): to je to, co běží v prohlížeči
-const own = { ...deps, zstd: G.makeFrameDecompressor(Z) };
+// stejné závislosti, ale s vlastním dekodérem zstd z aplikace (zstd.js přes fmfglue.js): to je to, co běží v prohlížeči; jedno čtení souboru = jeden rozbalovač s vlastním rozpočtem bloků, a tak se tu pro každé čtení dělá nový
+const makeOwn = () => ({ ...deps, zstd: G.makeFrameDecompressor(Z) });
 const flip = (file, at) => { const c = Buffer.from(file); c[at] ^= 0x01; return c; };
 
 // ---------------------------------------------------------------- XXH64 a stavba zstd rámce
@@ -199,7 +199,7 @@ test('decode: pozměněný šifrotext obrázku nezablokuje taktiku, ale je hlá�
 });
 
 test('decode: kontrolní součet obsahu, který nesedí, je chyba i tehdy, když rozbalovač součet sám neověřuje (vlastní zstd.js ho neověřuje, ověřuje ho tahle čtečka)', async () => {
-  const lenient = own;
+  const lenient = makeOwn();
   // bez poškození prochází: kontrola součtu sedí
   const okFile = standard(5);
   const ok = await C.decode(new Uint8Array(okFile.file), lenient);
@@ -276,8 +276,6 @@ test('decode: kontrolní součet manifestu, který nesedí, je chyba i tehdy, kd
 });
 
 test('decode: rámec, za kterým v záznamu zbývají bajty, se odmítne (rámec musí vyplnit celý záznam)', async () => {
-  const base = standard(5);
-  const tac = base.recs.find((x) => x.ext === '.tac');
   const key = prng(2)(16);
   const iv = prng(3)(16);
   const frame = Buffer.concat([zc(tacContent(TITLE, 3000, 5)), Buffer.from([0, 0, 0])]);
@@ -285,7 +283,6 @@ test('decode: rámec, za kterým v záznamu zbývají bajty, se odmítne (rámec
   // záznam je o tři bajty delší, takže se zapíše znovu celý soubor s upraveným manifestem
   const custom = buildFmf({ title: TITLE, resources: [{ dir: '', name: TITLE, ext: '.tac', content: tacContent(TITLE, 3000, 5) }] }, 3);
   const f = Buffer.concat([custom.file.subarray(0, 26), rec, custom.file.subarray(26 + custom.recs[0].rec.length)]);
-  void tac;
   // hlavička i manifest mluví o původní velikosti: soubor se nepřečte (neodpovídá tvar), nikdy se nesmí přečíst „ok“ s oříznutým obsahem
   const r = await C.decode(new Uint8Array(f), deps);
   assert.equal(r.ok, false);
@@ -390,7 +387,7 @@ test('decode: rozložení souboru: duplicitní cesta, víc zdrojů taktiky a př
   const good = await read(buildFmf(spec([tacRes(TITLE, 1), imgRes]), 3).file);
   assert.equal(good.ok, true, JSON.stringify(good.issues));
   assert.deepEqual(good.warnings, []);
-  assert.deepEqual(good.layout, { entries: 2, strayBytes: 0, contiguous: true });
+  assert.deepEqual(good.layout, { entries: 2, strayBytes: 0, outside: 0, contiguous: true });
   assert.ok(good.verified.some((v) => /pole v předmluvě \(17 a 03\) mají stejné hodnoty jako ve zkoumaných exportech; jejich význam neznáme/.test(v)), good.verified.join('|'));
   assert.ok(good.verified.some((v) => /záznamy beze zbytku vyplňují datovou část, nepřekrývají se a žádná cesta se neopakuje/.test(v)));
   // dvě stejné cesty a víc zdrojů taktiky: nepoznám, který je ten pravý
@@ -412,7 +409,7 @@ test('decode: rozložení souboru: duplicitní cesta, víc zdrojů taktiky a př
   const gapFile = Buffer.concat([Buffer.from(B.PREAMBLE), u64le(26 + g1.rec.length + 7 + g2.rec.length - 9), u64le(17), Buffer.from([3]), g1.rec, Buffer.alloc(7, 0xaa), g2.rec, Buffer.from(B.FOOTER), zc(withGap.manifest)]);
   const gap = await read(gapFile);
   assert.equal(gap.ok, true, JSON.stringify(gap.issues));
-  assert.deepEqual(gap.layout, { entries: 2, strayBytes: 7, contiguous: false });
+  assert.deepEqual(gap.layout, { entries: 2, strayBytes: 7, outside: 0, contiguous: false });
   assert.ok(gap.warnings.some((w) => /^7 bajtů v datové části nepatří žádnému záznamu/.test(w)), gap.warnings.join('|'));
   assert.ok(!gap.verified.some((v) => /beze zbytku/.test(v)));
   // za posledním záznamem zbývají bajty před patní značkou
@@ -444,8 +441,73 @@ test('decode: rozložení souboru: duplicitní cesta, víc zdrojů taktiky a př
   assert.ok(good.verified[0].includes('kontrolní součet manifestu sedí'));
   // zpráva o souboru nese rozložení a upozornění, ale žádný obsah
   const rep = C.safeReport(gap);
-  assert.deepEqual(rep.layout, { entries: 2, strayBytes: 7, contiguous: false });
+  assert.deepEqual(rep.layout, { entries: 2, strayBytes: 7, outside: 0, contiguous: false });
   assert.equal(rep.warnings.length, 1);
+});
+
+test('decode: záznam zčásti nebo celý mimo datovou část se hlásí (outside) a neprohlásí se za „beze zbytku“; souhrn o součtech počítá jen zdroje, které se ověřily', async () => {
+  const tacRes = { dir: '', name: TITLE, ext: '.tac', content: tacContent(TITLE, 300, 1) };
+  const imgRes = { dir: '', name: 'image', ext: '.img', content: imageContent(tinyPng(5, 3)) };
+  const read = (file) => C.decode(new Uint8Array(file), deps);
+  const plain = buildFmf({ title: TITLE, resources: [tacRes, imgRes] }, 3);
+  const imgLen = plain.recs[1].rec.length;
+  // obrázek je poslední záznam, manifest slibuje o 50 bajtů víc, než datová část má: záznam přesahuje do patní značky (outside 1, mezery žádné)
+  const overrun = await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, manifestSize: imgLen + 50 }] }, 3).file);
+  assert.equal(overrun.ok, true, JSON.stringify(overrun.issues));
+  assert.deepEqual(overrun.layout, { entries: 2, strayBytes: 0, outside: 1, contiguous: false });
+  assert.ok(overrun.warnings.some((w) => /^1 záznam z manifestu leží zčásti nebo celý mimo datovou část; takové záznamy se nečtou$/.test(w)), overrun.warnings.join('|'));
+  assert.ok(!overrun.verified.some((v) => /beze zbytku/.test(v)), 'tvrzení o beze zbytku musí chybět');
+  const img = overrun.entries.find((e) => e.ext === '.img');
+  assert.equal(img.ok, false);
+  assert.match(img.issues.join(';'), /mimo datovou část/);
+  assert.equal(overrun.image, null, 'obrázek z neověřeného záznamu se nepoužije');
+  assert.ok(overrun.verified.some((v) => /^1 z 2 zdrojů dešifrováno a rozbaleno, velikosti sedí s manifestem; kontrolní součet zstd souhlasí u 1 z nich/.test(v)), overrun.verified.join('|'));
+  // záznam celý za datovou částí (posun za její koncem): totéž, a mezera mezi záznamy se nepočítá dvakrát
+  const far = await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, manifestOffset: plain.recs[1].offset + 1000 }] }, 3).file);
+  assert.equal(far.ok, true, JSON.stringify(far.issues));
+  assert.equal(far.layout.outside, 1);
+  assert.equal(far.layout.contiguous, false);
+  assert.ok(!far.verified.some((v) => /beze zbytku/.test(v)));
+  // zpráva o souboru nese tentýž popis rozložení
+  assert.deepEqual(C.safeReport(overrun).layout, { entries: 2, strayBytes: 0, outside: 1, contiguous: false });
+  // zdroj, který se rozbalil, má správný kontrolní součet, ale jinou velikost, než slibuje manifest: není ověřený, a tak se mezi „souhlasí u N z nich“ nepočítá
+  const wrongLen = await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, third: imgRes.content.length + 10 }] }, 3).file);
+  assert.equal(wrongLen.ok, true, JSON.stringify(wrongLen.issues));
+  const wl = wrongLen.entries.find((e) => e.ext === '.img');
+  assert.equal(wl.ok, false);
+  assert.equal(wl.checks.checksum, 'ok', 'kontrolní součet sám sedí');
+  assert.equal(wl.checks.lengthMatchesManifest, false);
+  assert.ok(wrongLen.verified.some((v) => /^1 z 2 zdrojů dešifrováno a rozbaleno, velikosti sedí s manifestem; kontrolní součet zstd souhlasí u 1 z nich/.test(v)), wrongLen.verified.join('|'));
+  // vzorový soubor: obě čísla jsou plná
+  const good = await read(plain.file);
+  assert.ok(good.verified.some((v) => /^2 z 2 zdrojů dešifrováno a rozbaleno, velikosti sedí s manifestem; kontrolní součet zstd souhlasí u 2 z nich/.test(v)), good.verified.join('|'));
+});
+
+test('decode: soubor s mnoha záznamy z drahých rámců vadných až na konci se dočte za zlomek času: rozpočet bloků na soubor platí i pro rámce, které selžou', async () => {
+  const ZB = require('./fixtures/zstd_builders.cjs');
+  // dvanáct záznamů, v každém rámec o 6 000 drahých blocích (každý staví Huffmanův strom a tři tabulky FSE) a vadném posledním bloku; manifest slibuje velký výstup, aby odvozený strop bloků na rámec nezasáhl dřív
+  const frame = ZB.heavyFrameBadEnd(6000);
+  const resources = Array.from({ length: 12 }, (_, i) => ({ dir: '', name: i === 0 ? TITLE : 'z' + i, ext: i === 0 ? '.tac' : '.img', frame, third: 8000000 }));
+  const { file } = buildFmf({ title: TITLE, resources }, 3);
+  const mine = { ...deps, zstd: G.makeFrameDecompressor(Z, { maxTotalBlocks: 20000 }) };
+  const t0 = Date.now();
+  const r = await C.decode(new Uint8Array(file), mine);
+  const ms = Date.now() - t0;
+  assert.equal(r.ok, false);
+  assert.equal(r.entries.length, 12);
+  assert.ok(r.entries.every((e) => !e.ok && e.content === null));
+  const why = r.entries.map((e) => e.issues.join(';'));
+  // první tři rámce se zpracují celé a selžou na odkazu před začátek výstupu (6 002 bloků každý); čtvrtý narazí na zbytek rozpočtu, ostatní se už nezačnou
+  for (let i = 0; i < 3; i++) assert.match(why[i], /rozbalení selhalo: Odkaz vede před začátek výstupu/, 'záznam ' + i);
+  assert.match(why[3], /příliš mnoho bloků vzhledem k povolenému výstupu/);
+  for (let i = 4; i < 12; i++) assert.match(why[i], /příliš mnoho bloků dohromady/, 'záznam ' + i);
+  // bez rozpočtu by to bylo 12 × 6 002 drahých bloků (kolem 3 sekund); s ním nejvýš 20 000 (kolem jedné sekundy); strop je štědrý i pro pomalý stroj
+  assert.ok(ms < 5000, 'čtení trvalo ' + ms + ' ms');
+  // totéž bez omezení rozpočtu na soubor (výchozí 40 000) se zastaví po šesti záznamech a výsledek je tentýž druh chyby
+  const dflt = await C.decode(new Uint8Array(file), { ...deps, zstd: G.makeFrameDecompressor(Z) });
+  assert.equal(dflt.ok, false);
+  assert.ok(dflt.entries.slice(0, 6).every((e) => /Odkaz vede před začátek výstupu/.test(e.issues.join(';'))));
+  assert.match(dflt.entries[6].issues.join(';'), /příliš mnoho bloků vzhledem k povolenému výstupu/);
 });
 
 test('makeWebAesCtr: WebCrypto dá stejný výsledek jako node:crypto (včetně přetečení čítače) a bez WebCrypto je jasná chyba', async () => {
@@ -501,7 +563,7 @@ test('decode s vlastním dekodérem zstd: stejný výsledek jako s libzstd (obsa
   for (const seed of [1, 2, 5, 9]) {
     const b = standard(seed);
     const viaLib = await C.decode(new Uint8Array(b.file), deps);
-    const viaOwn = await C.decode(new Uint8Array(b.file), own);
+    const viaOwn = await C.decode(new Uint8Array(b.file), makeOwn());
     assert.equal(viaOwn.ok, true, JSON.stringify(viaOwn.issues));
     assert.equal(viaOwn.ok, viaLib.ok);
     assert.equal(viaOwn.title, viaLib.title);
@@ -517,23 +579,24 @@ test('decode s vlastním dekodérem zstd: stejný výsledek jako s libzstd (obsa
   for (let i = 0; i < 400; i += 7) {
     const f = flip(b.file, 26 + tac.offset + 40 + (i % (tac.rec.length - 40)));
     const a = await C.decode(new Uint8Array(f), deps);
-    const o = await C.decode(new Uint8Array(f), own);
+    const o = await C.decode(new Uint8Array(f), makeOwn());
     assert.equal(o.ok, a.ok, 'bajt ' + i);
     assert.deepEqual(o.entries.map((e) => e.ok), a.entries.map((e) => e.ok), 'bajt ' + i);
   }
 });
 
 // ---------------------------------------------------------------- skutečné soubory (jen když je složka zadaná; do repozitáře nepatří)
-test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): všechny zdroje se rozšifrují a rozbalí, velikosti a kontrolní součty sedí', async () => {
+test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): všechny zdroje se rozšifrují a rozbalí, velikosti a kontrolní součty sedí', async (t) => {
   const dir = process.env.FMF_SAMPLES_DIR;
-  if (!dir || !existsSync(dir)) return;
+  if (!dir) return t.skip('FMF_SAMPLES_DIR není zadaný (skutečné exporty nejsou v repozitáři)');
+  assert.ok(existsSync(dir), 'FMF_SAMPLES_DIR je zadaný, ale složka neexistuje');
   const files = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.fmf'));
   assert.ok(files.length > 0, 've složce nejsou žádné .fmf');
   for (const f of files) {
     const r = await C.decode(new Uint8Array(readFileSync(`${dir}/${f}`)), deps);
     assert.equal(r.ok, true, f + ' ' + JSON.stringify(r.issues));
     // totéž s vlastním dekodérem z aplikace: stejný obsah každého zdroje
-    const o = await C.decode(new Uint8Array(readFileSync(`${dir}/${f}`)), own);
+    const o = await C.decode(new Uint8Array(readFileSync(`${dir}/${f}`)), makeOwn());
     assert.equal(o.ok, true, f + ' vlastní dekodér: ' + JSON.stringify(o.issues));
     o.entries.forEach((e, i) => assert.deepEqual(Buffer.from(e.content), Buffer.from(r.entries[i].content), f + ' ' + e.path));
     assert.ok(r.entries.every((e) => e.ok && e.checks.checksum === 'ok'), f);

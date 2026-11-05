@@ -47,7 +47,7 @@ Desktop: `desktop/tauri-host/` (see README). Health: `/health` or `/api/health`.
 
 ## Works
 
-Career localStorage, tactics lab, GYR `screenshot_verified` GT, match history, 10-point recs, playbooks `heuristic_coach`, Live `getDisplayMedia` + desktop capture-session POST/GET, optional `ocrPreview` → `ocr_unverified` keywords + Wave 76 DEMO OCR fixture (≠ OCR PASS), AI `/api/ai/advise` stub without keys (proxy when keyed).
+Career localStorage, tactics lab, sample tactic 1 `screenshot_verified` GT, match history, 10-point recs, playbooks `heuristic_coach`, Live `getDisplayMedia` + desktop capture-session POST/GET, optional `ocrPreview` → `ocr_unverified` keywords + Wave 76 DEMO OCR fixture (≠ OCR PASS), AI `/api/ai/advise` stub without keys (proxy when keyed).
 
 ## FAIL / do not fake
 

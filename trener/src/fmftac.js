@@ -1,9 +1,9 @@
 /* FM27 Tactical Coach: struktura payloadu taktiky (.tac) ze souboru .fmf (čistý modul bez DOM a sítě).
 
    CO TU JE: přísný čtecí rozbor BINÁRNÍ STRUKTURY rozbaleného payloadu taktiky (po rozšifrování a rozbalení kontejneru, viz fmfcontainer.js a docs/FORMAT_FMF.md).
-   Gramatiku odvodili dva nezávislí analytici ze tří skutečných exportů FM27; oba jejich rozbory spotřebují každý bajt a zapíšou je zpět beze změny.
+   Gramatiku odvodily ze tří skutečných exportů FM27 dva samostatné běhy Claude (žádná oficiální specifikace, shoda dvou pokusů téhož modelu); oba rozbory spotřebují každý bajt a zapíšou je zpět beze změny.
    CO TU NENÍ: význam čísel. Modul vrací syrové hodnoty (výběry, bitové masky, identifikátory) a nic z nich nepřekládá na role, instrukce ani formaci;
-   to je samostatný krok (fmftacmean.js), který smí použít jen to, co je ověřené. Kdo čte tenhle modul, nesmí z „rozpoznané struktury“ vyvozovat „rozumím taktice“.
+   to je samostatný krok (zatím neexistuje), který smí použít jen to, co je ověřené. Kdo čte tenhle modul, nesmí z „rozpoznané struktury“ vyvozovat „rozumím taktice“.
 
    GRAMATIKA (vše little endian, str = u32 délka + bajty UTF-8):
      soubor  = značka[16] | název | 12 × 00 | hlavička6 | zabalených12 | styl | čtveřice4 | dvojice{11} | seznam id | patička
@@ -252,9 +252,11 @@
     return Object.assign({ ok: true, size }, summary(result.tree));
   }
 
+  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a neviditelné výplně a selektory; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
+  const INVISIBLE = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u034f\\u115f\\u1160\\u3164\\uffa0\\u2800\\ufe00-\\ufe0f\\ufffc\\u{e0100}-\\u{e01ef}]+', 'gu');
   /** Text ze souboru bezpečný k zobrazení: bez řídicích a neviditelných znaků, zkrácený. */
   function displayText(text, max) {
-    const clean = String(text === undefined || text === null ? '' : text).replace(new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\ufeff]+', 'g'), ' ').replace(/\s+/g, ' ').trim();
+    const clean = String(text === undefined || text === null ? '' : text).replace(INVISIBLE, ' ').replace(/\s+/g, ' ').trim();
     const n = Number.isInteger(max) && max > 0 ? max : 80;
     return clean.length > n ? clean.slice(0, n - 1) + '…' : clean;
   }
