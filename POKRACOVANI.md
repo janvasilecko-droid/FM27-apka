@@ -13,7 +13,7 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
   „Zdrojích znalostí“, volba „Hledat i na webu“ u Osobního trenéra a u lekce ve Škole, zkušební hledání v Nastavení. Cesty: konektor
   „Parallel Search“ (stránka v Claude, `mcp`) a `web_search` od Anthropic přes klíč (samostatná verze, účtuje se zvlášť). **Neověřeno proti
   živým službám**, nic z webu není `verified`, v Live Coachi se nehledá. Kód: `trener/src/websources.js`, `web.js`; zkouška 12.
-- **Zkoušky**: 595 testů jádra, 141 + 11 v Pythonu, 677 kontrol v prohlížeči (17 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
+- **Zkoušky**: 598 testů jádra, 141 + 11 v Pythonu, 677 kontrol v prohlížeči (17 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
   `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
   skutečné službě ani skutečnému FM27**.
 - Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).
@@ -59,7 +59,7 @@ Seznam s důvody: `docs/AKCEPTACNI_MATICE.md`, část 3.
 ## Možná další rozhodnutí (až majitel stránku vyzkouší)
 
 - **Načtení dat z běžící hry jako Real Time Editor** (majitel to chce: taktika, hráči a jejich údaje, finance; 5. 11. 2026). Z prohlížeče ani ze stránky
-  v Claude to technicky nejde (čtení paměti umí jen program pro Windows a je vázané na build hry). **Výzkum je v `docs/NACITANI_DAT_ZE_HRY.md`**: editory
+  v Claude to technicky nejde (čtení paměti umí jen program pro Windows a je vázané na build hry). **Výzkum je v `docs/NACITANI_DAT_ZE_HRY.md` a podrobný audit zdrojových kódů čtyř projektů s architekturou, licencemi a plánem etap v `docs/AUDIT_ZDROJU_FM27_2026-11-05.md`**: editory
   čtoucí paměť FM27 už existují (GPL-3.0, beta), ale **taktiku z paměti nečte žádný**; taktika se čte ze souboru (`.fmf`: `fm-ai-assistent` bez licence;
   uložená hra: `fmsave` MIT, syrová čísla). Hotovo: **čtení taktiky z obrazovky hry**, tlačítko „Načíst z okna hry“ (jeden snímek) u taktiky, soupisky a soupeře,
   šedé tlačítko „Načíst“ nahoře. Možné další kroky podle rozhodnutí majitele: (1) „Načíst uloženou hru“ přes `fmsave` v prohlížeči (samostatná verze;

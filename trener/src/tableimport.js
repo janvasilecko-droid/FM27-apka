@@ -305,7 +305,7 @@
   // Skupiny sloupců `fmsave`, které nejsou atributy (čísla bývají také v rozsahu 1 až 20: ocenění pozic, osobnost, pověst, surové hodnoty).
   /** Je název (jak je napsaný) skrytý údaj hry? Používá i modul pro FMMatchLens. */
   const isHiddenName = (name) => isHidden(norm(name));
-  const NOT_ATTRIBUTE_PREFIX = /^(positions|personality|reputation|ability|raw|contract|club|team|loan|height|transfer)[ _]/;
+  const NOT_ATTRIBUTE_PREFIX = /^(positions|personality|reputation|ability|raw|contract|club|team(?! ?work)|loan|height|transfer)[ _]/; // „Team Work“ je atribut (tak ho píše FM View Exporter)
 
   /** Je to výstup čtečky `fmsave` (podle dokumentace: ploché sloupce `attributes_finishing`, `ability_current`, `contract_wage`)? */
   const isFmsave = (headers) => headers.some((h) => /^attributes_/.test(String(h))) && headers.includes('name');

@@ -191,6 +191,60 @@ test('guessMapping: už u dvou řádků se pozná pět atributů; sloupec s iden
   assert.equal(one.Fin, 'ignore');
 });
 
+test('FM View Exporter (podle schématu FM Player Analyzer): hlavičky ve hře anglicky, rozsahy u neoskautovaných atributů a pozice „D (RLC)“; skryté nic', () => {
+  const header = 'Unique ID,Player,Inf,Age,Wage,Transfer Value,Nation,Position,Personality,Rating,Preferred Foot,Height,Club,Finishing,Off The Ball,Team Work,Command Of Area,Passing,Pace,Stamina,Vision';
+  const csv = [
+    header,
+    '16000101,Jan Novák,,24,"£12,000 p/w",£1M - £2M,ENG,"D (RLC), WB (R)",Balanced,6.9,Right Only,181 cm,Chelsea,15,14,13,2,12,14,13,11',
+    '16000102,Petr Dvořák,,31,"£8,000 p/w",£500K,CZE,ST,Fairly Professional,7.1,Left Only,190 cm,Chelsea,16,12-15,14,3,10,9,15,12',
+    '16000103,Karel Čermák,,27,"£5,000 p/w",£800K,CZE,GK,Resolute,6.4,Right Only,195 cm,Chelsea,3,4,9,17,8,7,12,9',
+  ].join('\n');
+  const t = TI.extractTable(csv);
+  assert.equal(t.ok, true);
+  const m = TI.guessMapping(t);
+  const r = roleOf(m);
+  assert.equal(r.Player, 'name');
+  assert.equal(r.Age, 'age');
+  assert.equal(r.Position, 'positions');
+  for (const h of ['Finishing', 'Team Work', 'Command Of Area', 'Passing', 'Pace', 'Stamina', 'Vision']) assert.equal(r[h], 'attribute', h);
+  for (const h of ['Unique ID', 'Inf', 'Wage', 'Transfer Value', 'Nation', 'Personality', 'Rating', 'Preferred Foot', 'Height', 'Club']) assert.equal(r[h], 'ignore', h);
+  // sloupec s rozsahem „12-15“ (neoskautovaný atribut) nemá jen čísla: nepozná se jako atribut sám od sebe a hodnota se neuhádne
+  assert.equal(r['Off The Ball'], 'ignore');
+  const out = TI.rowsToPlayers(t, m, { max: 60, existingNames: [] });
+  assert.equal(out.players.length, 3);
+  assert.deepEqual(out.players[0].positions, []);
+  assert.match(out.players[0].notes, /Pozice v exportu: D \(RLC\), WB \(R\)/);
+  assert.equal(out.players[1].attributes.Finishing, 16);
+  assert.equal(out.players[1].attributes['Off The Ball'], undefined);
+  assert.equal(out.players[2].attributes['Command Of Area'], 17);
+});
+
+test('shortlist z FMSuperScout (BOM, konce řádků CRLF, vše v uvozovkách): jméno, věk a pozice se načtou, CA a PA jsou skryté údaje a vynechají se', () => {
+  const rows = [
+    ['Name', 'Position', 'Age', 'Club', 'Nationality', 'CA', 'PA', 'Value(GBP)', 'AskingPrice(GBP)', 'Wage(GBP)', 'Contract', 'Interest'],
+    ['Jan Novák', 'DC, DR', '24', 'Sparta Praha', 'Czechia', '140', '165', '2500000', '3000000', '12000', '2028-06-30', 'High'],
+    ['Petr Dvořák', 'ST', '31', 'Slavia Praha', 'Czechia', '120', '120', '800000', '900000', '8000', '2027-06-30', 'Fair'],
+  ];
+  const text = '﻿' + rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\r\n') + '\r\n';
+  const dec = TI.decodeBytes(new Uint8Array(Buffer.from(text, 'utf8')));
+  assert.equal(dec.encoding, 'UTF-8');
+  const t = TI.extractTable(dec.text);
+  assert.equal(t.ok, true);
+  const m = TI.guessMapping(t);
+  const r = roleOf(m);
+  assert.equal(r.Name, 'name');
+  assert.equal(r.Position, 'positions');
+  assert.equal(r.Age, 'age');
+  for (const h of ['CA', 'PA']) {
+    assert.equal(r[h], 'ignore');
+    assert.match(m.find((c) => c.header === h).reason, /skrytý údaj hry/);
+  }
+  for (const h of ['Club', 'Nationality', 'Value(GBP)', 'AskingPrice(GBP)', 'Wage(GBP)', 'Contract', 'Interest']) assert.equal(r[h], 'ignore', h);
+  const out = TI.rowsToPlayers(t, m, { max: 60, existingNames: [] });
+  assert.deepEqual(out.players.map((p) => [p.name, p.age, p.positions]), [['Jan Novák', 24, ['DC', 'DR']], ['Petr Dvořák', 31, ['ST']]]);
+  assert.ok(out.players.every((p) => Object.keys(p.attributes).length === 0));
+});
+
 test('fmsave: výstup se pozná podle sloupců, skryté atributy a schopnosti se vynechají, názvy atributů se zkrášlí', () => {
   const headers = ['uid', 'unique_id', 'name', 'age', 'natural_positions', 'attributes_finishing', 'attributes_off_the_ball', 'attributes_first_touch', 'attributes_consistency', 'attributes_important_matches', 'attributes_injury_proneness', 'ability_current', 'ability_potential', 'personality_ambition', 'positions_dc', 'contract_wage'];
   assert.equal(TI.isFmsave(headers), true);

@@ -200,12 +200,17 @@
         });
       }
     } else issues.push('V odpovědi chybí seznam hráčů.');
+    const humanSide = humans.length === 1 ? humans[0] : null;
+    // Plugin čte přesné atributy i soupeřových hráčů, kdežto hra u hráčů, které neznáš, ukazuje atributy jen jako rozsahy. Takové údaje by byly skryté
+    // informace, proto se berou jen atributy mého týmu. Když z dat nejde poznat, který tým je můj, neberou se žádné (ani při ruční volbě strany).
+    for (const p of players) if (p.team !== humanSide) p.attributes = {};
+    if (!humanSide) issues.push('Z dat nejde poznat, který tým je tvůj, proto se nenačetly žádné atributy (u soupeře by to byly informace, které hra neukazuje přesně).');
     return {
       ok: true,
       matchId: text(raw.matchId, 80),
       home,
       away,
-      humanSide: humans.length === 1 ? humans[0] : null,
+      humanSide,
       competition: isObj(raw.competition) ? text(raw.competition.name, 80) : '',
       players,
       issues,
@@ -326,7 +331,7 @@
   /** Řádky diagnostiky pro obrazovku: co plugin odpověděl a co z toho aplikace přečetla. {ok, text} */
   function diagnose(health, meta, frame) {
     const out = [];
-    if (health) out.push(health.ok ? { ok: true, text: `Plugin ${health.name}${health.pluginVersion ? ' ' + health.pluginVersion : ''} odpovídá${health.game ? ` (hra: ${health.game}${health.gameVersion ? ' ' + health.gameVersion : ''})` : ''}; stav „${health.status || 'neznámý'}“, ${health.inMatch ? 'zápas se hraje' : 'zápas se nehraje'}.` } : { ok: false, text: health.error || 'Plugin neodpověděl.' });
+    if (health) out.push(health.ok ? { ok: true, text: `Plugin ${health.name}${health.pluginVersion ? ' ' + health.pluginVersion : ''} odpovídá${health.game ? ` (je určený pro: ${health.game}${health.gameVersion ? ' ' + health.gameVersion : ''}; to je údaj z jeho sestavení, ne zjištění, jaká hra běží)` : ''}; stav „${health.status || 'neznámý'}“, ${health.inMatch ? 'zápas se hraje' : 'zápas se nehraje'}.` } : { ok: false, text: health.error || 'Plugin neodpověděl.' });
     if (meta) out.push(meta.ok ? { ok: true, text: `Zápas: ${meta.home.name || '?'} – ${meta.away.name || '?'}${meta.competition ? ` (${meta.competition})` : ''}; hráčů v sestavách ${meta.players.length}${meta.humanSide ? `; tvůj tým podle hry: ${meta.humanSide === 'home' ? 'domácí' : 'hosté'}` : '; tvůj tým z dat nejde poznat'}.` } : { ok: false, text: meta.error });
     if (frame) out.push(frame.ok ? { ok: true, text: `Čas zápasu: ${frame.minute === null ? 'nečitelný' : frame.minute + '. minuta'}; skóre ${frame.home.goals === null ? '?' : frame.home.goals}:${frame.away.goals === null ? '?' : frame.away.goals}; xG ${frame.home.xg === null ? '?' : frame.home.xg.toFixed(2)} : ${frame.away.xg === null ? '?' : frame.away.xg.toFixed(2)}.` } : { ok: false, text: frame.error });
     for (const part of [meta, frame]) if (part && part.ok) for (const i of part.issues.slice(0, 3)) out.push({ ok: false, text: i });

@@ -70,7 +70,7 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 595 | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 598 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
 | Prohlížeč, celá aplikace (`trener/test/e2e/`) | 677 | viz `trener/README.md` |

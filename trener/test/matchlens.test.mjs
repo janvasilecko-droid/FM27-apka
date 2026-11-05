@@ -196,6 +196,27 @@ test('parseMeta: tým člověka se pozná jen když je právě jeden; neplatné 
   assert.ok(ML.parseMeta({ home: {}, away: {} }).issues.some((i) => /seznam hráčů/.test(i)));
 });
 
+test('parseMeta: atributy soupeře se zahodí (plugin čte přesné hodnoty, hra ukazuje u neznámých hráčů jen rozsahy); když není jasné, kdo je můj tým, neberou se žádné', () => {
+  const both = meta({
+    players: [
+      { slot: 0, team: 'home', displayName: 'Můj Hráč', position: 'ST', attributes: { technical: { Finishing: 16 } } },
+      { slot: 20, team: 'away', displayName: 'Cizí Hráč', position: 'ST', attributes: { technical: { Finishing: 18 } } },
+    ],
+  });
+  const m = ML.parseMeta(both);
+  assert.equal(m.humanSide, 'home');
+  assert.deepEqual(m.players.find((p) => p.team === 'home').attributes, { Finishing: 16 });
+  assert.deepEqual(m.players.find((p) => p.team === 'away').attributes, {});
+  assert.ok(!JSON.stringify(m).includes('18'));
+  const unknown = ML.parseMeta(Object.assign({}, both, { home: { name: 'A' }, away: { name: 'B' } }));
+  assert.equal(unknown.humanSide, null);
+  // bez poznaného týmu se neberou žádné atributy, takže ani omylem zvolená strana soupeře je neprozradí
+  assert.ok(unknown.players.every((p) => Object.keys(p.attributes).length === 0));
+  assert.ok(unknown.issues.some((i) => /nejde poznat, který tým je tvůj/.test(i)));
+  const chosenWrong = ML.squadPlayers(unknown, 'away', null);
+  assert.ok(chosenWrong.players.every((p) => Object.keys(p.attributes).length === 0));
+});
+
 test('parseMeta: neviditelné a řídicí znaky ve jménech se odstraní, jména se zkrátí', () => {
   const m = ML.parseMeta(meta({ home: { name: `Chel‮sea\u0000 ${'x'.repeat(200)}` }, players: [{ slot: 1, team: 'home', displayName: 'Jan​  Novák\n' }] }));
   assert.ok(!/[‮\u0000​\n]/.test(m.home.name + m.players[0].name));
@@ -348,6 +369,7 @@ test('diagnose: řádky o pluginu, zápase a záznamu; chyby se označí; nic ne
   assert.equal(lines.length, 3);
   assert.ok(lines.every((l) => l.ok));
   assert.match(lines[0].text, /FMMatchLens 0\.7\.1 odpovídá/);
+  assert.match(lines[0].text, /je určený pro: Football Manager 27/);
   assert.match(lines[1].text, /Chelsea – Arsenal \(Premier League\).*tvůj tým podle hry: domácí/);
   assert.match(lines[2].text, /67\. minuta; skóre 2:1; xG 1\.84 : 0\.62/);
   const bad = ML.diagnose(ML.parseHealth(null), ML.parseMeta(null), ML.parseFrame(null));

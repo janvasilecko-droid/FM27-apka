@@ -50,7 +50,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 595 testů čistých modulů a úložiště |
+| `test/*.test.mjs` | 598 testů čistých modulů a úložiště |
 | `test/e2e/` | zkoušky celé aplikace v Chromiu (17 scénářů, 677 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
@@ -58,7 +58,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 595 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 598 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -92,7 +92,8 @@ Po každé změně zdrojů je třeba znovu `node trener/build.mjs`; `dist/` nen�
 Šedé tlačítko „Načíst“ nahoře ukáže, co jde načíst z obrazovky hry (taktika, soupiska, soupeř, zápas), a vede na obrazovku, kde se to dělá. Aplikace
 **nečte paměť hry ani její soubory**: čte jen to, co je vidět na obrazovce, a výsledek je vždy návrh k potvrzení. Tlačítko „Načíst z okna hry“ vezme jeden
 snímek sdíleného okna (samostatná verze, nebo okno claude.ai, pokud sdílení povolí; řádek v Nastavení). Proč ne paměť, jaké nástroje existují a jaké jsou další
-cesty: [`docs/NACITANI_DAT_ZE_HRY.md`](../docs/NACITANI_DAT_ZE_HRY.md).
+cesty: [`docs/NACITANI_DAT_ZE_HRY.md`](../docs/NACITANI_DAT_ZE_HRY.md). Technický audit čtyř projektů (FMMatchLens, FM Player Analyzer, FMSuperScout, FMSAT: data, algoritmy, licence, FM27, architektura, plán):
+[`docs/AUDIT_ZDROJU_FM27_2026-11-05.md`](../docs/AUDIT_ZDROJU_FM27_2026-11-05.md).
 
 Hráče jde načíst i z **tabulky, kterou uložil jiný nástroj** (CSV, TSV, webová stránka, JSON, třeba výstup čtečky uložené hry `fmsave`): karta „Načíst hráče z exportu“ v Můj tým.
 Soubor se čte jen v zařízení a bez volání AI. Aplikace navrhne, co který sloupec znamená, ty to potvrdíš a můžeš změnit. **Skryté údaje hry (CA a PA, skryté atributy,

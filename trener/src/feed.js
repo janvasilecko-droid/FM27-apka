@@ -11,6 +11,7 @@
 
   const KEY = 'fm27.feed';
   const TIMEOUT_MS = 4000;
+  const FIRST_TIMEOUT_MS = 20000; // první dotaz může čekat, až člověk klikne na povolení v prohlížeči
   const MAX_TEXT = 3000000;
   const EVERY_OPTIONS = [1, 2, 3, 5, 10];
 
@@ -78,7 +79,7 @@
     if (!b.ok) return { ok: false, error: b.error, lines: [{ ok: false, text: b.error }] };
     let health = null;
     try {
-      health = ML().parseHealth(await getJson(b.url, '/api/health'));
+      health = ML().parseHealth(await getJson(b.url, '/api/health', FIRST_TIMEOUT_MS));
     } catch (e) {
       const text = explain(e);
       return { ok: false, error: text, lines: [{ ok: false, text }] };
@@ -117,7 +118,7 @@
     session.meta = null;
     session.prev = null;
     session.fails = 0;
-    if (reason) session.error = reason;
+    session.error = reason || ''; // po ručním zastavení se neukazuje stará chyba
     if (!(opts && opts.keepWanted) && prefs().on) savePrefs({ on: null });
     notify();
   };
@@ -133,7 +134,7 @@
     if (!b.ok) return feed.stop(b.error);
     let delay = feed.timing.live;
     try {
-      const health = ML().parseHealth(await getJson(b.url, '/api/health'));
+      const health = ML().parseHealth(await getJson(b.url, '/api/health', session.health ? TIMEOUT_MS : FIRST_TIMEOUT_MS));
       if (token !== session.seq) return;
       if (!health.ok) return feed.stop(health.error);
       session.health = health;
@@ -155,14 +156,16 @@
             session.pluginMatchId = frame.matchId;
             await L.saveMatch(app, (m) => (m.feedMatchId = frame.matchId), match.id);
           } else if (!session.pluginMatchId) session.pluginMatchId = bound;
-          if (!session.meta || session.meta.matchId !== frame.matchId) {
+          // Metadata (jména týmů a hráčů) se čtou jednou za zápas; když se poprvé nepovedou, zkusí se to znovu po 15 s.
+          if (!session.meta || session.meta.matchId !== frame.matchId || (!session.meta.ok && Date.now() - session.metaAt > 15000)) {
+            session.metaAt = Date.now();
             try {
               session.meta = ML().parseMeta(await getJson(b.url, '/api/match/meta'));
             } catch (e) {
               session.meta = { ok: false, error: explain(e), matchId: frame.matchId };
             }
             if (token !== session.seq) return;
-            if (session.meta.ok) session.meta.matchId = session.meta.matchId || frame.matchId;
+            session.meta.matchId = session.meta.matchId || frame.matchId;
           }
           session.frame = frame;
           session.state = 'tracking';
@@ -278,7 +281,7 @@
 
     async function doProbe() {
       saveFields();
-      status.textContent = 'Zkouším spojení…';
+      status.textContent = 'Zkouším spojení… Pokud se prohlížeč zeptá, jestli smí stránka přistupovat k aplikacím na tomto počítači, povol to.';
       out.replaceChildren();
       const p = await feed.probe();
       showLines(p.lines);
