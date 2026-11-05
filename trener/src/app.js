@@ -13,6 +13,7 @@
     live: { baseIntervalSec: 15, maxPerHour: 60, maxPerMatch: 150, autoAlerts: true },
     notify: { enabled: false },
     coach: { deep: false },
+    web: { mode: 'auto' }, // hledání zdrojů na webu při radě a lekci: auto (zapnuto u konektoru, vypnuto u vlastního klíče), on, off
   };
   // Zastaralé adresy z první verze stránky vedou na nové sekce.
   const LEGACY_HASH = { coach: 'trener', knihovna: 'zdroje', info: 'nastaveni' };
@@ -30,7 +31,7 @@
   let renderToken = 0;
 
   const app = (FM27.app = {
-    caps: { sample: null, downloads: null, db: null, user: null, probed: false },
+    caps: { sample: null, downloads: null, db: null, user: null, mcp: null, probed: false },
     uid: null,
     store: null,
     registry: null,
@@ -49,8 +50,8 @@
       if (!claude || typeof claude.use !== 'function') return;
       const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(() => r(null), ms))]);
       const use = (name, ms) => withTimeout(Promise.resolve().then(() => claude.use(name)).catch(() => null), ms);
-      const [sample, downloads, db, user] = await Promise.all([use('sample', 10500), use('downloads', 4000), use('db', 6000), use('user', 6000)]);
-      Object.assign(app.caps, { sample, downloads, db, user });
+      const [sample, downloads, db, user, mcp] = await Promise.all([use('sample', 10500), use('downloads', 4000), use('db', 6000), use('user', 6000), use('mcp', 6000)]);
+      Object.assign(app.caps, { sample, downloads, db, user, mcp });
       if (user && typeof user.id === 'function') {
         try {
           app.uid = await user.id();
@@ -363,6 +364,11 @@
     await Promise.all([FM27.library.init(), app.detectCaps()]);
     await app.initStore();
     await FM27.ai.init(app);
+    try {
+      FM27.web.init(app);
+    } catch (e) {
+      console.error('Hledání na webu se nepodařilo připravit', e);
+    }
 
     const saved = ui.lsGet('fm27.career', null);
     const all = app.careers();

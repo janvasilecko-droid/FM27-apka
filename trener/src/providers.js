@@ -455,7 +455,9 @@
       return fail('network_error', `Spojení s poskytovatelem selhalo (síť, CORS nebo blokování)${detail}.`);
     }
 
-    async function complete(input, rawOpts, jsonMode) {
+    /** `extra` (jen vnitřní): {extraBody: pole těla požadavku navíc, např. tools, allowEmpty: odpověď smí nemít text,
+        keepRaw: vrátit i celé rozparsované tělo odpovědi}. */
+    async function complete(input, rawOpts, jsonMode, extra) {
       provider.lastUsage = null; // ať ledger nikdy nevezme tokeny z předchozího volání
       const o = normalizeOpts(rawOpts, fail);
       const aborted = () => !!(o.signal && o.signal.aborted);
@@ -470,7 +472,7 @@
       if (aborted()) throw cancelled();
 
       const model = spec.modelFor(o.tier, fail);
-      const req = spec.buildRequest({ model, messages, images, maxTokens: o.maxTokens, tier: o.tier, jsonMode });
+      const req = spec.buildRequest({ model, messages, images, maxTokens: o.maxTokens, tier: o.tier, jsonMode, extraBody: extra && extra.extraBody });
       // redirect:'error': hlavička s klíčem by při přesměrování mohla putovat na jiný server
       const init = { method: 'POST', headers: req.headers, body: JSON.stringify(req.body), redirect: 'error' };
       if (o.signal) init.signal = o.signal;
@@ -504,12 +506,33 @@
       }
       if (aborted()) throw cancelled();
       if (out.refusal) throw fail('refused', 'Model odmítl žádost zpracovat' + (out.refusal.note ? ` (${out.refusal.note})` : '') + '.');
-      if (!out.text.trim()) {
+      if (!out.text.trim() && !(extra && extra.allowEmpty)) {
         throw fail('empty_completion', 'Model nevrátil žádný text' + (out.truncated ? '; odpověď skončila na limitu délky, zvyš maxTokens nebo zkrať zadání' : '') + '.');
       }
       // Bez předstírání streamování: jedno zavolání na konci s celým textem (`delta` je tedy celý text).
       if (o.onText) safeCall(o.onText, { text: out.text, delta: out.text });
-      return { text: out.text, truncated: out.truncated };
+      const done = { text: out.text, truncated: out.truncated };
+      if (extra && extra.keepRaw) done.raw = body.parsed;
+      return done;
+    }
+
+    // Hledání na webu (jen adaptér, který ho umí). Nástroj web_search běží na serveru Anthropic: výsledky a citace jsou
+    // v blocích odpovědi, `raw` je celé tělo, ať je přečte websources.parseAnthropicResponse. Základní verze nástroje
+    // (web_search_20250305) funguje u všech modelů 5.x a vrací výsledky přímo bez spouštění kódu. Odpověď bez textu
+    // (třeba zastavená `pause_turn`) není chyba: výsledky v blocích zůstávají použitelné. Hledání se účtuje zvlášť.
+    if (spec.webSearch) {
+      provider.webSearch = async function webSearch(input, rawOpts) {
+        const w = isObject(rawOpts) ? rawOpts : {};
+        const tool = { type: 'web_search_20250305', name: 'web_search', max_uses: Math.min(positiveOr(w.maxUses, 3), 5) };
+        const domains = (list) => (Array.isArray(list) ? list.filter((d) => typeof d === 'string' && /^[a-z0-9.-]+(?:\/\S*)?$/i.test(d.trim())).map((d) => d.trim()).slice(0, 20) : []);
+        const allowed = domains(w.allowedDomains);
+        const blocked = domains(w.blockedDomains);
+        // Rozhraní povoluje jen jeden ze seznamů; kdyby přišly oba, platí povolené.
+        if (allowed.length) tool.allowed_domains = allowed;
+        else if (blocked.length) tool.blocked_domains = blocked;
+        const opts = Object.assign({}, w, { modelTier: w.modelTier || 'quick', maxTokens: w.maxTokens === undefined ? 2048 : w.maxTokens });
+        return complete(input, opts, false, { extraBody: { tools: [tool] }, allowEmpty: true, keepRaw: true });
+      };
     }
 
     return provider;
@@ -573,12 +596,13 @@
       models,
       maxPromptBytes: positiveOr(c.maxPromptBytes, MAX_PROMPT_BYTES),
       images: true,
+      webSearch: true,
       checkConfig(fail) {
         keyProblem(apiKey, true, fail);
         urlProblem(baseUrl, fail);
       },
       modelFor: (tier) => models[tier],
-      buildRequest({ model, messages, images, maxTokens, tier }) {
+      buildRequest({ model, messages, images, maxTokens, tier, extraBody }) {
         const last = messages.length - 1;
         const apiMessages = messages.map((m, i) =>
           i === last && images.length
@@ -599,7 +623,8 @@
             // bez této hlavičky API volání z prohlížeče (CORS) odmítne; mimo prohlížeč je neškodná
             'anthropic-dangerous-direct-browser-access': 'true',
           },
-          body: { model, max_tokens: maxTokens !== undefined ? maxTokens : DEFAULT_MAX_TOKENS[tier], messages: apiMessages },
+          // `extraBody` (např. tools pro hledání na webu) nikdy nepřepíše model, zprávy ani limit délky
+          body: Object.assign({}, extraBody, { model, max_tokens: maxTokens !== undefined ? maxTokens : DEFAULT_MAX_TOKENS[tier], messages: apiMessages }),
         };
       },
       parseResponse(payload, fail) {
@@ -996,7 +1021,8 @@
 
     async function measured(method, input, rawOpts) {
       const opts = isObject(rawOpts) ? rawOpts : {};
-      const tier = TIERS.includes(opts.modelTier) ? opts.modelTier : 'default';
+      // hledání na webu používá bez výslovné volby levný model (quick), ať ledger eviduje úroveň, která se opravdu použila
+      const tier = TIERS.includes(opts.modelTier) ? opts.modelTier : method === 'webSearch' ? 'quick' : 'default';
       const purpose = typeof opts.purpose === 'string' && opts.purpose ? opts.purpose : typeof defaults.purpose === 'string' ? defaults.purpose : '';
       let usage = null;
       let seenText = null;
@@ -1030,7 +1056,7 @@
         const inputChars = inputLength(input);
         let outputChars = 0;
         if (seenText !== null) outputChars = seenText.length;
-        else if (!failed) outputChars = method === 'text' ? String((result && result.text) || '').length : jsonLength(result);
+        else if (!failed) outputChars = method === 'text' || method === 'webSearch' ? String((result && result.text) || '').length : jsonLength(result);
         else if (isObject(error) && typeof error.text === 'string') outputChars = error.text.length;
 
         let inputTokens;
@@ -1079,6 +1105,7 @@
       json: (input, opts) => measured('json', input, opts),
       text: (input, opts) => measured('text', input, opts),
     };
+    if (typeof provider.webSearch === 'function') wrapped.webSearch = (input, opts) => measured('webSearch', input, opts);
     Object.defineProperty(wrapped, 'lastUsage', { get: () => provider.lastUsage, enumerable: true });
     return wrapped;
   }

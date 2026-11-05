@@ -103,6 +103,10 @@
     get available() {
       return !!ai.base;
     },
+    /** Umí poskytovatel hledat na webu sám (nástroj web_search u vlastního klíče Anthropic)? */
+    get webSearchAvailable() {
+      return !!(ai.base && typeof ai.base.webSearch === 'function');
+    },
     get imagesSupported() {
       return !!(ai.limitsInfo && ai.limitsInfo.images);
     },
@@ -128,6 +132,15 @@
       if (!ai.base) throw { code: 'not_granted', message: 'Žádný poskytovatel AI není k dispozici.' };
       try {
         return await ai.wrapped(opts && opts.purpose).text(input, opts);
+      } finally {
+        ai.saveLedger();
+      }
+    },
+    /** Hledání na webu přes poskytovatele (jen vlastní klíč Anthropic). Vrací {text, truncated, raw}. */
+    async webSearch(input, opts) {
+      if (!ai.webSearchAvailable) throw { code: 'invalid_request', message: 'Tenhle poskytovatel AI neumí hledat na webu.' };
+      try {
+        return await ai.wrapped((opts && opts.purpose) || 'hledání na webu').webSearch(input, opts);
       } finally {
         ai.saveLedger();
       }

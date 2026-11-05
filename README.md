@@ -1,19 +1,19 @@
 # FM27 Tactical Coach
 
 Osobní AI trenér pro Football Manager 27: radí z tvých knih o taktice, zná tvůj tým a taktiku, čte snímky obrazovky,
-sleduje zápas, upozorňuje hlasem, vede historii zápasů a učí taktiku. Co neví, to řekne; **nikdy nepředstírá, že FM27 vidí**.
+sleduje zápas, upozorňuje hlasem, vede historii zápasů, učí taktiku a **sám hledá zdroje na webu** (vždy označené jako neověřené). Co neví, to řekne; **nikdy nepředstírá, že FM27 vidí**.
 Zadání (doslova): [`docs/ZADANI_MASTER_PROMPT.md`](./docs/ZADANI_MASTER_PROMPT.md).
 
-## Stav k 4. 11. 2026
+## Stav k 5. 11. 2026
 
-Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (509 testů jádra, 141 + 11 v Pythonu, 453 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md). **Z cloudu nejde ověřit
+Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (550 testů jádra, 141 + 11 v Pythonu, 536 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md). **Z cloudu nejde ověřit
 skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu zadání zvlášť napsáno, co je ověřené a co čeká na tebe:
 [`docs/AKCEPTACNI_MATICE.md`](./docs/AKCEPTACNI_MATICE.md).
 
 | Co | Kde |
 |---|---|
 | **Stránka v Claude** (hned použitelná, bez klíče) | https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh (soukromý odkaz) |
-| **Samostatná aplikace** (sdílení okna hry, hlasová otázka, instalace; vlastní klíč AI) | čeká na zapnutí GitHub Pages: https://github.com/janvasilecko-droid/FM27-apka/settings/pages (Source: GitHub Actions), pak „Run workflow“ na https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml |
+| **Samostatná aplikace** (sdílení okna hry, hlasová otázka, instalace; vlastní klíč AI) | **běží**: https://janvasilecko-droid.github.io/FM27-apka/ (nasazuje se samo po každé změně na `main`) |
 | Popis aplikace, sestavení, zkoušky | [`trener/README.md`](./trener/README.md) |
 | Architektura a pravidla poctivosti | [`docs/ARCHITEKTURA_V2.md`](./docs/ARCHITEKTURA_V2.md) |
 | Co dál a co potřebuju od tebe | [`POKRACOVANI.md`](./POKRACOVANI.md) |
@@ -35,12 +35,12 @@ pokračování toho kódu. Kdyby se kód z Cursoru našel, porovná se s ní, ne
 ## Zkoušky
 
 ```bash
-node --test trener/test/*.test.mjs                     # 509 testů jádra a úložiště
+node --test trener/test/*.test.mjs                     # 550 testů jádra a úložiště
 python3 -m unittest discover -s ai_gateway/tests -t .  # 141 testů (16 se bez doplňkových knihoven přeskočí) a hlídání klíčů v repu
 python3 -m unittest discover -s fmf_research/tests -t . # 11 testů, potřebují `pip install zstandard`
 ```
 
-Zkoušky celé aplikace v Chromiu (453 kontrol, 11 scénářů) a jejich spuštění: `trener/README.md`.
+Zkoušky celé aplikace v Chromiu (536 kontrol, 12 scénářů) a jejich spuštění: `trener/README.md`.
 Zkoušky volají jen zkušební náhražky a zachycený přenos, žádné placené API.
 
 ## Pravidla

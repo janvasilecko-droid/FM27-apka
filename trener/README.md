@@ -15,6 +15,7 @@ co jí ukážeš: tým, taktiku, screenshoty a průběh zápasu. Co neví, to ř
 | Snímky obrazovky | vkládáš ručně (Ctrl+V, soubor, foto z telefonu) | navíc **sdílení okna hry** s výslovným souhlasem |
 | Hlas | čtení nahlas | čtení nahlas, **hlasová otázka**, systémové oznámení při skrytém okně |
 | Offline | ne | ano (service worker); volání AI a čtení PDF potřebují internet |
+| Hledání zdrojů na webu | konektor „Parallel Search“ (musíš ho mít připojený v claude.ai), bez poplatku z aplikace | web search od Anthropic přes tvůj klíč, **účtuje se zvlášť** |
 
 ## Deset sekcí
 
@@ -42,21 +43,22 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | Cesta | K čemu |
 |---|---|
 | `src/core.js` | jádro bez DOM: text, odstavce, BM25, kontrola poctivosti, prompty |
+| `src/websources.js`, `web.js` | zdroje z webu: druh zdroje, verze FM, čtení výsledků, plány hledání (čistý modul); doprava, paměť, limity a karta zdroje (rozhraní) |
 | `src/tactics.js`, `analysis.js`, `school.js`, `providers.js`, `alerts.js`, `opponent.js`, `report.js`, `labexplain.js`, `fmfglue.js` | čisté moduly bez DOM (UMD), běží v prohlížeči i v Node |
 | `src/store.js` | místní úložiště a zrcadlení do `db` (poslední zápis vyhrává, náhrobky, limit 240 kB na dokument) |
 | `src/ui.js`, `app.js`, `library.js`, `ai.js`, `context.js`, `advice.js`, `live.js`, `voice.js`, `widgets.js` | rozhraní a napojení na prohlížeč |
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
-| `test/*.test.mjs` | 509 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (11 scénářů, 453 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 550 testů čistých modulů a úložiště |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (12 scénářů, 536 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 509 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 550 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -79,12 +81,11 @@ Po každé změně zdrojů je třeba znovu `node trener/build.mjs`; `dist/` nen�
 
 ## Publikace
 
-- **Stránka v Claude**: `dist/trener.fragment.html` s `capabilities: {sample: {images: true}, downloads: true, db: {}, user: {}}`.
+- **Stránka v Claude**: `dist/trener.fragment.html` s `capabilities: {sample: {images: true}, downloads: true, db: {}, user: {}, mcp: {servers: [{server: 'Parallel Search', tools: ['web_search']}]}}`.
   Soukromý odkaz majitele: https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh. Aktualizace stejným odkazem: načíst artefakt
   (`action: read`) a publikovat se stejným `url`.
-- **Samostatná aplikace**: GitHub Pages z `dist/standalone/`, workflow `.github/workflows/pages.yml` (spouští se ručně). Majitel musí
-  jednou zapnout Pages (Source: GitHub Actions): https://github.com/janvasilecko-droid/FM27-apka/settings/pages. Sestavení a testy
-  na serveru GitHubu procházejí; nasazení čeká na zapnutí Pages.
+- **Samostatná aplikace**: GitHub Pages z `dist/standalone/`, workflow `.github/workflows/pages.yml` (spouští se ručně a po každé změně aplikace na `main`).
+  Pages zapnul majitel (Source: GitHub Actions) a první nasazení prošlo 5. 11. 2026: https://janvasilecko-droid.github.io/FM27-apka/
 
 ## Co je ověřeno a co ne
 
@@ -97,7 +98,10 @@ a chyby poskytovatelů, service worker a offline otevření, rozložení na tele
 **Neověřeno z cloudu** (čeká na skutečné prostředí): odpovědi skutečného Claude a jak často rada projde kontrolou na první pokus;
 skutečné `db`, `sample` a souhlasy v artefaktu; čtení skutečných screenshotů FM27; skutečný export `.fmf` (pole taktiky se
 **nedekódují**, aplikace čte jen kontejner); sdílení okna FM27 na Windows; kvalita českého hlasu; OpenAI-kompatibilní rozhraní
-proti živé službě; pdf.js uvnitř omezeného okna artefaktu a čtení skutečných knih (sazba ve sloupcích, tabulky).
+proti živé službě; pdf.js uvnitř omezeného okna artefaktu a čtení skutečných knih (sazba ve sloupcích, tabulky); **hledání zdrojů na webu**:
+skutečná odpověď konektoru Parallel Search (tvar je odhad, čtení je tolerantní) a nástroj `web_search` Anthropic volaný z prohlížeče (CORS, účtování).
+Ověřeno jen se zkušebními náhražkami: že se výsledky čtou, řadí a označují poctivě (druh zdroje podle domény, starší verze FM „NENÍ FM27“,
+jen https, text z webu je jen text a v promptu jen jeden řádek dat, nic z webu není `verified`) a že chyby konektoru mají srozumitelné hlášky.
 
 Když něco z toho selže, aplikace to řekne: Nastavení má stav schopností a zkoušky spojení, kniha hlášení o čtení.
 
@@ -105,13 +109,15 @@ Když něco z toho selže, aplikace to řekne: Nastavení má stav schopností a
 
 Texty knih zůstávají v IndexedDB prohlížeče a v exportu, který si uložíš sám (`fm27-knihovna.json`, obsahuje texty, nikam ho nesdílej).
 Do synchronizace a do zálohy dat knihy **nejdou**; lekce složené z knih zůstávají také jen v zařízení. Do Claude jde dotaz a vybrané
-úryvky. Klíč AI (samostatná verze) je jen v tomhle prohlížeči: není v záloze, v synchronizaci ani v exportu. Repozitář je veřejný:
+úryvky. Při hledání na webu jde vyhledávači jen text tvého dotazu nebo tématu a z něj odvozené výrazy (ne knihy, kariéra ani obrázky); u konektoru je to
+služba třetí strany, u klíče Anthropic hledá Anthropic. Klíč AI (samostatná verze) je jen v tomhle prohlížeči: není v záloze, v synchronizaci ani v exportu. Repozitář je veřejný:
 obsah knih, klíče ani osobní data nesmí do gitu, testů ani záznamů; testovací soubory jsou syntetické.
 
 ## Omezení a co dál
 
 - Rada vychází z teorie v knihách a z toho, co jí řekneš nebo ukážeš. Názvy nastavení FM27 jsou vždy neověřené.
 - Hledání je lexikální (BM25), ne sémantické. Pro velké knihovny by se hodil hostovaný index (varianta podle „Pivovarské bible“).
-- Neumí: hledání na internetu za běhu (kontext je z knih, přidaných zdrojů a registru oficiálních článků FM27), `.fmf` pole taktiky, OCR skenů,
-  oznámení na zavřený telefon, překryvné okno nad hrou, klienta pro Windows (viz akceptační matice).
+- Hledání na webu jede jen na pokyn (tlačítko, volba „Hledat i na webu“), ne v Live Coachi, a nic z něj není ověřené. Čtení celých stránek (`web_fetch`)
+  zatím není.
+- Neumí: `.fmf` pole taktiky, OCR skenů, oznámení na zavřený telefon, překryvné okno nad hrou, klienta pro Windows (viz akceptační matice).
 - Možné rozšíření: nechat Claude hledat v knihách samo přes `tools` ve `sample`, hostovaná databáze se serverovým zpracováním knih.

@@ -14,6 +14,7 @@
   advice.STEP_LABELS = {
     plan: 'Plánuji hledání v knihách',
     search: 'Hledám v knihovně',
+    web: 'Hledám zdroje na webu',
     advice: 'Skládám radu',
     check: 'Kontroluji poctivost',
     repair: 'Opravuji radu podle kontroly',
@@ -81,6 +82,28 @@
         const book = lib.bookById(hit.bookId);
         passageCtx[hit.id] = { id: hit.id, bookId: hit.bookId, title: book ? book.title : '?', where: book ? lib.whereLabel(book, hit) : '?', text: hit.text.slice(0, 1000) };
       }
+
+      // 2b) zdroje z webu (jen na výslovný pokyn volajícího; neúspěch hledání radu nezastaví)
+      let webResults = [];
+      if (o.web && FM27.web) {
+        if (!FM27.web.available) {
+          step('web', 'skip', 'hledání na webu není dostupné');
+          notes.push('Hledání na webu není dostupné: ' + FM27.web.reason);
+        } else {
+          step('web', 'run', FM27.web.route === 'connector' ? 'při prvním použití potvrď okno Claude' : '');
+          const plan = window.TrenerWebSources.planForAdvice({ question, bookQueries: queries });
+          const found = await FM27.web.passages(plan, { signal: o.signal });
+          webResults = found.results;
+          Object.assign(passageCtx, found.ctx);
+          if (found.error) {
+            step('web', 'fail', 'nepovedlo se');
+            notes.push('Hledání na webu se nepovedlo (' + FM27.web.errorText(found.error) + '). Rada vychází jen z knih.');
+          } else {
+            step('web', found.results.length ? 'done' : 'skip', found.results.length ? `${found.results.length} ${ui.plural(found.results.length, 'zdroj', 'zdroje', 'zdrojů')}${found.cached ? ' (z paměti)' : ''}` : 'nic nenalezeno');
+            for (const n of found.notes) notes.push(n);
+          }
+        }
+      }
       W.snapPut(passageCtx);
 
       // 3) rada, 4) kontrola, 5) jedno opravné kolo
@@ -97,7 +120,7 @@
           step(s === 'ask' ? 'advice' : s, state, note);
         },
       });
-      const ctx = { passages: passageCtx, observations: obsMap, queries, notes };
+      const ctx = { passages: passageCtx, observations: obsMap, queries, notes, webResults };
       if (result.status === 'ok') return { status: 'ok', advice: result.value, verdict: result.verdict, ctx };
       return { status: 'needs_more_info', verdict: result.verdict, ctx };
     } catch (e) {
@@ -109,7 +132,7 @@
   /** Uloží radu do historie (synchronizuje se, bez textů knih). */
   advice.save = async function save(app, entry) {
     const light = {};
-    for (const [id, p] of Object.entries(entry.ctx.passages || {})) light[id] = { id, title: p.title, where: p.where };
+    for (const [id, p] of Object.entries(entry.ctx.passages || {})) light[id] = p.kind === 'web' && window.TrenerWebSources ? window.TrenerWebSources.lightPassage(p) : { id, title: p.title, where: p.where };
     const career = app.career();
     const saved = await app.store.put('advice', {
       careerId: career ? career.id : null,
@@ -218,6 +241,8 @@
     }
     list.append(unknownSec);
     container.append(list);
+    const webBlock = FM27.web ? FM27.web.sourcesBlock(ctx.passages, 'Zdroje z webu, které trenér dostal') : null;
+    if (webBlock) container.append(webBlock);
     const speakBtn =
       FM27.voice && FM27.voice.available()
         ? h('button', {

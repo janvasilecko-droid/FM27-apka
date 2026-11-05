@@ -25,6 +25,7 @@
       ['Úložiště knihovny v prohlížeči', lib.persist.ok ? 'ano' : 'ne: ' + lib.persist.note],
       ['Čtečka PDF', window.pdfjsLib ? 'načtená' : 'načte se při prvním PDF'],
       ['Knihy / úryvky', `${lib.books.length} / ${lib.passages.length}`],
+      ['Hledání zdrojů na webu', FM27.web && FM27.web.available ? FM27.web.label() : 'ne: ' + ((FM27.web && FM27.web.reason) || 'modul chybí')],
       ['Oficiální zdroje FM27 v registru', String([...app.registry.byId.values()].filter((s) => app.registry.isOfficialFm27(s.id)).length)],
       ['Sdílení obrazovky v tomto okně', navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && app.standalone ? 'ano' : 'ne (jen v samostatné verzi)'],
       ['Hlasový výstup (čeština)', FM27.voice && FM27.voice.available() ? (FM27.voice.hasCzech() ? 'ano' : 'ano, ale bez české hlasové zásoby') : 'ne'],
@@ -76,6 +77,62 @@
     };
     draw();
     return h('section', { class: 'card' }, h('h2', { text: 'Spotřeba AI' }), box, h('div', { class: 'actions' }, h('button', { class: 'btn small', type: 'button', text: 'Obnovit', onclick: draw })));
+  }
+
+  /** Hledání zdrojů na webu: stav připojení, kdy se hledá samo a zkouška, která ukáže, jak to u tebe opravdu dopadne. */
+  function webCard(app) {
+    const web = FM27.web;
+    const WS = window.TrenerWebSources;
+    const status = h('p', { id: 'webStatusLine', class: 'hint', 'aria-live': 'polite', text: 'Zjišťuji…' });
+    const linkBox = h('p', { class: 'hint', id: 'webStatusLink' });
+    const out = h('p', { class: 'hint', id: 'webTestOut', 'aria-live': 'polite' });
+    const results = h('div', { id: 'webTestResults', class: 'books' });
+    const mode = ui.select([['auto', 'Automaticky (u konektoru zapnuto, u vlastního klíče vypnuto)'], ['on', 'Vždy zapnuto'], ['off', 'Vypnuto']], (app.settings().web || {}).mode || 'auto', { id: 'setWebMode' });
+    mode.addEventListener('change', () => app.updateSettings({ web: { mode: mode.value } }).catch(() => toast('Nastavení se nepodařilo uložit.')));
+    const refresh = async () => {
+      if (!web || !web.status) return (status.textContent = 'Modul hledání na webu chybí.');
+      const st = await web.status();
+      status.textContent = st.text;
+      status.dataset.state = st.state;
+      linkBox.replaceChildren(...(st.link ? [h('a', { href: st.link.url, target: '_blank', rel: 'noopener noreferrer', text: st.link.label + ': ' + st.link.url })] : []));
+    };
+    refresh();
+    const test = h('button', {
+      class: 'btn small',
+      id: 'webTest',
+      type: 'button',
+      text: 'Zkušební hledání',
+      onclick: async (e) => {
+        const btn = e.currentTarget;
+        if (!web || !web.available) return (out.textContent = 'Hledání na webu není dostupné: ' + ((web && web.reason) || 'chybí modul.'));
+        btn.disabled = true;
+        out.textContent = 'Hledám… (při prvním použití potvrď okno Claude)';
+        results.replaceChildren();
+        try {
+          const r = await web.search({ kind: 'test', queries: ['Football Manager 27 tactics'], objective: 'Find pages about Football Manager 27 tactics.' }, { refresh: true, max: 3 });
+          out.textContent = r.results.length ? `Funguje: nalezeno ${r.results.length} ${ui.plural(r.results.length, 'zdroj', 'zdroje', 'zdrojů')} (${web.label()}).` : r.unparsed ? `Vyhledávač odpověděl, ale aplikace z odpovědi neumí přečíst odkazy. Začátek odpovědi: ${web.lastRaw}` : 'Vyhledávač odpověděl, ale nic nenašel.';
+          for (const res of r.results) results.append(web.card(res));
+        } catch (err) {
+          out.textContent = web.errorText(err);
+        } finally {
+          btn.disabled = false;
+          refresh();
+        }
+      },
+    });
+    return h(
+      'section',
+      { class: 'card', id: 'webCard' },
+      h('h2', { text: 'Hledání zdrojů na webu' }),
+      h('p', { class: 'lead', text: 'Aplikace umí sama hledat zdroje na internetu (oficiální články o FM27, rozbory taktiky, komunitní návody) a ukazuje je s odkazem, druhem zdroje, verzí hry a datem. Co najde, je vždy označené jako neověřené. Do hledání jde jen text tématu nebo dotazu, ne knihy, kariéra ani obrázky.' }),
+      status,
+      linkBox,
+      ui.field('Kdy hledat při radě a lekci', mode),
+      h('div', { class: 'actions' }, test),
+      out,
+      results,
+      h('p', { class: 'hint', text: 'Neověřeno z cloudu: tvar odpovědi konektoru Parallel Search a hledání přes klíč Anthropic jsem nemohl zkusit proti skutečné službě. Tlačítko „Zkušební hledání“ ukáže, jak to u tebe opravdu dopadne.' })
+    );
   }
 
   function dataCard(app) {
@@ -411,6 +468,7 @@
         h('p', { class: 'hint', text: 'Každé „Poradit“ spotřebuje tvůj limit Claude: obvykle jedno levné volání na plán hledání a jedno až dvě na radu.' })
       ),
       usageCard(),
+      webCard(app),
       keyCard(app),
       installCard(app),
       prefsCard(app),

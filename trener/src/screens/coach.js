@@ -9,7 +9,7 @@
   const W = FM27.widgets;
 
   // ------------------------------------------------------------------ rozpracovaný dotaz (přežije přepnutí sekce)
-  const draft = { question: '', obs: [], images: [], deep: null, spoken: false };
+  const draft = { question: '', obs: [], images: [], deep: null, web: null, spoken: false };
   let run = null; // {ctl} běžící dotaz
 
   const OBS_LABEL_CS = { user_entered: 'moje poznámka', screenshot_verified: 'ověřený screenshot', ocr_unverified: 'strojově vyčteno', heuristic_coach: 'výpočet aplikace', vision_unverified: 'přečteno z obrázku' };
@@ -69,11 +69,13 @@
     setBusy(true);
     $('#resultEmpty').hidden = true;
     $('#result').replaceChildren();
-    stepsUi.reset(['plan', 'search', 'advice', 'check']);
+    const useWeb = !!($('#webMode') && $('#webMode').checked && FM27.web && FM27.web.available);
+    stepsUi.reset(useWeb ? ['plan', 'search', 'web', 'advice', 'check'] : ['plan', 'search', 'advice', 'check']);
     const res = await FM27.advice.ask(app, {
       question,
       observations: draft.obs,
       images: draft.images,
+      web: useWeb,
       deep: $('#deepMode').checked,
       previousAdvice: opts.previousAdvice,
       signal: ctl.signal,
@@ -216,6 +218,19 @@
       app.updateSettings({ coach: { deep: deepBox.checked } }).catch(() => {});
     });
 
+    // Hledání zdrojů na webu: výchozí hodnotu určuje nastavení (u konektoru zapnuto, u vlastního klíče vypnuto, protože stojí peníze)
+    if (draft.web === null) draft.web = FM27.web ? FM27.web.autoOn(app) : false;
+    const webOk = !!(FM27.web && FM27.web.available);
+    const webBox = h('input', { type: 'checkbox', id: 'webMode', checked: webOk && draft.web, disabled: !webOk });
+    webBox.addEventListener('change', () => {
+      draft.web = webBox.checked;
+    });
+    const webText = webOk
+      ? FM27.web.route === 'connector'
+        ? 'Hledat i na webu: trenér k radě najde zdroje na internetu (konektor Parallel Search, služba třetí strany). Hledá se podle tvého dotazu a z něj odvozených výrazů; knihy, kariéra ani obrázky se neposílají. Výtahy z webu jsou vždy označené jako neověřené.'
+        : 'Hledat i na webu: trenér k radě najde zdroje na internetu přes tvůj klíč Anthropic. Hledání se účtuje zvlášť. Hledá se podle tvého dotazu a z něj odvozených výrazů; knihy, kariéra ani obrázky se neposílají. Výtahy z webu jsou vždy označené jako neověřené.'
+      : 'Hledání na webu teď není dostupné: ' + (FM27.web ? FM27.web.reason : 'chybí modul.');
+
     // Hlasový vstup: jen v samostatné verzi (stránka v Claude mikrofon nepouští). Rozpoznání řeči zajišťuje prohlížeč.
     let listening = null;
     const mic = app.standalone && FM27.voice && FM27.voice.recognitionAvailable()
@@ -272,6 +287,7 @@
         ),
         imageField,
         h('label', { class: 'checkline' }, deepBox, h('span', { text: 'Důkladný režim: pomalejší a spotřebuje víc tvého limitu Claude, hodí se u těžkých rozhodnutí.' })),
+        h('label', { class: 'checkline' }, webBox, h('span', { id: 'webModeText', text: webText })),
         h('div', { class: 'actions' }, askBtn, mic, stopBtn, h('span', { class: 'hint', id: 'askHint', text: hint })),
         (stepsUi.el.id = 'steps', stepsUi.el)
       ),

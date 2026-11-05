@@ -17,11 +17,13 @@ a po ní doplněn o to, co přibylo (moduly, typy dokumentů, samostatná verze)
 
 ## 2. Mapa modulů
 
-Čisté moduly (bez DOM, UMD, testované v Node): `core.js` (text, hledání, kontrola poctivosti, prompty), `providers.js`, `tactics.js`,
+Čisté moduly (bez DOM, UMD, testované v Node): `core.js` (text, hledání, kontrola poctivosti, prompty), `websources.js` (zdroje z webu:
+druh zdroje podle domény, verze FM, čtení výsledků hledání, plány hledání), `providers.js`, `tactics.js`,
 `analysis.js`, `school.js`, `alerts.js` (pravidla hlasových upozornění), `opponent.js`, `report.js` (rozbor zápasu), `labexplain.js`
 (vysvětlení rozestavení), `fmfglue.js` (rozbalení prvního rámce zstd).
 Rozhraní a data (prohlížeč): `ui.js`, `store.js` (UMD, testovaný v Node), `library.js` (knihy, pdf.js), `ai.js` (poskytovatel, spotřeba,
-„zeptej se, zkontroluj, jednou oprav“), `context.js` (kontext kariéry a paměť pro AI), `voice.js` (hlasový výstup a vstup, systémová
+„zeptej se, zkontroluj, jednou oprav“), `web.js` (hledání na webu: konektor Parallel Search nebo web search přes klíč Anthropic, paměť,
+limity, hlášky, karta zdroje), `context.js` (kontext kariéry a paměť pro AI), `voice.js` (hlasový výstup a vstup, systémová
 oznámení), `widgets.js`, `advice.js` (rada a její vykreslení), `live.js` (relace zápasu a sdílení obrazovky), `app.js` (jádro aplikace a směrování),
 `boot.js`, `standalone.js` (jen samostatná verze) a `screens/*.js` (jedna obrazovka na soubor; `zz_stubs.js` poctivě zachytí sekci
 bez obrazovky). `build.mjs` všechno slepí; pořadí je v něm výslovně uvedené (`PURE`, `UI`, obrazovky podle abecedy, `standalone.js`, `boot.js`).
@@ -52,6 +54,11 @@ Vychází z `trener/src/core.js` (zdroj pravdy) a ze zadání § 12, § 16, § 1
   výslovně nepotvrdí (potom `screenshot_verified`).
 - Úroveň tvrzení **nesmí být silnější než nejslabší důkaz**, na který odkazuje (`checkClaim`, `validateAdvice10` v `core.js`).
 - **Úryvek z knihy (`bk:…`) je teorie obecného fotbalu**: nejvýš `inferred`, nikdy důkaz o aktuálním zápase a nikdy tvrzení, jak funguje FM27.
+- **Úryvek z webu (`web:…`) je výtah z hledání, ne celý text stránky**: nejvýš `inferred`, **i když jde o oficiální web hry** (aplikace
+  nemůže ověřit, že výtah odpovídá celému článku). Druh zdroje se pozná jen podle celé domény (`footballmanager.com.jiny.cz` není oficiální),
+  verze FM z adresy a názvu (silný důkaz) nebo z textu výtahu (slabý); starší verze je označená „NENÍ FM27“. Jen adresy `https`, text se
+  čistí od značek a neviditelných znaků a do promptu jde jako data na jednom řádku (`oneLine`, `WEB_RULE_CS`). Zdroj z webu uložený mezi
+  „moje zdroje“ je v registru vždy neoficiální. Hledá se jen na pokyn uživatele (kliknutí), nikdy samo při načtení.
 - **Nevymýšlet mechaniky FM27** (CA/PA, match engine, skryté atributy; `core.scanMechanics`). Názvy rolí, nastavení a cest v menu FM27
   jsou neověřené, dokud je nepotvrdí screenshot nebo oficiální zdroj FM27. Role a instrukce jsou volný text zadaný uživatelem.
 - **Statistická odchylka není taktický problém.** Detektor potřebuje minimální vzorek (viz `analysis.js`), jinak jen „sleduj“.
@@ -179,6 +186,11 @@ extractJson(text) ; withLedger(provider, ledger) ; createLedger({now}) → {reco
 ### 5.5 Další čisté moduly (stručně)
 
 ```text
+websources.js classify(url) → {kind: official|community|theory|reference|media|video|other, label, trust, category} ; detectFmVersion({url,title,text})
+              parseSearchPayload(payload, via) // tolerantní čtení odpovědi konektoru (objekt, pole, text, obálka MCP); recognizesShape(payload)
+              parseAnthropicResponse(response) // výsledky z bloků web_search_tool_result, doslovné citace (cited_text), chyby nástroje, pause_turn
+              rank(results) ; describe(result) ; toPassage(result) ; lightPassage(passage) ; toSourceDoc(result, now)
+              planForLesson(lesson) ; planForAdvice({question, bookQueries}) ; planForTopic(topic) ; planStarter() ; cacheKey(plan) ; buildToolInput(schema, plan)
 alerts.js     createAlertPolicy() → {decide(alert, settings, now) → {speak, reason, text}, record, reset}
               // odstup mezi hlášeními podle četnosti (nízká 180 s, běžná 75 s, častá 30 s), naléhavé nejdřív po 15 s, ostatní nejvýš 2/4/8 za 10 minut,
               // stejné upozornění nejdřív po 5 minutách; důvody ne-mluvení: voice_off, quiet, empty, too_minor, duplicate, gap, rate

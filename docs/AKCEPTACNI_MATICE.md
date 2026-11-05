@@ -1,6 +1,6 @@
 # Akceptační matice (zadání § 17)
 
-Stav k 4. 11. 2026. Zadání říká: „Projekt není dokončen, dokud nebude možné prokázat následující“ a „všechny zásadní funkce
+Stav k 5. 11. 2026. Zadání říká: „Projekt není dokončen, dokud nebude možné prokázat následující“ a „všechny zásadní funkce
 musí mít automatizované testy **a praktické ověření**“. Automatizované testy jsou hotové. **Praktické ověření na skutečných věcech
 (Claude, FM27, okno hry, telefon) z cloudu udělat nejde**, proto u každého bodu stojí zvlášť, co je ověřené a co ne.
 
@@ -47,10 +47,13 @@ Značení:
 ## 3. Co aplikace záměrně neobsahuje
 
 - Klient pro Windows (Tauri) a server s PostgreSQL ze zadání § 1: nahrazeno jednou webovou aplikací (důvod v `docs/ARCHITEKTURA_V2.md`).
-- **Hledání na internetu za běhu.** „Kontext“ si aplikace bere z tvých knih (hledání v nich), ze zdrojů, které v „Zdrojích znalostí“ přidáš
-  (název, odkaz, datum, verze FM, typ, důvěryhodnost, oblast, tvrzení), a z registru oficiálních článků FM27 (stav k 1. 11. 2026, předvydaná
-  verze, takže jen jako popis oznámených funkcí). Stránka v Claude do internetu nesmí a živé hledání na webu by potřebovalo klíč a ověření
-  na skutečné službě; komunitní zdroje by se navíc musely poctivě označit jako komunitní, ne jako oficiální dokumentace.
+- **Neomezené hledání na internetu.** Aplikace hledá zdroje na webu (konektor Parallel Search v Claude, nebo web search přes klíč Anthropic
+  v samostatné verzi), ale **jen na pokyn** (tlačítko Najít zdroje, volba „Hledat i na webu“ u rady a lekce; v Live Coachi se nehledá,
+  zápas nečeká), s limity a pamětí výsledků. **Nic z webu není ověřené**: výtah z hledání není celý text stránky, takže i oficiální web
+  hry zůstává jen odhad (`inferred`) a zdroj z webu uložený mezi „moje zdroje“ se nikdy nestane „oficiální FM27“. Starší verze Football
+  Manageru je označená „NENÍ FM27“. **Neověřeno z cloudu:** skutečná odpověď Parallel Search (tvar je odhad, čtení toleruje víc tvarů a při
+  neznámém tvaru ukáže začátek odpovědi) a skutečné API Anthropic z prohlížeče (nástroj `web_search_20250305`, CORS, účtování 10 USD za 1 000 hledání podle
+  dokumentace k 5. 11. 2026). Ověří to až tlačítko „Zkušební hledání“ v Nastavení u tebe.
 - Dekódování polí taktiky z `.fmf`: není známo, jak jsou uložená, a zadání zakazuje hádání.
 - Oznámení na zavřený telefon (push) a překryvné okno nad hrou (Document Picture-in-Picture).
 - Čtení naskenovaných PDF bez textové vrstvy (OCR).
@@ -60,15 +63,17 @@ Značení:
 
 | Zkouška | Počet | Jak spustit |
 |---|---|---|
-| Jádro v Node (`trener/test/*.test.mjs`) | 509 | `node --test trener/test/*.test.mjs` |
+| Jádro v Node (`trener/test/*.test.mjs`) | 550 | `node --test trener/test/*.test.mjs` |
 | Serverové jádro v Pythonu (`ai_gateway/`) | 141 (16 se přeskočí bez doplňkových knihoven) | `python3 -m unittest discover -s ai_gateway/tests -t .` |
 | Inspektor FMF v Pythonu (`fmf_research/`) | 11 (potřebují `zstandard`) | `python3 -m unittest discover -s fmf_research/tests -t .` |
-| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 453 | viz `trener/README.md` |
+| Prohlížeč, celá aplikace (`trener/test/e2e/`) | 536 | viz `trener/README.md` |
 
 Prohlížečové zkoušky: 01 poradce (95), 02 kariéry, synchronizace a záloha (29), 03 tým a taktiky (40), 04 laboratoř a soupeř (34),
 05 Live Coach (46), 06 sdílení obrazovky (26), 07 historie a rozbor (21), 08 škola (33), 09 hlas a oznámení (57),
 10 samostatná verze: vlastní klíč, service worker, offline, instalace (47), 11 průchod všemi obrazovkami: zbloudilý text,
-vodorovné posouvání, čitelnost písma ve světlém i tmavém vzhledu (25).
+vodorovné posouvání, čitelnost písma ve světlém i tmavém vzhledu (25), 12 zdroje z webu: konektor Parallel Search (zkušební náhražka),
+karty a uložení zdroje, rada a lekce se zdroji z webu, chyby konektoru, samostatná verze s web search přes klíč Anthropic (falešné HTTP API) (83).
+Zkoušku 12 jsem ověřil i opačně: po vypnutí kontroly adres (povolení `javascript:` a `http:`) spadla v 15 bodech.
 
 Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani text podobný klíči (test `test_no_secrets` prochází všechny textové soubory).
 
@@ -76,12 +81,14 @@ Pythonové zkoušky hlídají i to, že se do repozitáře nedostal klíč ani t
 
 1. **Vyzkoušet stránku v Claude** (počítač i telefon, stejný účet): https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh
    Claude se při prvním použití zeptá na povolení. Přidej aspoň jednu skutečnou knihu: v aplikaci „Zdroje znalostí“.
-2. **Zapnout GitHub Pages** (jednou), aby šla nainstalovat samostatná verze se sdílením obrazovky a mikrofonem:
-   https://github.com/janvasilecko-droid/FM27-apka/settings/pages, v části „Source“ zvol **GitHub Actions**. Adresa `github.io` sdílí úložiště
-   prohlížeče se všemi dalšími stránkami na tvém `janvasilecko-droid.github.io`: aplikace tam klíč AI výchozně nepamatuje (jen do zavření
-   záložky) a varuje; bezpečnější je vlastní adresa (Custom domain) nebo používat jen stránku v Claude. Potom spusť nasazení:
-   https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml (tlačítko „Run workflow“). Sestavení už na serveru
-   GitHubu prošlo, nasazení se zastavilo jen proto, že Pages ještě nejsou zapnuté.
+2. **Samostatná verze už běží** (GitHub Pages zapnuté a nasazené 5. 11. 2026): https://janvasilecko-droid.github.io/FM27-apka/ . Nasazuje se
+   samo po každé změně aplikace na větvi `main` (ručně: https://github.com/janvasilecko-droid/FM27-apka/actions/workflows/pages.yml, tlačítko
+   „Run workflow“ je až na stránce konkrétního workflow, ne v přehledu „All workflows“). Adresa `github.io` sdílí úložiště prohlížeče se všemi
+   dalšími stránkami na tvém `janvasilecko-droid.github.io`: aplikace tam klíč AI výchozně nepamatuje (jen do zavření záložky) a varuje;
+   bezpečnější je vlastní adresa (Custom domain: https://github.com/janvasilecko-droid/FM27-apka/settings/pages) nebo používat jen stránku v Claude.
+2b. **Připojit konektor „Parallel Search“** (jen pro hledání zdrojů na stránce v Claude): https://claude.ai/settings/connectors , najdi ho v seznamu
+   a připoj; potom stránku obnov a v „Zdroje znalostí“ klikni na „Najít zdroje“. První hledání se zeptá na souhlas. V samostatné verzi
+   hledání běží přes tvůj klíč Anthropic (účtuje se zvlášť).
 3. **Skutečné vzorky z FM27**: tři exporty `.fmf` a 3 až 5 screenshotů (zápas, statistiky, taktika) s tím, co na nich vidíš.
 4. **Vlastní klíč AI** (jen pro samostatnou verzi): vytvoř ho na https://console.anthropic.com/settings/keys a vlož ho
    **jen do Nastavení v aplikaci**. Nikdy ho neposílej do chatu.

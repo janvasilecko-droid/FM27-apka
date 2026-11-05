@@ -1,11 +1,17 @@
 # Samostatná verze aplikace (instalovatelná PWA) na GitHub Pages.
-# Jednorázově ji musí majitel zapnout: Settings → Pages → Source: GitHub Actions
+# Majitel ji zapnul (Settings → Pages → Source: GitHub Actions)
 # https://github.com/janvasilecko-droid/fm27-apka/settings/pages
 name: Samostatná aplikace (GitHub Pages)
 
 on:
-  # Zatím jen ručně (Actions → Run workflow). Až bude Pages zapnuté a první nasazení projde, přidá se i spouštění po každém pushi.
+  # Ručně (Actions → Run workflow) a automaticky po změně aplikace na větvi main (první nasazení prošlo 5. 11. 2026).
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'trener/**'
+      - 'reference/codex-2026-11-01/knowledge.json'
+      - '.github/workflows/pages.yml'
 
 permissions:
   contents: read

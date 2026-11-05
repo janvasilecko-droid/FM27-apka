@@ -13,8 +13,9 @@
   const LESSONS_KEY = 'fm27.lessons'; // jen v tomto zařízení: obsah vzniká z knih, které se nesynchronizují
   let selectedId = null;
   let running = null;
+  let webChoice = null; // zaškrtnuté „Najít zdroje i na webu“ přežije překreslení obrazovky
   const LEVEL_CS = { 1: 'začátečník', 2: 'středně pokročilý', 3: 'pokročilý' };
-  const STEPS = { search: 'Hledám v knihách', ask: 'Skládám lekci', check: 'Kontroluji poctivost', repair: 'Opravuji podle kontroly' };
+  const STEPS = { search: 'Hledám v knihách', web: 'Hledám zdroje na webu', ask: 'Skládám lekci', check: 'Kontroluji poctivost', repair: 'Opravuji podle kontroly' };
   const SC_STEPS = { search: 'Hledám v knihách', ask: 'Skládám scénář', check: 'Kontroluji poctivost', repair: 'Opravuji podle kontroly' };
 
   // ------------------------------------------------------------------ pokrok (synchronizovaný dokument `progress`)
@@ -98,8 +99,20 @@
       },
     });
     box.append(W.sec(7, 'Ověření znalostí', null, ...questions, h('div', { class: 'actions' }, submit), resultBox));
+    const webBlock = FM27.web ? FM27.web.sourcesBlock(ctx.passages, 'Zdroje této lekce z webu', citedIds(lesson)) : null;
+    if (webBlock) box.append(webBlock);
     if (meta && meta.note) box.prepend(h('div', { class: 'banner warn' }, h('span', { text: meta.note })));
     return box;
+  }
+
+  /** Id úryvků, na které se lekce odvolává (princip, příklad, kvíz): k označení zdrojů z webu, které se opravdu použily. */
+  function citedIds(lesson) {
+    const out = new Set();
+    const add = (refs) => Array.isArray(refs) && refs.forEach((r) => typeof r === 'string' && out.add(r));
+    add(lesson && lesson.principle && lesson.principle.refs);
+    add(lesson && lesson.fm27Example && lesson.fm27Example.refs);
+    for (const q of (lesson && lesson.quiz) || []) add(q && q.refs);
+    return out;
   }
 
   // ------------------------------------------------------------------ vytvoření lekce
@@ -107,16 +120,34 @@
     const ai = FM27.ai;
     const Sc = S();
     if (!ai.available) return toast('Claude není dostupný.');
+    const useWeb = !!(document.getElementById('lessonWeb') && document.getElementById('lessonWeb').checked && FM27.web && FM27.web.available);
     const ctl = new AbortController();
     running = ctl;
     button.disabled = true;
     box.replaceChildren();
-    steps.reset(['search', 'ask', 'check']);
+    steps.reset(useWeb ? ['search', 'web', 'ask', 'check'] : ['search', 'ask', 'check']);
     try {
       steps.set('search', 'run');
       const ctx = passagesFor(Sc.lessonQueries(lessonDef), 8);
       const n = Object.keys(ctx).length;
       steps.set('search', n ? 'done' : 'skip', n ? `${n} ${ui.plural(n, 'úryvek', 'úryvky', 'úryvků')}` : 'knihovna nic nevrátila');
+      // zdroje z webu: lekce se učí i z toho, co aplikace sama najde (výtahy jsou neověřené; neúspěch hledání lekci nezastaví)
+      let webCount = 0;
+      const webNotes = [];
+      if (useWeb) {
+        steps.set('web', 'run', FM27.web.route === 'connector' ? 'při prvním použití potvrď okno Claude' : '');
+        const found = await FM27.web.passages(window.TrenerWebSources.planForLesson(lessonDef), { signal: ctl.signal });
+        Object.assign(ctx, found.ctx);
+        W.snapPut(found.ctx);
+        webCount = found.results.length;
+        if (found.error) {
+          steps.set('web', 'fail', 'nepovedlo se');
+          webNotes.push('Hledání na webu se nepovedlo (' + FM27.web.errorText(found.error) + '). Lekce vychází jen z knih.');
+        } else {
+          steps.set('web', webCount ? 'done' : 'skip', webCount ? `${webCount} ${ui.plural(webCount, 'zdroj', 'zdroje', 'zdrojů')}${found.cached ? ' (z paměti)' : ''}` : 'nic nenalezeno');
+          webNotes.push(...found.notes);
+        }
+      }
       const careerObs = FM27.context.observations(app, { memory: false });
       const careerContext = careerObs.length ? careerObs.map((o) => o.text).join('\n').slice(0, 1800) : '';
       const turns = Sc.buildLessonPrompt({ lesson: lessonDef, passages: Object.values(ctx), careerContext, level });
@@ -129,7 +160,8 @@
         onStep: (s, st, note) => steps.set(s, st, note),
       });
       if (result.status === 'ok') {
-        saveLesson(lessonDef.id, { lesson: result.value, at: Date.now(), level, passages: Object.fromEntries(Object.entries(ctx).map(([id, p]) => [id, { id, title: p.title, where: p.where }])), fromBooks: n > 0 });
+        const light = (p) => (p.kind === 'web' ? window.TrenerWebSources.lightPassage(p) : { id: p.id, title: p.title, where: p.where });
+        saveLesson(lessonDef.id, { lesson: result.value, at: Date.now(), level, passages: Object.fromEntries(Object.entries(ctx).map(([id, p]) => [id, light(p)])), fromBooks: n > 0, fromWeb: webCount > 0, webNotes });
         redraw();
       } else box.append(W.failedCheckBanner(result.verdict, 'Lekce neprošla kontrolou poctivosti', () => generateLesson(app, lessonDef, level, box, steps, button, redraw)));
     } catch (e) {
@@ -278,7 +310,7 @@
         'section',
         { class: 'card' },
         h('h2', { text: 'Škola taktiky' }),
-        h('p', { class: 'lead', text: 'Osnova od základů po pokročilou taktiku. Každou lekci složí trenér z úryvků tvých knih: princip, příklad z FM27 (neověřený, s pokyny k ověření), schéma, použití, chyby, cvičení a ověření znalostí.' }),
+        h('p', { class: 'lead', text: 'Osnova od základů po pokročilou taktiku. Každou lekci složí trenér z úryvků tvých knih a ze zdrojů, které aplikace sama najde na webu: princip, příklad z FM27 (neověřený, s pokyny k ověření), schéma, použití, chyby, cvičení a ověření znalostí.' }),
         ...Sc.CURRICULUM.groups.map((g) =>
           h('div', { class: 'group' }, h('h3', { text: `${g.id}. ${g.title}` }), h('div', { class: 'books', id: 'schoolList-' + g.id }, g.lessons.map((l) => {
             const pr = state.progress.school.lessons[l.id];
@@ -290,10 +322,20 @@
       const lessonBox = h('div', { id: 'lessonBox' });
       const steps = W.steps(STEPS);
       const level = def.level;
+      if (webChoice === null) webChoice = FM27.web ? FM27.web.autoOn(app) : false;
+      const webOk = !!(FM27.web && FM27.web.available);
+      const webBox = h('input', { type: 'checkbox', id: 'lessonWeb', checked: webOk && webChoice, disabled: !webOk });
+      webBox.addEventListener('change', () => (webChoice = webBox.checked));
+      const webLine = h(
+        'label',
+        { class: 'checkline' },
+        webBox,
+        h('span', { id: 'lessonWebText', text: webOk ? 'Najít zdroje i na webu: lekce se pak učí i z toho, co aplikace sama najde. Hledá se jen podle tématu lekce (nic z tvých knih ani kariéry se neposílá). Výtahy z webu jsou vždy označené jako neověřené.' + (FM27.web.route === 'anthropic' ? ' Hledání se účtuje zvlášť.' : '') : 'Hledání na webu teď není dostupné: ' + (FM27.web ? FM27.web.reason : 'chybí modul.') })
+      );
       const genBtn = h('button', { class: 'btn primary', id: 'lessonGen', type: 'button', text: stored ? 'Složit lekci znovu' : 'Složit lekci z mých knih', disabled: !FM27.ai.available, onclick: () => generateLesson(app, def, level, lessonBox, steps, genBtn, draw) });
       if (stored) {
         const ctx = { passages: stored.passages || {}, observations: {} };
-        const note = stored.fromBooks ? '' : 'Tahle lekce nevychází z tvých knih (knihovna k tématu nic nevrátila). Je to jen obecná znalost modelu, ber ji jako odhad.';
+        const note = stored.fromBooks && !stored.fromWeb ? '' : stored.fromBooks ? 'Tahle lekce vychází z tvých knih a ze zdrojů z webu. Zdroje z webu jsou výtahy z hledání a nejsou ověřené.' : stored.fromWeb ? 'Tahle lekce nevychází z tvých knih, jen ze zdrojů z webu (výtahy z hledání, neověřené). Ber ji jako odhad a otevři odkazy.' : 'Tahle lekce nevychází z tvých knih ani ze zdrojů z webu (nic se k tématu nenašlo). Je to jen obecná znalost modelu, ber ji jako odhad.';
         lessonBox.append(
           lessonView(app, stored.lesson, ctx, { note }, async (g) => {
             const p = Sc.recordLessonResult(state.progress, def.id, { correct: g.correct, total: g.total, at: Date.now() });
@@ -304,7 +346,7 @@
           })
         );
       }
-      const lessonCard = h('section', { class: 'card', id: 'lessonCard' }, h('h2', { text: `${def.id} ${def.title}` }), h('p', { class: 'hint', text: `Úroveň: ${LEVEL_CS[def.level]}. Předpoklady: ${def.prerequisites.length ? def.prerequisites.join(', ') : 'žádné'}.` }), h('div', { class: 'actions' }, genBtn, h('button', { class: 'btn', type: 'button', text: 'Zastavit', onclick: () => running && running.abort() }), h('span', { class: 'hint', text: FM27.ai.available ? 'Složení lekce spotřebuje jedno až dvě volání Claude.' : 'Bez Claude se lekce sestavit nedá.' })), steps.el, lessonBox);
+      const lessonCard = h('section', { class: 'card', id: 'lessonCard' }, h('h2', { text: `${def.id} ${def.title}` }), h('p', { class: 'hint', text: `Úroveň: ${LEVEL_CS[def.level]}. Předpoklady: ${def.prerequisites.length ? def.prerequisites.join(', ') : 'žádné'}.` }), webLine, h('div', { class: 'actions' }, genBtn, h('button', { class: 'btn', type: 'button', text: 'Zastavit', onclick: () => running && running.abort() }), h('span', { class: 'hint', text: FM27.ai.available ? 'Složení lekce spotřebuje jedno až dvě volání Claude.' : 'Bez Claude se lekce sestavit nedá.' })), steps.el, lessonBox);
 
       root.replaceChildren(h('div', { class: 'coach-grid' }, h('div', null, progressCard(app, state.progress), list), h('div', null, lessonCard, scenarioCard(app, getProgress, setProgress))));
     };

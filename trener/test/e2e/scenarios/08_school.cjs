@@ -16,6 +16,19 @@ module.exports = async function run(env) {
   const c = await newContext(browser, { db: server, uid: 'u1' });
   const page = c.page;
   const progress = () => page.evaluate(() => window.FM27.app.store.get('progress', 'progress'));
+  // Scénář rozhodování se vybírá náhodně (Math.random). Zkoušky, které potřebují shodu s testovací knihou, proto losují pevným číslem,
+  // jinak by záleželo na tom, jaké téma padne.
+  const nextScenario = async (p) => {
+    await p.evaluate(() => {
+      window.__realRandom = Math.random;
+      Math.random = () => 0;
+    });
+    await p.click('#scenarioNext');
+    await p.waitForFunction(() => document.querySelector('#scenarioBox .option'), null, { timeout: 20000 });
+    await p.evaluate(() => {
+      Math.random = window.__realRandom;
+    });
+  };
   const answer = async (picks) => {
     for (const [i, j] of picks.entries()) await page.check(`#quiz-${i}-${j}`);
   };
@@ -80,7 +93,7 @@ module.exports = async function run(env) {
   await page.evaluate(() => (window.__mock.mode = 'ok'));
 
   // ---------- trenér rozhodování: nejdřív výběr, potom vysvětlení
-  await page.click('#scenarioNext');
+  await nextScenario(page);
   await page.waitForSelector('#scenarioSituation', { timeout: 20000 });
   check('08 scénář ukáže situaci a možnosti, vysvětlení je zatím skryté', (await page.locator('#scenarioBox .option').count()) === 3 && (await page.locator('#scenarioReveal').innerText()).trim() === '', await text(page, '#scenarioBox'));
   const sprompt = (await page.evaluate(() => window.__mock.prompts)).filter((p) => /Jsi trenér rozhodování/.test(p)).pop() || '';
@@ -92,7 +105,7 @@ module.exports = async function run(env) {
   await until(async () => Object.values((await progress()).skills).some((s) => s.seen >= 1));
   const p3 = await progress();
   check('08 rozhodnutí se zapíše do pokroku včetně chyby', p3.mistakes.length >= 1 && Object.values(p3.skills).some((s) => s.seen >= 1), p3.mistakes);
-  await page.click('#scenarioNext');
+  await nextScenario(page);
   await page.waitForFunction(() => document.querySelector('#scenarioBox .option:not(:disabled)'), null, { timeout: 20000 });
   await page.locator('#scenarioBox .option[data-option="b"]').click();
   await page.waitForSelector('#scenarioReveal .banner.ok');

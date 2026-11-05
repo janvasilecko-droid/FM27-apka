@@ -12,9 +12,11 @@
     community: 'Komunitní zkušenost',
     other: 'Jiné',
   };
+  // Druh poznatku u zdrojů z webu; ruční formulář nabízí jen první tři (oficiální web se ručně nezadává, aplikace ho pozná podle domény).
+  const CATEGORY_LABEL = Object.assign({ official_web: 'Oficiální web hry (nalezeno hledáním, neověřeno)' }, CATEGORY_CS);
   const TYPE_CS = { book: 'kniha', analysis: 'analýza trenéra nebo týmu', article: 'článek', video: 'video', forum: 'diskuse na fóru', other: 'jiné' };
 
-  // Místa, kde se dá hledat dál. Stránka v Claude nemá přístup na web, nic z toho se nestahuje a nic z toho není ověřené.
+  // Místa, kde se dá hledat dál. Seznam se nikam nestahuje a nic z něj není ověřené (hledání na webu je samostatná karta výš).
   const WHERE_TO_LOOK = [
     ['Football Manager (oficiální stránky hry)', 'https://www.footballmanager.com', 'oficiální'],
     ['Sports Interactive (vývojář)', 'https://www.sigames.com', 'oficiální'],
@@ -28,15 +30,16 @@
   // ------------------------------------------------------------------ registr zdrojů (oficiální + ruční)
   /** Ruční zdroje se do registru dostanou VŽDY jako neoficiální: aplikace nemůže ověřit, kdo je napsal. */
   function sourceFromUser(doc) {
+    const web = doc.origin === 'web';
     return C.parseSource({
       id: 'my:' + doc.id,
       title: doc.title,
       url: doc.url || '',
       publisher: doc.publisher || '',
-      version: doc.fmVersion ? `FM${String(doc.fmVersion).replace(/\D/g, '')} (zadal uživatel)` : '',
-      source_type: 'zadal uživatel (neověřeno)',
+      version: doc.fmVersion ? `FM${String(doc.fmVersion).replace(/\D/g, '')} (${web ? 'podle adresy nebo názvu stránky' : 'zadal uživatel'})` : '',
+      source_type: web ? 'nalezeno hledáním na webu (neověřeno)' : 'zadal uživatel (neověřeno)',
       trust: doc.category,
-      caveat: 'Zdroj zadal uživatel ručně. Aplikace ho neověřila, takže ho bere jen jako odhad.',
+      caveat: web ? 'Nalezeno hledáním na webu. Uložený je jen výtah z hledání, ne celý text stránky; aplikace ho neověřila, takže ho bere jen jako odhad.' : 'Zdroj zadal uživatel ručně. Aplikace ho neověřila, takže ho bere jen jako odhad.',
       claims: String(doc.claims || '').split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 8),
     });
   }
@@ -178,7 +181,7 @@
         s.claims.length ? h('span', { text: `Tvrzení: ${s.claims.slice(0, 3).join(' | ')}${s.claims.length > 3 ? ' …' : ''}` }) : null,
         s.url && /^https?:\/\//i.test(String(s.url)) ? h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer', class: 'hint', text: s.url }) : s.url ? h('span', { class: 'hint', text: s.url }) : null
       ),
-      h('div', { class: 'row' }, ui.tierChip(verified ? 'verified' : 'inferred', verified ? 'oficiální FM27' : 'jen odhad'), own ? ui.confirmButton('Smazat', 'Opravdu?', () => app.store.remove('source', own.id).then(() => renderSources(app))) : null)
+      h('div', { class: 'row' }, ui.tierChip(verified ? 'verified' : 'inferred', verified ? 'oficiální FM27' : 'jen odhad'), own && own.origin === 'web' ? ui.chip('neutral', 'nalezeno na webu') : null, own ? ui.confirmButton('Smazat', 'Opravdu?', () => app.store.remove('source', own.id).then(() => renderSources(app))) : null)
     );
   }
 
@@ -244,6 +247,126 @@
     );
   }
 
+  // ------------------------------------------------------------------ zdroje z webu (hledá aplikace sama)
+  // Poslední výsledek přežije přepnutí sekce, ať se po návratu nemusí hledat znovu.
+  let lastWeb = null;
+  let webRun = null;
+  const WEB_TOPICS = [
+    ['Presink', 'pressing triggers'],
+    ['Izolovaný útočník', 'isolated striker support'],
+    ['Budování hry', 'build-up play from the back'],
+    ['Střední blok', 'mid block defending'],
+    ['Role hráčů FM27', 'player roles'],
+  ];
+
+  const savedWebUrls = (app) => new Set(app.store.list('source').filter((d) => d.origin === 'web').map((d) => d.url));
+
+  async function saveWebSource(app, r) {
+    await app.store.put('source', window.TrenerWebSources.toSourceDoc(r, Date.now()));
+    toast('Zdroj je uložený mezi tvoje zdroje. Trenér ho smí citovat jako odhad.');
+    renderSources(app);
+  }
+
+  function drawWebResults(app) {
+    const box = $('#webResults');
+    if (!box) return;
+    box.replaceChildren();
+    if (!lastWeb) return;
+    const saved = savedWebUrls(app);
+    box.append(h('p', { class: 'hint', id: 'webResultsHdr', text: `Hledáno: ${lastWeb.topic} · ${FM27.web.label()}${lastWeb.cached ? ' · z paměti (hledání se neopakovalo)' : ''}` }));
+    if (!lastWeb.results.length) box.append(h('p', { class: 'hint', text: lastWeb.unparsed ? 'Vyhledávač odpověděl, ale aplikace z odpovědi neumí přečíst odkazy.' : 'Nic nenalezeno. Zkus jiné téma nebo anglický výraz.' }));
+    const list = h('div', { class: 'books', id: 'webResultList' });
+    for (const r of lastWeb.results) list.append(FM27.web.card(r, { saved: saved.has(r.url), onSave: (x) => saveWebSource(app, x) }));
+    box.append(list);
+    if (lastWeb.notes && lastWeb.notes.length) box.append(h('ul', { class: 'list' }, lastWeb.notes.map((n) => h('li', { text: n }))));
+    if (lastWeb.unparsed && FM27.web.lastRaw) box.append(h('details', null, h('summary', { text: 'Technické podrobnosti (co vyhledávač poslal)' }), h('pre', { class: 'mono', id: 'webRaw', text: FM27.web.lastRaw })));
+  }
+
+  function webSearchCard(app) {
+    const W = FM27.web;
+    const WS = window.TrenerWebSources;
+    if (!W || !WS) return null;
+    const topic = ui.input({ id: 'webTopic', maxlength: 160, placeholder: 'Např.: pressing, izolovaný útočník, 4-3-3 (nepovinné)' });
+    const msg = h('p', { class: 'hint', id: 'webMsg', 'aria-live': 'polite' });
+    const statusBox = h('div', { id: 'webSrcStatus' });
+    const find = h('button', { class: 'btn primary', id: 'webFind', type: 'button', text: 'Najít zdroje' });
+    const starter = h('button', { class: 'btn', id: 'webStarter', type: 'button', text: 'Najít, co vyšlo o FM27' });
+    const stop = h('button', { class: 'btn', id: 'webStop', type: 'button', text: 'Zastavit', hidden: true, onclick: () => webRun && webRun.abort() });
+    const setBusy = (on) => {
+      for (const b of [find, starter, ...document.querySelectorAll('.web-topic')]) b.disabled = on;
+      stop.hidden = !on;
+    };
+
+    async function run(plan, label) {
+      if (!W.available) return (msg.textContent = 'Hledání na webu není dostupné: ' + W.reason);
+      if (webRun) return;
+      if (!plan.queries.length) return (msg.textContent = 'Napiš téma, nebo použij tlačítko „Najít, co vyšlo o FM27“.');
+      const ctl = new AbortController();
+      webRun = ctl;
+      setBusy(true);
+      msg.textContent = 'Hledám… (při prvním použití potvrď okno Claude)';
+      try {
+        const r = await W.search(plan, { signal: ctl.signal });
+        lastWeb = Object.assign({ topic: label }, r);
+        msg.textContent = r.results.length ? `Nalezeno ${r.results.length} ${ui.plural(r.results.length, 'zdroj', 'zdroje', 'zdrojů')}. Odkaz si otevři a ověř; nic z toho aplikace neověřila.` : '';
+      } catch (e) {
+        lastWeb = null;
+        msg.textContent = e && e.code === 'cancelled' ? 'Zastaveno.' : W.errorText(e);
+        const act = W.errorAction(e);
+        if (act) msg.append(' ', h('a', { href: act.url, target: '_blank', rel: 'noopener noreferrer', text: act.label }));
+      } finally {
+        webRun = null;
+        setBusy(false);
+        drawWebResults(app);
+        refreshStatus();
+      }
+    }
+    find.addEventListener('click', () => run(WS.planForTopic(topic.value), topic.value.trim()));
+    starter.addEventListener('click', () => run(WS.planStarter(), 'co vyšlo o FM27'));
+    topic.addEventListener('keydown', (e) => e.key === 'Enter' && find.click());
+
+    const chips = h(
+      'div',
+      { class: 'chips' },
+      WEB_TOPICS.map(([label, q]) => h('button', { class: 'btn small web-topic', type: 'button', text: label, onclick: () => ((topic.value = q), run(WS.planForTopic(q), q)) }))
+    );
+
+    async function refreshStatus() {
+      const st = await W.status();
+      statusBox.replaceChildren();
+      if (st.state === 'ready') return statusBox.append(h('p', { class: 'hint', id: 'webSrcOk', text: st.text }));
+      if (st.state === 'unknown') return statusBox.append(h('p', { class: 'hint', id: 'webSrcOk', text: st.text }));
+      statusBox.append(
+        h(
+          'div',
+          { class: 'banner warn', id: 'webSrcOff' },
+          h('b', { text: 'Hledání na webu zatím nejede' }),
+          h('span', { text: st.text }),
+          st.state === 'missing' || st.state === 'reauth'
+            ? h('ol', null, h('li', null, 'Otevři ', h('a', { href: W.CONNECTORS_URL, target: '_blank', rel: 'noopener noreferrer', text: W.CONNECTORS_URL })), h('li', { text: `Najdi konektor „${W.SERVER}“ a připoj ho.` }), h('li', { text: 'Vrať se sem, obnov stránku a klikni na „Najít zdroje“.' }))
+            : st.link
+              ? h('a', { href: st.link.url, target: '_blank', rel: 'noopener noreferrer', text: st.link.label })
+              : null
+        )
+      );
+    }
+    refreshStatus();
+
+    return h(
+      'section',
+      { class: 'card', id: 'webSearchCard' },
+      h('h2', { text: 'Zdroje z webu: hledá aplikace sama' }),
+      h('p', { class: 'lead', text: 'Napiš téma (nebo klikni na tlačítko) a aplikace najde zdroje na internetu: oficiální články o FM27, rozbory taktiky a komunitní návody. U každého uvidíš odkaz, druh zdroje, verzi hry a datum. Ze stejných zdrojů se pak učí i Škola taktiky a Osobní trenér.' }),
+      statusBox,
+      h('div', { class: 'row' }, ui.field('Téma', topic, { grow: true, noMargin: true }), find),
+      h('div', { class: 'actions' }, starter, stop),
+      chips,
+      msg,
+      h('div', { id: 'webResults' }),
+      h('p', { class: 'hint', text: 'Hledá se jen podle tématu, které zadáš (nic z tvých knih ani kariéry se neposílá). Co aplikace najde, není ověřené: je to výtah z hledání, ne celý text stránky. Oficiální web hry je nejsilnější zdroj, ale i u něj si otevři odkaz. Starší verze Football Manageru není FM27. Chceš-li, aby trenér zdroj mohl citovat v radách, ulož ho tlačítkem „Uložit do mých zdrojů“.' })
+    );
+  }
+
   // ------------------------------------------------------------------ obrazovka
   function render(root, app) {
     const lib = FM27.library;
@@ -262,6 +385,7 @@
     });
 
     root.replaceChildren(
+      webSearchCard(app),
       h(
         'section',
         { class: 'card' },
@@ -330,13 +454,14 @@
         'section',
         { class: 'card' },
         h('h2', { text: 'Kde hledat dál' }),
-        h('p', { class: 'lead', text: 'Tahle stránka nemá přístup na web a nic z těchto míst nestahuje. Je to jen seznam, kde se dá ověřit, co hra opravdu umí. Co tam najdeš, přidej výš jako zdroj s datem a verzí hry.' }),
+        h('p', { class: 'lead', text: 'Tohle je jen seznam míst, kde se dá ověřit, co hra opravdu umí; aplikace z něj nic nestahuje (hledá výš, v kartě „Zdroje z webu“). Co tam najdeš sám, přidej níže jako zdroj s datem a verzí hry.' }),
         h('ul', { class: 'list' }, WHERE_TO_LOOK.map(([name, url, kind]) => h('li', null, h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: name }), ` (${kind}, neověřeno)`)))
       )
     );
     $('#searchQ').addEventListener('keydown', (e) => e.key === 'Enter' && runSearch());
     renderBooks(app);
     renderSources(app);
+    drawWebResults(app);
     const off = FM27.bus.on('library', () => renderBooks(app));
     app.onCleanup(off);
   }

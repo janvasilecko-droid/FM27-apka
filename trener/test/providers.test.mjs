@@ -1466,3 +1466,107 @@ test('v testech se nikde nevolá skutečná síť: fetch je vždy falešný', as
   }
   assert.equal(touched, false);
 });
+
+// ------------------------------------------------------------------ hledání na webu (nástroj web_search Anthropic)
+const searchBody = (extra = {}) => ({
+  id: 'msg_ws',
+  type: 'message',
+  role: 'assistant',
+  model: 'claude-haiku-5-5',
+  content: [
+    { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: { query: 'fm27 tactics' } },
+    { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://www.footballmanager.com/fm27/features/x', title: 'FM27', encrypted_content: 'ZZZ', page_age: 'October 20, 2026' }] },
+    { type: 'text', text: 'Nalezeno.', citations: [{ type: 'web_search_result_location', url: 'https://www.footballmanager.com/fm27/features/x', title: 'FM27', encrypted_index: 'i', cited_text: 'Heat maps.' }] },
+  ],
+  stop_reason: 'end_turn',
+  usage: { input_tokens: 900, output_tokens: 80, server_tool_use: { web_search_requests: 1 } },
+  ...extra,
+});
+
+test('webSearch: jen adaptér Anthropic ho má; požadavek nese nástroj web_search_20250305 a levný model', async () => {
+  const f = fakeFetch(jsonResponse(searchBody()));
+  const p = P.createAnthropicProvider({ apiKey: KEY, fetch: f });
+  assert.equal(typeof p.webSearch, 'function');
+  const r = await p.webSearch('Najdi zdroje o FM27');
+  const call = f.calls[0];
+  assert.equal(call.url, 'https://api.anthropic.com/v1/messages');
+  assert.equal(call.body.model, 'claude-haiku-5-5');
+  assert.deepEqual(call.body.tools, [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }]);
+  assert.equal(call.body.max_tokens, 2048);
+  assert.equal(call.body.messages[0].content, 'Najdi zdroje o FM27');
+  assert.equal(call.headers['x-api-key'], KEY);
+  assert.equal(r.text, 'Nalezeno.');
+  assert.equal(r.raw.content[1].type, 'web_search_tool_result');
+  const o = P.createOpenAICompatibleProvider({ baseUrl: 'https://x.example/v1', models: { default: 'm' }, fetch: f });
+  assert.equal(o.webSearch, undefined);
+  assert.equal(P.wrapSample(() => {}).webSearch, undefined);
+});
+
+test('webSearch: běžné json() a text() žádné nástroje neposílají', async () => {
+  const f = fakeFetch(jsonResponse(anthropicBody('{}')));
+  const p = P.createAnthropicProvider({ apiKey: KEY, fetch: f });
+  await p.text('ahoj');
+  assert.equal(f.calls[0].body.tools, undefined);
+  assert.deepEqual(Object.keys(f.calls[0].body).sort(), ['max_tokens', 'messages', 'model']);
+});
+
+test('webSearch: maxUses (strop 5), domény (jen jeden seznam), úroveň modelu a signál', async () => {
+  const f = fakeFetch(jsonResponse(searchBody()));
+  const p = P.createAnthropicProvider({ apiKey: KEY, fetch: f });
+  await p.webSearch('x', { maxUses: 99, allowedDomains: ['sortitoutsi.net', 'neplatná doména!', 'footballmanager.com/fm27'], blockedDomains: ['spam.example'], modelTier: 'default' });
+  const t = f.calls[0].body.tools[0];
+  assert.equal(t.max_uses, 5);
+  assert.deepEqual(t.allowed_domains, ['sortitoutsi.net', 'footballmanager.com/fm27']);
+  assert.equal(t.blocked_domains, undefined);
+  assert.equal(f.calls[0].body.model, 'claude-sonnet-5-5');
+  const f2 = fakeFetch(jsonResponse(searchBody()));
+  await P.createAnthropicProvider({ apiKey: KEY, fetch: f2 }).webSearch('x', { blockedDomains: ['spam.example'] });
+  assert.deepEqual(f2.calls[0].body.tools[0].blocked_domains, ['spam.example']);
+  assert.equal(f2.calls[0].body.tools[0].allowed_domains, undefined);
+  const f3 = fakeFetch(jsonResponse(searchBody()));
+  const ctl = new AbortController();
+  await P.createAnthropicProvider({ apiKey: KEY, fetch: f3 }).webSearch('x', { signal: ctl.signal });
+  assert.equal(f3.calls[0].init.signal, ctl.signal);
+});
+
+test('webSearch: odpověď bez textu (pause_turn) není chyba a výsledky zůstanou v raw', async () => {
+  const f = fakeFetch(jsonResponse(searchBody({ stop_reason: 'pause_turn', content: [{ type: 'server_tool_use', id: 's', name: 'web_search', input: { query: 'q' } }] })));
+  const p = P.createAnthropicProvider({ apiKey: KEY, fetch: f });
+  const r = await p.webSearch('x');
+  assert.equal(r.text, '');
+  assert.equal(r.raw.stop_reason, 'pause_turn');
+});
+
+test('webSearch: chyby HTTP, zrušení a hlášení tokenů jako u ostatních volání; klíč se neprozradí', async () => {
+  const f = fakeFetch(jsonResponse(anthropicError('invalid_request_error', `Web search is not enabled for your organization ${KEY}`), 400));
+  const p = P.createAnthropicProvider({ apiKey: KEY, fetch: f });
+  await assert.rejects(() => p.webSearch('x'), (e) => e.code === 'invalid_request' && !JSON.stringify(e).includes(KEY));
+  const f2 = fakeFetch(jsonResponse(anthropicError('rate_limit_error', 'slow down'), 429));
+  await assert.rejects(() => P.createAnthropicProvider({ apiKey: KEY, fetch: f2 }).webSearch('x'), (e) => e.code === 'rate_limited');
+  const ctl = new AbortController();
+  ctl.abort();
+  await assert.rejects(() => P.createAnthropicProvider({ apiKey: KEY, fetch: fakeFetch(jsonResponse(searchBody())) }).webSearch('x', { signal: ctl.signal }), (e) => e.code === 'cancelled');
+  const used = [];
+  const f3 = fakeFetch(jsonResponse(searchBody()));
+  await P.createAnthropicProvider({ apiKey: KEY, fetch: f3 }).webSearch('x', { onUsage: (u) => used.push(u) });
+  assert.deepEqual(used, [{ inputTokens: 900, outputTokens: 80, model: 'claude-haiku-5-5' }]);
+});
+
+test('webSearch: withLedger volání zapíše (úroveň quick, tokeny z odpovědi) a rozhraní zachová', async () => {
+  const ledger = P.createLedger({ now: () => 1000 });
+  const f = fakeFetch(jsonResponse(searchBody()));
+  const wrapped = P.withLedger(P.createAnthropicProvider({ apiKey: KEY, fetch: f }), ledger, { purpose: 'hledání na webu' });
+  assert.equal(typeof wrapped.webSearch, 'function');
+  const r = await wrapped.webSearch('Najdi zdroje');
+  assert.equal(r.raw.stop_reason, 'end_turn');
+  const [e] = ledger.toJSON().entries;
+  assert.equal(e.tier, 'quick');
+  assert.equal(e.model, 'claude-haiku-5-5');
+  assert.equal(e.inputTokens, 900);
+  assert.equal(e.outputTokens, 80);
+  assert.equal(e.estimated, false);
+  assert.equal(e.ok, true);
+  assert.equal(e.purpose, 'hledání na webu');
+  const noSearch = P.withLedger(P.wrapSample(async () => ({ text: '' })), P.createLedger({ now: () => 0 }), {});
+  assert.equal(noSearch.webSearch, undefined);
+});

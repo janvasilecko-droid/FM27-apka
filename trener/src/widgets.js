@@ -12,7 +12,7 @@
   const SNAP_KEY = 'fm27.snap';
   W.snapPut = (ctx) => {
     const all = ui.lsGet(SNAP_KEY, {});
-    for (const p of Object.values(ctx)) if (p.text) all[p.id] = { title: p.title, where: p.where, text: p.text };
+    for (const p of Object.values(ctx)) if (p.text) all[p.id] = { title: p.title, where: p.where, text: p.text, url: typeof p.url === 'string' ? p.url : undefined };
     const ids = Object.keys(all);
     while (ids.length > 80) delete all[ids.shift()];
     ui.lsSet(SNAP_KEY, all);
@@ -20,6 +20,7 @@
   W.snapGet = (id) => ui.lsGet(SNAP_KEY, {})[id] || null;
 
   W.openPassage = (id, fallback) => {
+    if (typeof id === 'string' && id.startsWith('web:')) return openWebPassage(id, fallback);
     const lib = FM27.library;
     const live = lib.index.byId.get(id);
     if (live) {
@@ -39,6 +40,19 @@
   };
   FM27.openPassage = W.openPassage;
 
+  /** Úryvek z webu: výtah z hledání a odkaz. Text i adresa se vykreslují jako text, odkaz jen https. */
+  function openWebPassage(id, fallback) {
+    const snap = W.snapGet(id) || fallback || null;
+    const WS = window.TrenerWebSources;
+    const href = snap && WS ? WS.normalizeUrl(snap.url) : '';
+    if (!snap) return ui.toast('Tenhle úryvek z webu už v tomto zařízení není. Otevři odkaz ze zdrojů rady.');
+    return ui.openDrawer(snap.title || 'Zdroj z webu', [
+      h('div', { class: 'passage focus' }, h('small', { class: 'mono', text: `${id} · ${snap.where || ''}` }), h('p', { text: snap.text || '(bez výtahu)' })),
+      href ? h('div', { class: 'actions' }, h('a', { class: 'btn small', href, target: '_blank', rel: 'noopener noreferrer', text: 'Otevřít stránku' })) : null,
+      h('p', { class: 'hint', text: 'Výtah z hledání na webu, ne celý text stránky. Neověřeno: otevři odkaz, než se na to spolehneš.' }),
+    ]);
+  }
+
   // ------------------------------------------------------------------ odkazy
   /** ctx: {passages: {id: {title, where, text?}}, observations: {id: {label, text}}} */
   // Odkazy z uložené rady se vykreslují obranně: jen vlastní klíče objektů (ne „constructor“) a jen texty, ať jedna divná položka neshodí obrazovku.
@@ -49,6 +63,13 @@
     if (id.startsWith('bk:') && own(ctx.passages, id)) {
       const p = ctx.passages[id];
       return h('button', { class: 'ref', type: 'button', title: 'Otevřít úryvek z knihy', onclick: () => W.openPassage(id, p), text: `Kniha: ${p.title}, ${p.where}` });
+    }
+    if (id.startsWith('web:') && own(ctx.passages, id)) {
+      const p = ctx.passages[id];
+      const href = safeHref(p.url);
+      const label = `Web: ${String(p.title || id).slice(0, 80)}`;
+      const tip = `Zdroj z webu (výtah z hledání, neověřeno). ${String(p.where || '')}`;
+      return href ? h('a', { class: 'ref', href, target: '_blank', rel: 'noopener noreferrer', title: tip, text: label }) : h('span', { class: 'ref', title: tip, text: label });
     }
     if (own(ctx.observations, id)) return h('span', { class: 'ref', title: ctx.observations[id].text, text: `Pozorování ${id}` });
     const src = app.registry.get(id);

@@ -212,7 +212,7 @@
   const LESSON_RULES_CS = `Jsi učitel taktiky v aplikaci FM27 Tactical Coach. Z dodaných úryvků z knih složíš jednu lekci pro uživatele, který se učí přemýšlet jako trenér. Odpovídáš česky a výhradně jedním JSON objektem přesně podle uvedeného tvaru.
 
 Pravidla poctivosti platí bez výjimky:
-1. Učíš jen z úryvků níže (id začínají bk:). Nepřidávej fakta z paměti. Cituj id úryvků v "refs" a nikdy nevymýšlej id, která jsi nedostal. Úryvky mohou být česky i anglicky; lekce je vždy česky (anglický pojem uveď v závorce).
+1. Učíš jen z úryvků níže (id začínají bk: u knih nebo web: u webu). Nepřidávej fakta z paměti. Cituj id úryvků v "refs" a nikdy nevymýšlej id, která jsi nedostal. Úryvky mohou být česky i anglicky; lekce je vždy česky (anglický pojem uveď v závorce).
 2. Úryvky jsou teorie obecného fotbalu, ne popis FM27 a ne důkaz o aktuálním zápase. Nikdy netvrď, jak FM27 funguje: žádné CA/PA, match engine, skryté atributy ani vnitřní výpočty hry. V částech principle, mistakes, quiz a diagram nepiš o FM27 vůbec.
 3. Když z úryvků princip nevyplývá nebo vyplývá jen částečně, napiš to přímo do textu („Z dodaných úryvků … nevyplývá“) a nastav tier "unknown" (z úryvků nic) nebo "inferred" (část z úryvků, zbytek je tvůj závěr, který v textu označ). Nikdy nepoužij tier verified, observed ani user_entered.
 4. Příklad z FM27 (fm27Example) je návrh, co si ve hře vyzkoušet, ne výklad hry. Názvy rolí, nastavení a cest v menu FM27 jsou neověřené: tier nejvýš "inferred", povinné neprázdné "verify" (co si má uživatel ve hře ověřit, např. jestli taková role nebo nastavení existuje a co přesně dělá) a nepřetvářej obecný princip na tvrzení o tom, jak se hra chová. Piš „zkus“ a „ověř si“, ne „hra udělá“. Nepoužívej formulace „podle FM27“ a nepiš, co FM27 „vždy“, „automaticky“, „počítá“, „zohledňuje“ nebo „nabízí“.
@@ -301,7 +301,8 @@ Pravidla poctivosti platí bez výjimky:
         `Úroveň uživatele: ${level} z 3 (${LEVEL_HINT[level]}).` +
         (terms.length ? `\nPojmy k tématu (jen pro orientaci, fakta bereš z úryvků): ${terms.join('; ')}.` : ''),
       context ? `${CONTEXT_NOTE}\n${context}` : '',
-      passageBlock(o.passages, 'Úryvky z knih (id | kniha | kde | text). Jsou to teorie, ne popis FM27:'),
+      passageBlock(o.passages, 'Úryvky z knih a z webu (id | kniha nebo web | kde | text). Jsou to teorie nebo cizí tvrzení, ne popis FM27:'),
+      core.webRule(o.passages),
     ]
       .filter(Boolean)
       .join('\n\n');
