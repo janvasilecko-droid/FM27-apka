@@ -12,7 +12,7 @@ co jí ukážeš: tým, taktiku, screenshoty a průběh zápasu. Co neví, to ř
 | Kde běží | claude.ai, soukromý odkaz majitele | prohlížeč, jde nainstalovat na plochu a telefon |
 | AI | schopnost `sample` z tvého účtu Claude, žádný klíč | tvůj vlastní klíč (Anthropic, nebo OpenAI-kompatibilní), uložený jen v tomhle prohlížeči (na `github.io` výchozí volba „jen do zavření záložky“) |
 | Data | místně + synchronizace počítač ↔ telefon přes `db` (soukromá část `data/users/<id>`) | jen místně (IndexedDB), přenos zálohou |
-| Snímky obrazovky | vkládáš ručně (Ctrl+V, soubor, foto z telefonu) | navíc **sdílení okna hry** s výslovným souhlasem |
+| Snímky obrazovky | vkládáš ručně (Ctrl+V, soubor, foto z telefonu); **sdílení okna hry jen tehdy, když to okno claude.ai stránce povolí** (řádek „Sdílení obrazovky v tomto okně“ v Nastavení; z cloudu to nejde ověřit) | navíc **sdílení okna hry** s výslovným souhlasem |
 | Hlas | čtení nahlas | čtení nahlas, **hlasová otázka**, systémové oznámení při skrytém okně |
 | Offline | ne | ano (service worker); volání AI a čtení PDF potřebují internet |
 | Hledání zdrojů na webu | konektor „Parallel Search“ (musíš ho mít připojený v claude.ai), bez poplatku z aplikace | web search od Anthropic přes tvůj klíč, **účtuje se zvlášť** |
@@ -51,7 +51,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/standalone.js`, `standalone/` | jen samostatná verze: service worker, manifest, ikony, nabídka instalace |
 | `build.mjs` | slepí vše do `dist/trener.fragment.html` (publikuje se), `dist/trener.test.html` (zkoušky) a `dist/standalone/` (nasazení na Pages) |
 | `test/*.test.mjs` | 550 testů čistých modulů a úložiště |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (12 scénářů, 539 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (13 scénářů, 553 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
@@ -98,7 +98,7 @@ a chyby poskytovatelů, service worker a offline otevření, rozložení na tele
 **Neověřeno z cloudu** (čeká na skutečné prostředí): odpovědi skutečného Claude a jak často rada projde kontrolou na první pokus;
 skutečné `db`, `sample` a souhlasy v artefaktu; čtení skutečných screenshotů FM27; skutečný export `.fmf` (pole taktiky se
 **nedekódují**, aplikace čte jen kontejner); sdílení okna FM27 na Windows; kvalita českého hlasu; OpenAI-kompatibilní rozhraní
-proti živé službě; pdf.js uvnitř omezeného okna artefaktu a čtení skutečných knih (sazba ve sloupcích, tabulky); **hledání zdrojů na webu**:
+proti živé službě; pdf.js uvnitř omezeného okna artefaktu a čtení skutečných knih (sazba ve sloupcích, tabulky); **zda okno claude.ai povolí stránce sdílení obrazovky** (aplikace to zjistí předem a ukáže v Nastavení; pokud ano, živé čtení jede i na stránce v Claude, tedy na předplatném bez klíče); **hledání zdrojů na webu**:
 skutečná odpověď konektoru Parallel Search (tvar je odhad, čtení je tolerantní) a nástroj `web_search` Anthropic volaný z prohlížeče (CORS, účtování).
 Ověřeno jen se zkušebními náhražkami: že se výsledky čtou, řadí a označují poctivě (druh zdroje podle domény, starší verze FM „NENÍ FM27“,
 jen https, text z webu je jen text a v promptu jen jeden řádek dat, nic z webu není `verified`) a že chyby konektoru mají srozumitelné hlášky.

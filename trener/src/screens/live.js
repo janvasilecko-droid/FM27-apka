@@ -344,7 +344,7 @@
         h('h2', { text: 'Snímky obrazovky' }),
         canShare
           ? h('p', { class: 'lead', text: 'Sdílej okno hry (prohlížeč se zeptá a ukáže, že se sdílí). Aplikace pošle snímek jen když se obrazovka změní a ustálí, a nikdy nepřekročí limity z Nastavení. Zastavit jde kdykoli tady i tlačítkem prohlížeče.' })
-          : h('p', { class: 'lead', text: 'Stránka v Claude nesmí sama snímat obrazovku ani mikrofon. Snímky vkládej ručně: ve Windows Win+Shift+S a pak tady Ctrl+V, na telefonu vyfoť obrazovku. Čtení souvislého sdílení obrazovky je v samostatné verzi aplikace.' }),
+          : h('p', { class: 'lead', text: 'Stránka v Claude nesmí sama snímat obrazovku ani mikrofon (stav je v Nastavení). Snímky vkládej ručně: ve Windows Win+Shift+S a pak tady Ctrl+V, na telefonu vyfoť obrazovku. Čtení souvislého sdílení obrazovky je v samostatné verzi aplikace.' }),
         share,
         capStatus,
         h('div', { class: 'banner warn', id: 'liveHidden', hidden: !(live.session.capture && document.hidden) }, h('b', { text: 'Okno aplikace je teď skryté' }), h('span', { text: 'Prohlížeč skryté nebo zakryté okno zpomaluje, takže sledování může být pomalejší (po pěti minutách i jen jedna kontrola za minutu). Nech aplikaci viditelnou vedle hry: hru v okně, nebo aplikaci na druhém monitoru.' })),

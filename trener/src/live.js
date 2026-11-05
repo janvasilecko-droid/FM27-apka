@@ -349,7 +349,29 @@
     const el = document.querySelector('#pillLive');
     if (el) el.hidden = !on;
   };
-  live.captureAvailable = () => !!(FM27.app.standalone && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+  const hasDisplayMedia = () => !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+  /** Stránka v Claude běží v rámečku claude.ai. Sdílet obrazovku smí jen tehdy, když rámeček schopnost „display-capture“ povolí
+      (to jde zjistit předem a bez dotazu na souhlas). Pak by živé čtení jelo i na stránce v Claude, tedy na předplatném, bez klíče.
+      `env` ({framed, policy}) je jen pro zkoušky. */
+  live.framedCaptureAllowed = (env) => {
+    try {
+      const e = env || {};
+      const framed = e.framed !== undefined ? e.framed : window.self !== window.top;
+      if (!framed) return false;
+      const policy = e.policy || document.permissionsPolicy || document.featurePolicy;
+      return !!(policy && typeof policy.allowsFeature === 'function' && policy.allowsFeature('display-capture'));
+    } catch (err) {
+      return false;
+    }
+  };
+  live.captureAvailable = () => hasDisplayMedia() && !!(FM27.app.standalone || live.framedCaptureAllowed());
+  /** Důvod pro Nastavení: kde to jde a proč ne. */
+  live.captureReason = () => {
+    if (!hasDisplayMedia()) return 'ne: prohlížeč sdílení obrazovky nemá';
+    if (FM27.app.standalone) return 'ano';
+    if (window.self === window.top) return 'ne (jen v samostatné verzi)';
+    return live.framedCaptureAllowed() ? 'ano (okno claude.ai to stránce povoluje)' : 'ne: okno claude.ai sdílení obrazovky stránkám nepovoluje, snímky vkládej ručně (Win+Shift+S a Ctrl+V)';
+  };
 
   /** hooks: {onStatus(text), onResult(result), onEnded()}. Vyžaduje výslovný souhlas uživatele (okno prohlížeče). */
   live.startCapture = async function startCapture(app, hooks) {

@@ -13,7 +13,7 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
   „Zdrojích znalostí“, volba „Hledat i na webu“ u Osobního trenéra a u lekce ve Škole, zkušební hledání v Nastavení. Cesty: konektor
   „Parallel Search“ (stránka v Claude, `mcp`) a `web_search` od Anthropic přes klíč (samostatná verze, účtuje se zvlášť). **Neověřeno proti
   živým službám**, nic z webu není `verified`, v Live Coachi se nehledá. Kód: `trener/src/websources.js`, `web.js`; zkouška 12.
-- **Zkoušky**: 550 testů jádra, 141 + 11 v Pythonu, 539 kontrol v prohlížeči (12 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
+- **Zkoušky**: 550 testů jádra, 141 + 11 v Pythonu, 553 kontrol v prohlížeči (13 scénářů). Kód prošel nezávislou revizí dvou AI revizorů, nálezy jsou opravené (`docs/REVIZE_NEZAVISLA_2026-11-04.md`). Co z nich dokazuje a co ne:
   `docs/AKCEPTACNI_MATICE.md`. Zkoušky používají náhražky za Claude, `db`, sdílení obrazovky a hlas; **nic z toho nebylo vyzkoušeno proti
   skutečné službě ani skutečnému FM27**.
 - Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl; `trener/` je nová implementace. Kdyby se našel, porovná se (ne přepíše).
@@ -39,6 +39,8 @@ Chat se mezi relacemi nepřenese. Navazuj z tohoto souboru, z `README.md` a z `d
    (Settings → Pages → Custom domain), nebo klíč nezadávat a aplikaci používat jen se stránkou v Claude.
 3. **Skutečné vzorky z FM27**: tři exporty `.fmf` s předem známým nastavením (`docs/REVIZE_CLAUDE_2026-11-04.md`, část 2) a 3 až 5
    screenshotů (zápas, statistiky, taktika) s tím, co na nich vidí. Bez nich nejde změřit čtení obrazovky ani dekódovat taktiku.
+3a. **Otevřít Nastavení na stránce v Claude** a poslat řádek „Sdílení obrazovky v tomto okně“ (ano/ne a proč): rozhodne, jestli živé čtení obrazovky
+   půjde na předplatném bez klíče: https://claude.ai/artifact/3VXcYYiJMzjAUYeg22csxh
 3b. **Připojit konektor „Parallel Search“** (jen pro hledání zdrojů na stránce v Claude): https://claude.ai/settings/connectors . Potom
    stránku obnovit, v „Zdroje znalostí“ kliknout na „Najít zdroje“ a potvrdit souhlas. V Nastavení je „Zkušební hledání“, které ukáže
    skutečný výsledek (a při nečitelné odpovědi její začátek, ať jde čtení opravit).
@@ -55,6 +57,18 @@ ověření OpenAI-kompatibilního rozhraní proti živé službě. Hledání na 
 Seznam s důvody: `docs/AKCEPTACNI_MATICE.md`, část 3.
 
 ## Možná další rozhodnutí (až majitel stránku vyzkouší)
+
+- **Načtení dat z běžící hry jako Real Time Editor** (majitel to chce: taktika, hráči a jejich údaje, finance; 5. 11. 2026). Z prohlížeče ani
+  ze stránky v Claude to technicky nejde (RTE čte paměť hry, to umí jen program pro Windows a je vázaný na verzi hry). Možnosti: (a) čtení
+  obrazovky hry (už je, jen taktika ze snímku zatím ne a finance nejsou); (b) po 10. 11. 2026 zjistit, jestli RTE pro FM27 umí údaje uložit do souboru
+  (tabulka, HTML, CSV), a načítat takový soubor: navržený postup je obecné načtení tabulky s potvrzením významu sloupců (nic nehádá), bez AI, jen
+  s ukázkou skutečného souboru (koncept leží mimo repozitář, nebyl zapojený ani zkoušený); (c) vlastní program pro Windows, jen čtení paměti: až po
+  vydání hry, spolu s majitelem na jeho počítači, bez záruky, s ověřením licenčních podmínek hry; (d) karta Finance (ručně nebo ze snímku).
+  Majitel zatím nerozhodl, kterou cestou.
+- **Předplatné místo kreditů:** samostatná verze potřebuje klíč API (platí se zvlášť, viz
+  https://support.claude.com/en/articles/9876003-why-is-claude-api-usage-billed-separately-from-my-paid-claude-plan); stránka v Claude jede na
+  předplatném bez klíče. Aby šlo živé čtení i tam, aplikace zjišťuje, jestli okno claude.ai povolí sdílení obrazovky (Nastavení → „Sdílení obrazovky
+  v tomto okně“). Čeká na výsledek od majitele.
 
 - **Má rada v Live Coachi chodit i sama** (například při vážném upozornění)? Dnes přichází na tlačítko „Poradit, co změnit“; upozornění z čísel
   jsou automatická. Samočinná rada by stála víc volání a hrozí slabě podložená rada, proto je to rozhodnutí majitele.

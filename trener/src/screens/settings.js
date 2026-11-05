@@ -27,7 +27,7 @@
       ['Knihy / úryvky', `${lib.books.length} / ${lib.passages.length}`],
       ['Hledání zdrojů na webu', FM27.web && FM27.web.available ? FM27.web.label() : 'ne: ' + ((FM27.web && FM27.web.reason) || 'modul chybí')],
       ['Oficiální zdroje FM27 v registru', String([...app.registry.byId.values()].filter((s) => app.registry.isOfficialFm27(s.id)).length)],
-      ['Sdílení obrazovky v tomto okně', navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && app.standalone ? 'ano' : 'ne (jen v samostatné verzi)'],
+      ['Sdílení obrazovky v tomto okně', FM27.live && FM27.live.captureReason ? FM27.live.captureReason() : 'ne'],
       ['Hlasový výstup (čeština)', FM27.voice && FM27.voice.available() ? (FM27.voice.hasCzech() ? 'ano' : 'ano, ale bez české hlasové zásoby') : 'ne'],
       ['Systémová oznámení (okno skryté za hrou)', app.standalone ? (FM27.notify && FM27.notify.available() ? (FM27.notify.permission() === 'granted' ? 'povolena' : FM27.notify.permission() === 'denied' ? 'zakázána v prohlížeči' : 'zatím nepovolena') : 'ne: prohlížeč je neumí') : 'ne (jen v samostatné verzi)'],
       ['Hlasový vstup (mikrofon)', app.standalone ? (FM27.voice && FM27.voice.recognitionAvailable() ? 'ano' : 'ne: prohlížeč rozpoznávání řeči nemá') : 'ne (jen v samostatné verzi)'],
