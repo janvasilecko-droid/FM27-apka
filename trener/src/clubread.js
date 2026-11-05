@@ -22,6 +22,7 @@
       const status = h('p', { class: 'hint', id: 'clubReadStatus', 'aria-live': 'polite' });
       const out = h('div', { id: 'clubReadOut' });
       const parts = [];
+      let root = null; // kořen bloku (kvůli zjištění, jestli je blok pořád na stránce)
 
       const give = (proposal, lead) => {
         o.onProposal(proposal);
@@ -37,7 +38,17 @@
       const vision = !!(ai && ai.available && ai.imagesSupported);
       if (vision) {
         const input = h('input', { type: 'file', id: 'clubShot', accept: ai.limitsInfo.images.mediaTypes.join(',') });
-        let grabbed = []; // snímek okna hry (jen tam, kde to stránka smí)
+        let grabbed = []; // snímek okna hry nebo vložený ze schránky (Win+Shift+S, Ctrl+V)
+        const onPaste = (ev) => {
+          if (!root || !root.isConnected) return document.removeEventListener('paste', onPaste); // blok už není na stránce
+          const items = [...((ev.clipboardData && ev.clipboardData.items) || [])].filter((i) => i.kind === 'file' && /^image\//.test(i.type));
+          const file = items.length ? items[0].getAsFile() : null;
+          if (!file) return; // vložený text patří do políček
+          ev.preventDefault();
+          grabbed = [file];
+          status.textContent = 'Vložený snímek je připravený. Klikni na „Přečíst klub ze snímku“.';
+        };
+        document.addEventListener('paste', onPaste);
         const grab = FM27.widgets.frameGrabButton(
           (blob) => {
             grabbed = [blob];
@@ -73,7 +84,7 @@
           },
         });
         parts.push(
-          h('p', { class: 'hint', text: 'Otevři ve hře libovolnou obrazovku, kde je vidět tvůj klub (Přehled klubu, Soupiska, Taktika, Vstupní schránka), a vyfoť ji nebo ji načti z okna hry. Claude přepíše klub, soutěž a sezónu, jen co je vidět.' }),
+          h('p', { class: 'hint', text: 'Otevři ve hře libovolnou obrazovku, kde je vidět tvůj klub (Přehled klubu, Soupiska, Taktika, Vstupní schránka), a vyfoť ji (ve Windows Win+Shift+S a pak sem Ctrl+V), vyber soubor, nebo ji načti z okna hry. Claude přepíše klub, soutěž a sezónu, jen co je vidět.' }),
           ui.field('Snímek obrazovky hry', input),
           h('div', { class: 'actions' }, grab, read)
         );
@@ -142,7 +153,8 @@
         );
       }
 
-      return h('section', { class: 'card inner', id: 'clubRead' }, h('h3', { text: 'Načíst klub ze hry' }), ...parts, status, out);
+      root = h('section', { class: 'card inner', id: 'clubRead' }, h('h3', { text: 'Načíst klub ze hry' }), ...parts, status, out);
+      return root;
     },
   };
 })();

@@ -44,7 +44,7 @@ Ostatní nalezené projekty (grafika, překlady, skautské nástroje na jednom s
   ani nedoplňují; role se přiřadí jen k jednoznačné pozici (jinak skončí v poznámce); neznámá formace se nikdy nenahradí jinou.
 - Šedé tlačítko „Načíst“ nahoře ukáže, co jde načíst, a vede na příslušnou obrazovku.
 - **Klub, soutěž a sezóna při zakládání kariéry** (6. 11. 2026, na přání majitele „ten klub si má aplikace načíst z FM“): formulář kariéry má blok „Načíst klub ze hry“.
-  (1) **Ze snímku obrazovky hry** (vložený soubor, nebo „Načíst z okna hry“ jedním kliknutím): Claude přepíše jen to, co je čitelné (klub, který uživatel řídí, soutěž,
+  (1) **Ze snímku obrazovky hry** (vložený soubor, Ctrl+V po Win+Shift+S, nebo „Načíst z okna hry“ jedním kliknutím): Claude přepíše jen to, co je čitelné (klub, který uživatel řídí, soutěž,
   sezónu), jinak null; klub se nehádá z loga ani z barev a při dvou viditelných týmech se neurčuje. (2) **Z pluginu FMMatchLens** (samostatná verze, jen když ve hře běží
   zápas): klub je tým, který řídí člověk (`isHumanControlled`), soutěž z pluginu; sezónu plugin neposílá. Nepozná-li se z dat, který tým je tvůj, vybíráš sám. Výsledek jen vyplní
   políčka jako **návrh**; kariéra vznikne až kliknutím na „Založit kariéru“. Názvy se čistí (zalomení, neviditelné znaky, značky, odkazy a věty se nepřevezmou), sezóna musí být dva

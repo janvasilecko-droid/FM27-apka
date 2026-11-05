@@ -53,7 +53,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/styles.css` | celý vzhled: barvy jako proměnné (tmavý a světlý vzhled), karty, levé menu, tlačítka, graf, hřiště; hlídá ho `test/styles.test.mjs` |
 | `src/careerread.js`, `clubread.js` | klub, soutěž a sezóna ze hry při zakládání kariéry: pravidla čtení a čištění (čistý modul); blok „Načíst klub ze hry“ ve formuláři kariéry (rozhraní) |
 | `test/*.test.mjs` | 661 testů čistých modulů, úložiště a barev vzhledu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (19 scénářů, 754 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (19 scénářů, 756 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
