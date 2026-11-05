@@ -6,7 +6,7 @@ Zadání (doslova): [`docs/ZADANI_MASTER_PROMPT.md`](./docs/ZADANI_MASTER_PROMPT
 
 ## Stav k 5. 11. 2026
 
-Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (884 testů jádra, 143 + 11 v Pythonu, 898 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md). **Z cloudu nejde ověřit
+Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (884 testů jádra, 143 + 11 v Pythonu, 902 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md). **Z cloudu nejde ověřit
 skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu zadání zvlášť napsáno, co je ověřené a co čeká na tebe:
 [`docs/AKCEPTACNI_MATICE.md`](./docs/AKCEPTACNI_MATICE.md).
 
@@ -41,7 +41,7 @@ python3 -m unittest discover -s ai_gateway/tests -t .  # 143 testů (16 se bez d
 python3 -m unittest discover -s fmf_research/tests -t . # 11 testů, potřebují `pip install zstandard`
 ```
 
-Zkoušky celé aplikace v Chromiu (898 kontrol, 22 scénářů) a jejich spuštění: `trener/README.md`.
+Zkoušky celé aplikace v Chromiu (902 kontrol, 22 scénářů) a jejich spuštění: `trener/README.md`.
 Zkoušky volají jen zkušební náhražky a zachycený přenos, žádné placené API.
 
 ## Pravidla

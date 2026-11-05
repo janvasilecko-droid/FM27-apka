@@ -543,8 +543,9 @@ test('konce proudů bitů, přímo (bez věštírny): literály bez koncové zna
     return 'ok';
   };
   const frames = [];
-  const check = (frame, expected, name) => {
+  const check = (frame, expected, name, message) => {
     assert.equal(codeOf(frame), expected, name);
+    if (message) assert.throws(() => Z.decompress(frame), message, name + ' (text chyby)');
     frames.push(frame);
   };
   // literály: jeden proud (strom délek kódů 2, 2, 1; symbol 2 má jednobitový kód)
@@ -553,9 +554,9 @@ test('konce proudů bitů, přímo (bez věštírny): literály bez koncové zna
   const one = (streamBytes, regen) => literalsFrame(directTree([1, 1]), [streamBytes], regen);
   check(one(huffStreamBytes(good, data), 4), 'ok', 'správný proud');
   check(one([0x00], 4), 'litend', 'poslední bajt proudu je 0: chybí koncová značka');
-  check(one(huffStreamBytes(good, [...data, 2]), 4), 'litend', 'proud nese víc znaků, než se slíbilo: zůstanou nepřečtené bity');
-  check(one(huffStreamBytes(good, data.slice(0, 3)), 4), 'litend', 'proud nese míň znaků, než se slíbilo: čte se za začátek');
-  check(one(bitStream('1110'), 4), 'litend', 'poslední kód (dva bity) má v proudu jen jeden bit: čte se o jediný bit za začátek');
+  check(one(huffStreamBytes(good, [...data, 2]), 4), 'litend', 'proud nese víc znaků, než se slíbilo: zůstanou nepřečtené bity', /není celý spotřebovaný/);
+  check(one(huffStreamBytes(good, data.slice(0, 3)), 4), 'litend', 'proud nese míň znaků, než se slíbilo: čte se za začátek', /přečtený za svůj začátek/);
+  check(one(bitStream('1110'), 4), 'litend', 'poslední kód (dva bity) má v proudu jen jeden bit: čte se o jediný bit za začátek', /přečtený za svůj začátek/);
   check(one(bitStream('1111'), 4), 'ok', 'tytéž čtyři znaky bez zbytku: proud je spotřebovaný přesně');
   // čtyři proudy: pokažený druhý proud
   const six = [2, 0, 1, 2, 2, 1, 0, 2];
@@ -572,8 +573,8 @@ test('konce proudů bitů, přímo (bez věštírny): literály bez koncové zna
   const seqFrame = (lits, codes, bits) => zframe([{ raw: history }, { comp: Buffer.concat([rawLits(lits), Buffer.from([1, 0x54, codes.ll, codes.of, codes.ml, ...bitStream(bits)])]) }]);
   const zero = { ll: 0, of: 0, ml: 0 };
   check(seqFrame([], zero, ''), 'ok', 'sekvence bez bitů navíc a prázdný proud');
-  check(seqFrame([], zero, '1'), 'inexact', 'v proudu sekvencí zůstal nepřečtený bit');
-  check(seqFrame([], { ll: 0, of: 0, ml: 32 }, ''), 'overread', 'kód délky shody 32 chce jeden bit navíc, a proud je prázdný');
+  check(seqFrame([], zero, '1'), 'inexact', 'v proudu sekvencí zůstal nepřečtený bit', /není celý spotřebovaný/);
+  check(seqFrame([], { ll: 0, of: 0, ml: 32 }, ''), 'overread', 'kód délky shody 32 chce jeden bit navíc, a proud je prázdný', /přečtený za svůj začátek/);
   check(seqFrame([], { ll: 0, of: 0, ml: 32 }, '0'), 'ok', 'tentýž kód s tím bitem');
   check(seqFrame([], { ll: 0, of: 3, ml: 0 }, '00'), 'overread', 'posun o kódu 3 chce tři bity a proud má dva');
   // čtení literálů nad jejich počet
@@ -758,6 +759,9 @@ test('počet bloků: strop se odvozuje z povoleného výstupu (1 blok na KiB + 1
   // výchozí strop 16 MiB: 16 384 + 16 bloků
   assert.equal(Z.decompressFrame(emptyBlocksFrame(16400)).blocks, 16400);
   assert.throws(() => Z.decompress(emptyBlocksFrame(16401)), (e) => e.code === 'blocks');
+  // neúplný KiB se počítá nahoru: výstup 1025 B povolí 2 + 16 bloků
+  assert.equal(Z.decompressFrame(emptyBlocksFrame(18), { maxOutput: 1025 }).blocks, 18);
+  assert.throws(() => Z.decompress(emptyBlocksFrame(19), { maxOutput: 1025 }), (e) => e.code === 'blocks');
   // maxBlocks strop jen zužuje; vadné hodnoty se ignorují
   assert.equal(Z.decompressFrame(emptyBlocksFrame(5), { maxBlocks: 5 }).blocks, 5);
   assert.throws(() => Z.decompress(emptyBlocksFrame(6), { maxBlocks: 5 }), (e) => e.code === 'blocks');
@@ -767,6 +771,9 @@ test('počet bloků: strop se odvozuje z povoleného výstupu (1 blok na KiB + 1
   const sized = (n) => zframe(Array.from({ length: n }, () => ({ raw: [] })), { head: [0x20, 0] });
   assert.equal(Z.decompressFrame(sized(16), { maxOutput: 1 << 30 }).blocks, 16);
   assert.throws(() => Z.decompress(sized(17), { maxOutput: 1 << 30 }), (e) => e.code === 'blocks');
+  // i tady se neúplný KiB počítá nahoru: slíbený jediný bajt povolí 1 + 16 bloků (šestnáct prázdných a jeden s bajtem)
+  const oneByte = zframe([...Array.from({ length: 16 }, () => ({ raw: [] })), { raw: [65] }], { head: [0x20, 1] });
+  assert.equal(Z.decompressFrame(oneByte, { maxOutput: 1 << 30 }).blocks, 17);
   // kontrola počtu předchází práci na bloku: za posledním povoleným blokem leží blok rezervovaného typu, a hlásí se strop, ne typ
   const withReserved = (plain) => Buffer.concat([Buffer.from([...MAGIC_BYTES, 0x00, 0x50]), ...Array.from({ length: plain }, () => Buffer.from(blockHeader(0, 0, false))), Buffer.from(blockHeader(0, 3, true))]);
   assert.throws(() => Z.decompress(withReserved(17), { maxOutput: 1024 }), (e) => e.code === 'blocks');

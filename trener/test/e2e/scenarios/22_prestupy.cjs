@@ -1,6 +1,6 @@
 /* Scénář 22: PŘESTUPOVÝ PORADCE (Můj tým → Přestupy: kandidáti a posily).
    Co se zkouší: přidání kandidáta ručně (kontroly, neznámá cena a mzda zůstanou neznámé, rozsah ceny se nepřevezme), načtení kandidátů z tabulky se sloupci pro klub, cenu a mzdu (potvrzení sloupců,
-   skryté údaje se nenačtou, duplicity), hledání posil na celý tým i na jedno místo (pořadí, vhodnost a dopad shodné s výpočtem mimo stránku), filtry a nakládání s neznámými údaji, platnost jednání podle data ve hře,
+   skryté údaje se nenačtou, duplicity), hledání posil na celý tým i na jedno místo (pořadí, vhodnost a dopad shodné s výpočtem mimo stránku), filtry a nakládání s neznámými údaji, platnost jednání podle data hry, které zadá uživatel (datum hry se nečte),
    dopad odchodu hráče i výměny, uložení doporučení, zapsání výsledku a úspěšnost podle hodnocení uživatele, záloha nových typů dokumentů, žádné volání AI.
    Co se NEzkouší: shoda s hrou (vhodnost je odhad aplikace, ne pravidlo FM27) a skutečné exporty cizích nástrojů (soubory jsou vymyšlené). */
 const R = require('../../../src/recruit.js');

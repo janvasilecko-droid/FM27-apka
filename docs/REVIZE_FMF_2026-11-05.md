@@ -35,9 +35,9 @@ jsem znovu ověřil vlastním během, než jsem ho opravil. Zprávy revizorů v 
 
 ## Co po opravách platí
 
-- Testy jádra: COUNT_UNIT (s věštírnou libzstd), bez ní 1 zkouška viditelně přeskočená; prohlížeč: COUNT_E2E kontrol v 22 scénářích (3 z nich jen se skutečnými exporty majitele).
-- Mutace: dekodér zstd MUT_ZSTD, lepidlo MUT_GLUE (každá mutace musí shodit aspoň jednu zkoušku; dekodér i **bez věštírny**, aby přímé zkoušky nestály na libzstd).
-- Dekodér proti libzstd: platné rámce všech úrovní a strategií, přes milion náhodně poškozených rámců (soak mimo běžné zkoušky), ručně sestavené Huffmanovy stromy a sekvence, popis tabulek FSE, tři skutečné exporty.
+- Testy jádra: 884; 2 z nich běží jen se skutečnými exporty z FM27 (proměnná `FMF_SAMPLES_DIR`), a s věštírnou libzstd (Python `zstandard`) se porovnání s libzstd dělá, bez ní se jedna zkouška hlásí jako přeskočená. Prohlížeč: 902 kontrol v 22 scénářích (4 z nich jen se skutečnými exporty, bez nich 898).
+- Mutace (každá mutace musí shodit aspoň jednu zkoušku): dekodér zstd 198 mutací **bez věštírny**, aby přímé zkoušky nestály na libzstd. V prvním úplném běhu přežily dvě: jedna (zaokrouhlení odvozeného stropu bloků) dostala přímou zkoušku, druhá byla bezvýznamná změna (připojení prázdného řetězce) a byla nahrazena skutečnou mutací; po úpravě jsou všechny dotčené mutace zachycené. Lepidlo 23 z 23. Čtečka kontejneru: pět ručních mutací nové logiky (souhrn součtů, `outside`, hranice, varování), všechny zachycené; čištění textů: vrácení původní třídy znaků shodí zkoušku v každém z pěti modulů.
+- Dekodér proti libzstd: platné rámce všech úrovní a strategií, přes milion náhodně poškozených rámců (opakovaný běh mimo běžné zkoušky), ručně sestavené Huffmanovy stromy a sekvence, popis tabulek FSE, tři skutečné exporty; na 32 000 poškozených rámcích libzstd přijala pokažený konec proudu literálů jen u čtyř proudů (391 případů, žádný u jednoho proudu).
 
 ## Co zůstalo neověřené
 
