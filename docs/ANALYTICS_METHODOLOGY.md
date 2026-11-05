@@ -138,11 +138,41 @@ Pozn.: „VÝPOČET“ v tabulkách znamená hodnotu spočtenou aplikací z vlo�
 
 ### M22. Podobní hráči (etapa 2, zatím bez obrazovky)
 - **Vzorec:** `vzdálenost = √(Σ w·(x − y)² / Σ w)` přes atributy s váhou DWRS pro skupinu pozic; `podobnost = 100 · (1 − vzdálenost / 19)`. Hráč, kterému chybí atribut s váhou, se neřadí (je zvlášť v `unknown`), cíl bez atributů vrací chybu, nic se nehádá.
-- **Štítek: CUSTOM MODEL** (míra podobnosti je vlastní). Funkce je v modulu a zkoušená (`squadopt.test.mjs`), **v aplikaci zatím nemá obrazovku**: použije ji etapa 3 (přestupový poradce, „najdi podobného hráče“).
+- **Štítek: CUSTOM MODEL** (míra podobnosti je vlastní). Funkce je v modulu a zkoušená (`squadopt.test.mjs`); v aplikaci ji používá přestupový poradce (M28: nejpodobnější kandidáti hráči, který by odešel).
+
+### M23. Kandidát na přestup a čtení částek (etapa 3)
+- **Co:** cizí hráč, kterého zadal uživatel (ručně nebo z exportu tabulky): jméno (2 až 60 znaků), věk 14 až 50, pozice jako kódy 1 až 4 písmen (nejvýš čtyři), viditelné atributy (celá čísla 1 až 20, nejvýš 40; skryté názvy se nepřevezmou), klub, cena a mzda, měna (nejvýš čtyři znaky), konec smlouvy, poznámka, původ (ručně, nebo tabulka a soubor) a jednání (stav, platnost, poznámka). Pole CA, PA, potenciál, osobnost a reputace se nikdy nepřevezmou a je to řečeno.
+- **Čtení částky** (`parseMoney`): přečte jednu čitelnou částku. Číslo, zkratky K, M, B, „tis.“, „mil.“, „mld.“ a slova thousand, million, billion; oddělovače tisíců (mezera, tečka, čárka, apostrof) jen po skupinách po třech číslicích a jen jednoho druhu; ve zkratce je oddělovač desetinný („€12,5M“). Měna (€, £, $, Kč, CZK, EUR, GBP, USD) se jen zapíše a nepřepočítává. Rozsah („€25M - €30M“), slovo („neprodejný“), nejednoznačný zápis („12.5“, „1.234,567“) a hodnota nad 10¹⁰ dají **neznámou částku** (u rozsahu a nejednoznačného zápisu s důvodem): nic se neodhaduje a neznámá cena není nula. Mzda se čeká týdenní: roční („p/a“, „ročně“) se nepřepočítá (nepřevzato s důvodem); u ceny se údaj o období odmítne.
+- **Štítek:** údaje jsou „zadal uživatel“ (ne ověřeno hrou); pravidla čtení částky jsou vlastní pravidla aplikace, ne formát žádného nástroje.
+- **Zkoušky:** `recruit.test.mjs` (tabulky zápisů částek, normalizace, čtení z CSV, mutace modulu), scénář 22.
+
+### M24. Dopad příchodu, odchodu a výměny na sestavu (etapa 3)
+- **Vzorec:** `dopad A = součet A po − součet A před` (stejně B), kde „po“ je sestava A + B znovu spočtená v jedné úloze (M17) s kandidátem navíc (příchod), bez hráče (odchod) nebo s obojím (výměna), a se stejnými omezeními (zámky, vyřazení, zranění). Je to přesný rozdíl dvou optim, ne odhad postupu.
+- **Vlastnost:** příchod nikdy nesníží součet A (ověřeno hrubou silou na 150 náhodných úlohách, i s kandidáty bez části atributů). Součet B se může změnit libovolně (vytlačený hráč tam spadne). Kandidát, kterého nejde ohodnotit (chybí atribut role, nemá pozici místa), má dopad 0 a v hledání je označený „nejde spočítat“, nikdy „nezlepší“.
+- **Štítek:** DWRS (ESTIMATED) nebo jednoduchý vážený průměr (heuristika aplikace) podle zvoleného modelu; vždy se píše, který.
+- **Zkoušky:** hrubá síla v `recruit.test.mjs`, scénář 22 (čísla v prohlížeči jsou stejná jako mimo stránku).
+
+### M25. Hledání posil a pořadí (etapa 3)
+- **Pořadí na celý tým:** 1. dopad na součet A sestupně, 2. dopad na součet B, 3. nejlepší vhodnost na některé místo, 4. jméno; kdo nejde ohodnotit, je na konci s důvodem (ne s nulou). **Na jedno místo:** 1. vhodnost na roli místa, potom jako celý tým.
+- **Filtry:** věk, cena, mzda (neznámou hodnotu kandidáta nechá s příznakem „neznámá“, nebo na přání vyřadí), pozice (kandidát bez uvedené pozice se nevyřadí), stav jednání (výchozí jen otevřená), jméno, vyřazení. Nejvýš 200 kandidátů, výchozích 50 řádků.
+- **Potřeby (`needs`):** neobsazená a slabá místa (M3) a tenká nebo chybějící hloubka (M20), bez vlastních prahů.
+- **Štítek:** pořadí a filtry CUSTOM MODEL, čísla ESTIMATED (viz M24).
+
+### M26. Doporučení a úspěšnost podle hodnocení uživatele (etapa 3)
+- **Co:** doporučení je záznam s kandidátem, místem, modelem, doklady (řádky s čísly z výpočtu), očekávaným dopadem a prázdným výsledkem. Výsledek zapíše uživatel později: rozhodnutí (koupeno, nekoupeno, nepodařilo se získat), u koupeného hodnocení (dopadlo dobře, bez většího vlivu, dopadlo špatně) a poznámku.
+- **Vzorec:** `podíl dobrých = dobře / hodnocených koupených × 100 %`; bez hodnocení se nepočítá a pod pěti hodnocenými případy se výslovně píše, že to nic nedokazuje.
+- **Štítek: CUSTOM** (hodnocení je uživatelovo, ne údaj hry).
+
+### M27. Platnost jednání (etapa 3)
+- **Co:** stav jednání (sleduji, zjišťuji podmínky, nabídka podána, dohodnuto, podepsáno, odmítnuto, už nezajímá) a datum platnosti RRRR-MM-DD. Porovnává se s dnešním datem ve hře, které **píše uživatel** (aplikace datum ve hře nezná; je uložené v kariéře). Bez něj se platnost nehlídá a je to napsané. Propadlé jednání se jen označí, nic se nemění samo; u uzavřeného stavu se neupozorňuje.
+- **Štítek:** zadal uživatel.
+
+### M28. Podobní kandidáti (etapa 3, používá M22)
+- Kandidáti nejpodobnější hráči soupisky, který by odešel, podle míry M22. Porovnat jde jen hráče se všemi atributy s váhou; ostatní jsou zvlášť („bez porovnání“) a nic se jim nedomýšlí. **CUSTOM MODEL.**
 
 ## 2. Připravované výpočty (etapy podle `PLAN_ROZSIRENI.md`)
 
-Zapíšou se sem, až budou implementované a zkoušené; do té doby nejsou v aplikaci. Etapa 3: simulace příchodu a odchodu hráče s přepočtem sestavy (základ je v M17: `simulateChange`), cena a mzda jen zadané. Etapa 4: dvě fáze role, pravidla rozporů se sedmi poli, čtyři vlastní skóre (vyžaduje skutečný `.fmf` export). Etapa 5: tepelné mapy, síť přihrávek, mapa střel, vlastní xG (vyžaduje ověření dat z pluginu). Etapy 6 a 7: diagnostika příčin, historie doporučení a jejich úspěšnosti.
+Zapíšou se sem, až budou implementované a zkoušené; do té doby nejsou v aplikaci. Etapa 4: dvě fáze role, pravidla rozporů se sedmi poli, čtyři vlastní skóre (vyžaduje skutečný `.fmf` export). Etapa 5: tepelné mapy, síť přihrávek, mapa střel, vlastní xG (vyžaduje ověření dat z pluginu). Etapy 6 a 7: diagnostika příčin, historie doporučení a jejich úspěšnosti.
 
 ## 3. Šablona nového záznamu
 

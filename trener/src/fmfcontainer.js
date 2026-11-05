@@ -33,6 +33,8 @@
     maxEntryOut: 16 * 1024 * 1024,
     maxTotalOut: 32 * 1024 * 1024,
   });
+  const KNOWN_B = 17; // pole předmluvy „u64 17“ a „bajt 03“ mají ve všech zkoumaných exportech tyhle hodnoty
+  const KNOWN_VERSION = 3;
   const UNSET_TIME = '-62135596800'; // 0001-01-01 jako unixové sekundy (v každém zkoumaném záznamu)
 
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -340,7 +342,9 @@
       details: null,
       image: null,
       tacHeader: null,
+      layout: null,
       issues: [],
+      warnings: [],
       verified: [],
       unknown: [
         'význam polí 17 a 03 v předmluvě, značky „afe.“ proti „fmf.“, času v manifestu (vždy 0001-01-01) a deseti konstantních bajtů za značkou „cat.“',
@@ -374,8 +378,30 @@
       const man = parseManifest(manifestBytes);
       if (!man.ok) return fail('Manifest: ' + man.error);
       res.title = man.title;
-      res.verified.push('hlavička, patní značka a manifest odpovídají zkoumaným exportům' + (mf.hasChecksum ? ', kontrolní součet manifestu sedí' : ''));
+      res.verified.push('předmluva a patní značka mají očekávanou stavbu a manifest se přečetl celý, do posledního bajtu' + (mf.hasChecksum ? '; kontrolní součet manifestu sedí' : '; manifest kontrolní součet nemá (neověřeno)'));
+      // pole předmluvy, jejichž význam neznáme: tvrdit smíme jen shodu hodnot se zkoumanými exporty
+      if (sc.B === KNOWN_B && sc.version === KNOWN_VERSION) res.verified.push(`pole v předmluvě (${KNOWN_B} a ${String(KNOWN_VERSION).padStart(2, '0')}) mají stejné hodnoty jako ve zkoumaných exportech; jejich význam neznáme`);
+      else res.warnings.push(`pole v předmluvě mají jiné hodnoty (${sc.B} a ${sc.version}) než ve zkoumaných exportech (${KNOWN_B} a ${KNOWN_VERSION}); jejich význam neznáme, takže nevím, co to znamená`);
       const dataEnd = sc.A + 9; // konec datové části = začátek patní značky
+      // jednoznačnost: dvě stejné cesty nebo víc zdrojů taktiky by znamenaly, že nepoznám, který je ten pravý
+      const seen = new Set();
+      for (const e of man.entries) {
+        if (seen.has(e.path)) return fail('Manifest uvádí stejnou cestu víckrát; nepoznám, který zdroj je ten pravý.');
+        seen.add(e.path);
+      }
+      if (man.entries.filter((e) => e.ext === '.tac').length > 1) return fail('V souboru je víc zdrojů taktiky (.tac); nepoznám, který je ten pravý.');
+      // rozložení záznamů v datové části: překryv je vada, nepokrytá místa se jen hlásí (v prozkoumaných exportech jich není)
+      const sorted = man.entries.slice().sort((a, b) => a.offset - b.offset);
+      let cursor = 0;
+      let strayBytes = 0;
+      for (const e of sorted) {
+        if (e.offset < cursor) return fail('Záznamy v datové části se překrývají: soubor je poškozený nebo upravený.');
+        strayBytes += e.offset - cursor;
+        cursor = e.offset + e.size;
+      }
+      strayBytes += Math.max(0, dataEnd - BASE - cursor);
+      res.layout = { entries: man.entries.length, strayBytes, contiguous: strayBytes === 0 };
+      if (strayBytes > 0) res.warnings.push(`${strayBytes} bajtů v datové části nepatří žádnému záznamu z manifestu; nevím, co v nich je, a nečtu je`);
       let total = 0;
       for (const e of man.entries) {
         const entry = { path: e.path, dir: e.dir, name: e.name, ext: e.ext, offset: e.offset, size: e.size, third: e.third, ok: false, issues: [], checks: { keyIvFields: false, frameMagic: false, frameExact: false, lengthMatchesManifest: false, checksum: 'absent' }, content: null };
@@ -449,6 +475,8 @@
       const summed = res.entries.filter((x) => x.checks.checksum === 'ok').length;
       res.verified.push(`${okCount} z ${res.entries.length} zdrojů dešifrováno a rozbaleno, velikosti sedí s manifestem; kontrolní součet zstd souhlasí u ${summed} z nich`);
       if (res.tacHeader.tagOk) res.verified.push('payload taktiky začíná značkou „cat.“' + (res.tacHeader.titleMatches ? ' a obsahuje stejný název jako manifest' : ''));
+      if (res.tacHeader.tagOk && res.tacHeader.titleMatches === false) res.warnings.push('název taktiky v manifestu se liší od názvu uvnitř payloadu taktiky');
+      if (res.layout && res.layout.contiguous) res.verified.push('záznamy beze zbytku vyplňují datovou část, nepřekrývají se a žádná cesta se neopakuje');
       res.ok = true;
       return res;
     } catch (e) {
@@ -469,6 +497,8 @@
       verified: res.verified,
       unknown: res.unknown,
       issues: res.issues,
+      warnings: res.warnings || [],
+      layout: res.layout || null,
     };
   }
 

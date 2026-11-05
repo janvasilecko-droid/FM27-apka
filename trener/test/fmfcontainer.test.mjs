@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 const require = createRequire(import.meta.url);
 const C = require('../src/fmfcontainer.js');
 const G = require('../src/fmfglue.js');
+const Z = require('../src/zstd.js');
 const source = readFileSync(new URL('../src/fmfcontainer.js', import.meta.url), 'utf8');
 
 // ---------------------------------------------------------------- pomůcky: zapisovač syntetického .fmf je ve sdíleném souboru (i pro zkoušku v prohlížeči)
@@ -19,6 +20,8 @@ const deps = {
   zstd: (b, max) => new Uint8Array(zlib.zstdDecompressSync(b, { maxOutputLength: max })),
   aesCtr: async (key, iv, data) => { const d = crypto.createDecipheriv('aes-128-ctr', key, iv); return new Uint8Array(Buffer.concat([d.update(data), d.final()])); },
 };
+// stejné závislosti, ale s vlastním dekodérem zstd z aplikace (zstd.js přes fmfglue.js): to je to, co běží v prohlížeči
+const own = { ...deps, zstd: G.makeFrameDecompressor(Z) };
 const flip = (file, at) => { const c = Buffer.from(file); c[at] ^= 0x01; return c; };
 
 // ---------------------------------------------------------------- XXH64 a stavba zstd rámce
@@ -195,10 +198,9 @@ test('decode: pozměněný šifrotext obrázku nezablokuje taktiku, ale je hlá�
   assert.equal(r.image, null);
 });
 
-test('decode: kontrolní součet obsahu, který nesedí, je chyba i tehdy, když knihovna zstd součet sama neověřuje (jako fzstd)', async () => {
-  // knihovna, která součet přeskočí: smaže příznak součtu a odřízne poslední čtyři bajty, výsledek je obsah jako u libzstd
-  const lenient = { ...deps, zstd: (b, max) => { const c = Buffer.from(b); c[4] &= ~0x04; return new Uint8Array(zlib.zstdDecompressSync(c.subarray(0, c.length - 4), { maxOutputLength: max })); } };
-  // bez poškození prochází i s takovou knihovnou: naše vlastní kontrola součtu sedí
+test('decode: kontrolní součet obsahu, který nesedí, je chyba i tehdy, když rozbalovač součet sám neověřuje (vlastní zstd.js ho neověřuje, ověřuje ho tahle čtečka)', async () => {
+  const lenient = own;
+  // bez poškození prochází: kontrola součtu sedí
   const okFile = standard(5);
   const ok = await C.decode(new Uint8Array(okFile.file), lenient);
   assert.equal(ok.ok, true, JSON.stringify(ok.issues));
@@ -379,6 +381,73 @@ test('safeReport: jen velikosti a výsledky kontrol; žádný obsah taktiky, ž�
 });
 
 // ---------------------------------------------------------------- doprava: zstd a WebCrypto v prohlížeči
+test('decode: rozložení souboru: duplicitní cesta, víc zdrojů taktiky a překryv záznamů se odmítnou; nepokrytá místa, jiný název v taktice a jiná pole předmluvy se jen hlásí a nic se o nich netvrdí', async () => {
+  const spec = (resources, title) => ({ title: title || TITLE, resources });
+  const tacRes = (name, seed) => ({ dir: '', name, ext: '.tac', content: tacContent(TITLE, 300, seed) });
+  const imgRes = { dir: '', name: 'image', ext: '.img', content: imageContent(tinyPng(5, 3)) };
+  const read = (file) => C.decode(new Uint8Array(file), deps);
+  // vzorový soubor: nic se nehlásí a obě tvrzení o rozložení a o polích předmluvy jsou vypsaná
+  const good = await read(buildFmf(spec([tacRes(TITLE, 1), imgRes]), 3).file);
+  assert.equal(good.ok, true, JSON.stringify(good.issues));
+  assert.deepEqual(good.warnings, []);
+  assert.deepEqual(good.layout, { entries: 2, strayBytes: 0, contiguous: true });
+  assert.ok(good.verified.some((v) => /pole v předmluvě \(17 a 03\) mají stejné hodnoty jako ve zkoumaných exportech; jejich význam neznáme/.test(v)), good.verified.join('|'));
+  assert.ok(good.verified.some((v) => /záznamy beze zbytku vyplňují datovou část, nepřekrývají se a žádná cesta se neopakuje/.test(v)));
+  // dvě stejné cesty a víc zdrojů taktiky: nepoznám, který je ten pravý
+  const dup = await read(buildFmf(spec([tacRes(TITLE, 1), imgRes, { ...imgRes }]), 3).file);
+  assert.equal(dup.ok, false);
+  assert.match(dup.reason, /stejnou cestu víckrát/);
+  const two = await read(buildFmf(spec([tacRes(TITLE, 1), tacRes('Druhá taktika', 2)]), 4).file);
+  assert.equal(two.ok, false);
+  assert.match(two.reason, /víc zdrojů taktiky/);
+  // překryv: druhý záznam začíná uvnitř prvního
+  const ov = await read(buildFmf(spec([tacRes(TITLE, 1), { ...imgRes, manifestOffset: 10 }]), 5).file);
+  assert.equal(ov.ok, false);
+  assert.match(ov.reason, /se překrývají/);
+  // nepokrytá místa: sedm bajtů navíc mezi záznamy; záznamy jsou celé, a tak se soubor čte, ale hlásí se to a tvrzení o beze zbytku chybí
+  const b = buildFmf(spec([tacRes(TITLE, 1), { ...imgRes, manifestOffset: 0 }]), 6);
+  const [r1] = b.recs;
+  const withGap = buildFmf(spec([tacRes(TITLE, 1), { ...imgRes, manifestOffset: r1.rec.length + 7 }]), 6);
+  const [g1, g2] = withGap.recs;
+  const gapFile = Buffer.concat([Buffer.from(B.PREAMBLE), u64le(26 + g1.rec.length + 7 + g2.rec.length - 9), u64le(17), Buffer.from([3]), g1.rec, Buffer.alloc(7, 0xaa), g2.rec, Buffer.from(B.FOOTER), zc(withGap.manifest)]);
+  const gap = await read(gapFile);
+  assert.equal(gap.ok, true, JSON.stringify(gap.issues));
+  assert.deepEqual(gap.layout, { entries: 2, strayBytes: 7, contiguous: false });
+  assert.ok(gap.warnings.some((w) => /^7 bajtů v datové části nepatří žádnému záznamu/.test(w)), gap.warnings.join('|'));
+  assert.ok(!gap.verified.some((v) => /beze zbytku/.test(v)));
+  // za posledním záznamem zbývají bajty před patní značkou
+  const tail = buildFmf(spec([tacRes(TITLE, 1)]), 7);
+  const t1 = tail.recs[0];
+  const tailFile = Buffer.concat([Buffer.from(B.PREAMBLE), u64le(26 + t1.rec.length + 5 - 9), u64le(17), Buffer.from([3]), t1.rec, Buffer.alloc(5, 0xbb), Buffer.from(B.FOOTER), zc(tail.manifest)]);
+  const tl = await read(tailFile);
+  assert.equal(tl.ok, true, JSON.stringify(tl.issues));
+  assert.equal(tl.layout.strayBytes, 5);
+  // název v manifestu se liší od názvu uvnitř taktiky: hlásí se, tvrzení o shodě názvu chybí
+  const mis = await read(buildFmf(spec([tacRes(TITLE, 1)], 'Jiný název v manifestu'), 8).file);
+  assert.equal(mis.ok, true, JSON.stringify(mis.issues));
+  assert.ok(mis.warnings.some((w) => /název taktiky v manifestu se liší od názvu uvnitř payloadu/.test(w)), mis.warnings.join('|'));
+  assert.ok(!mis.verified.some((v) => /obsahuje stejný název jako manifest/.test(v)));
+  // pole předmluvy s jinými hodnotami než ve zkoumaných exportech: nic se o nich netvrdí a hlásí se to
+  const hdr = Buffer.from(buildFmf(spec([tacRes(TITLE, 1)]), 9).file);
+  hdr.writeBigUInt64LE(18n, 17);
+  hdr[25] = 4;
+  const odd = await read(hdr);
+  assert.equal(odd.ok, true, JSON.stringify(odd.issues));
+  assert.ok(odd.warnings.some((w) => /pole v předmluvě mají jiné hodnoty \(18 a 4\)/.test(w)), odd.warnings.join('|'));
+  assert.ok(!odd.verified.some((v) => /stejné hodnoty jako ve zkoumaných exportech/.test(v)));
+  // manifest bez kontrolního součtu: řekne se to, netvrdí se, že součet sedí
+  const nb = buildFmf(spec([tacRes(TITLE, 1)]), 10);
+  const noSumManifest = Buffer.concat([Buffer.from(B.PREAMBLE), u64le(nb.A), u64le(17), Buffer.from([3]), nb.recs[0].rec, Buffer.from(B.FOOTER), B.zcNoSum(nb.manifest)]);
+  const ns = await read(noSumManifest);
+  assert.equal(ns.ok, true, JSON.stringify(ns.issues));
+  assert.ok(ns.verified[0].includes('manifest kontrolní součet nemá (neověřeno)') && !ns.verified[0].includes('kontrolní součet manifestu sedí'), ns.verified[0]);
+  assert.ok(good.verified[0].includes('kontrolní součet manifestu sedí'));
+  // zpráva o souboru nese rozložení a upozornění, ale žádný obsah
+  const rep = C.safeReport(gap);
+  assert.deepEqual(rep.layout, { entries: 2, strayBytes: 7, contiguous: false });
+  assert.equal(rep.warnings.length, 1);
+});
+
 test('makeWebAesCtr: WebCrypto dá stejný výsledek jako node:crypto (včetně přetečení čítače) a bez WebCrypto je jasná chyba', async () => {
   const aes = G.makeWebAesCtr(globalThis.crypto.subtle);
   const rand = prng(21);
@@ -397,27 +466,61 @@ test('makeWebAesCtr: WebCrypto dá stejný výsledek jako node:crypto (včetně 
   await assert.rejects(() => G.makeWebAesCtr(null)(new Uint8Array(16), new Uint8Array(16), new Uint8Array(1)), /WebCrypto/);
 });
 
-test('makeFrameDecompressor: rozbalí jeden rámec, hlídá limit a hlásí chybu knihovny', () => {
-  // zástupná knihovna s tvarem fzstd, postavená na libzstd
-  const fake = { Decompress: class { constructor(cb) { this.cb = cb; } push(bytes) { this.cb(new Uint8Array(zlib.zstdDecompressSync(bytes)), true); } } };
-  const z = G.makeFrameDecompressor(fake);
+test('makeFrameDecompressor (vlastní zstd.js): rozbalí právě jeden rámec, hlídá limit, odmítne bajty navíc, useknutý i vadný rámec; bez dekodéru chyba', () => {
+  const z = G.makeFrameDecompressor(Z);
   const data = Buffer.from('abc'.repeat(1000));
-  assert.deepEqual(Buffer.from(z(new Uint8Array(zc(data)), 100000)), data);
-  assert.throws(() => z(new Uint8Array(zc(data)), 100), /povolenou velikost/);
+  const frame = new Uint8Array(zc(data));
+  assert.deepEqual(Buffer.from(z(frame, 100000)), data);
+  assert.throws(() => z(frame, 100), (e) => e.code === 'limit');
+  assert.throws(() => z(Uint8Array.from([...frame, 1, 2, 3]), 100000), /bajty navíc/);
+  assert.throws(() => z(frame.subarray(0, frame.length - 6), 100000), /useknutý/);
+  assert.throws(() => z(new Uint8Array(8), 100000), /magic/);
   assert.throws(() => G.makeFrameDecompressor(null)(new Uint8Array(4), 10), /není k dispozici/);
-  // rozdělený výstup do více kusů
-  const chunky = { Decompress: class { constructor(cb) { this.cb = cb; } push(bytes) { const out = zlib.zstdDecompressSync(bytes); for (let i = 0; i < out.length; i += 700) this.cb(new Uint8Array(out.subarray(i, i + 700)), i + 700 >= out.length); } } };
-  assert.deepEqual(Buffer.from(G.makeFrameDecompressor(chunky)(new Uint8Array(zc(data)), 100000)), data);
+  assert.throws(() => G.makeFrameDecompressor({})(new Uint8Array(4), 10), /není k dispozici/);
+  // vadný nebo chybějící strop = výchozí 16 MiB
+  for (const bad of [undefined, 0, -1, NaN, 'x']) assert.deepEqual(Buffer.from(z(frame, bad)), data);
+  // nestlačitelná data (víc bloků) a rámec bez uvedené velikosti obsahu
+  const noise = prng(5)(300000);
+  assert.deepEqual(Buffer.from(z(new Uint8Array(zc(Buffer.from(noise))), 1 << 20)), Buffer.from(noise));
 });
 
-test('skutečná knihovna fzstd (když je k dispozici) rozbalí stejně jako libzstd včetně rámců bez uvedené velikosti', () => {
-  const dir = process.env.FZSTD_DIR;
-  const p = dir ? `${dir}/fzstd/umd/index.js` : null;
-  if (!p || !existsSync(p)) return; // v běžné zkoušce chybí: ověřuje se ve zkoušce v prohlížeči
-  const fz = require(p);
-  const z = G.makeFrameDecompressor(fz);
-  const data = prng(5)(50000);
-  for (const buf of [Buffer.from('xyz'.repeat(3000)), Buffer.from(data)]) assert.deepEqual(Buffer.from(z(new Uint8Array(zc(buf)), 1 << 20)), buf);
+test('makeFirstFrameDecompressor (vlastní zstd.js): první rámec od začátku, za ním smí být cokoli; nesmysl a useknutí dá null, příliš velký výstup chybu s kódem limit', () => {
+  const d = G.makeFirstFrameDecompressor(Z);
+  const one = new Uint8Array(zc(Buffer.from('první rámec '.repeat(30))));
+  const two = new Uint8Array(zc(Buffer.from('druhý rámec '.repeat(30))));
+  const out = d(Uint8Array.from([...one, ...two, 0x28, 0xb5, 0x2f, 0xfd, 1, 2, 3]), 1 << 20);
+  assert.equal(Buffer.from(out).toString(), 'první rámec '.repeat(30));
+  assert.equal(d(new Uint8Array([9, 9, 9, 9, 9, 9]), 100), null);
+  assert.equal(d(one.subarray(0, 20), 1 << 20), null, 'useknutý rámec');
+  assert.throws(() => d(one, 100), (e) => e.code === 'limit');
+  assert.equal(G.makeFirstFrameDecompressor(null)(one, 100), null);
+  assert.equal(G.makeFirstFrameDecompressor({})(one, 100), null);
+});
+
+test('decode s vlastním dekodérem zstd: stejný výsledek jako s libzstd (obsah všech zdrojů, název, obrázek, detaily) a pozměněný soubor se odmítne stejně', async () => {
+  for (const seed of [1, 2, 5, 9]) {
+    const b = standard(seed);
+    const viaLib = await C.decode(new Uint8Array(b.file), deps);
+    const viaOwn = await C.decode(new Uint8Array(b.file), own);
+    assert.equal(viaOwn.ok, true, JSON.stringify(viaOwn.issues));
+    assert.equal(viaOwn.ok, viaLib.ok);
+    assert.equal(viaOwn.title, viaLib.title);
+    assert.equal(viaOwn.entries.length, viaLib.entries.length);
+    viaOwn.entries.forEach((e, i) => {
+      assert.equal(e.ok, viaLib.entries[i].ok);
+      assert.deepEqual(Buffer.from(e.content), Buffer.from(viaLib.entries[i].content), e.path);
+    });
+  }
+  // každý z prvních 400 bajtů zdroje taktiky pozměněný: výsledek (ok i důvod odmítnutí) je s oběma rozbalovači stejný
+  const b = standard(5);
+  const tac = b.recs.find((x) => x.ext === '.tac');
+  for (let i = 0; i < 400; i += 7) {
+    const f = flip(b.file, 26 + tac.offset + 40 + (i % (tac.rec.length - 40)));
+    const a = await C.decode(new Uint8Array(f), deps);
+    const o = await C.decode(new Uint8Array(f), own);
+    assert.equal(o.ok, a.ok, 'bajt ' + i);
+    assert.deepEqual(o.entries.map((e) => e.ok), a.entries.map((e) => e.ok), 'bajt ' + i);
+  }
 });
 
 // ---------------------------------------------------------------- skutečné soubory (jen když je složka zadaná; do repozitáře nepatří)
@@ -429,6 +532,10 @@ test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): všechny zdroje se rozšifruj
   for (const f of files) {
     const r = await C.decode(new Uint8Array(readFileSync(`${dir}/${f}`)), deps);
     assert.equal(r.ok, true, f + ' ' + JSON.stringify(r.issues));
+    // totéž s vlastním dekodérem z aplikace: stejný obsah každého zdroje
+    const o = await C.decode(new Uint8Array(readFileSync(`${dir}/${f}`)), own);
+    assert.equal(o.ok, true, f + ' vlastní dekodér: ' + JSON.stringify(o.issues));
+    o.entries.forEach((e, i) => assert.deepEqual(Buffer.from(e.content), Buffer.from(r.entries[i].content), f + ' ' + e.path));
     assert.ok(r.entries.every((e) => e.ok && e.checks.checksum === 'ok'), f);
     assert.equal(r.tacHeader.tagOk, true, f);
     assert.equal(r.tacHeader.titleMatches, true, f);

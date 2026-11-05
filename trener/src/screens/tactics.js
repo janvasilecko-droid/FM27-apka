@@ -9,27 +9,6 @@
 
   let selectedId = null;
   let importNote = null; // výsledek posledního importu; přežije překreslení obrazovky
-  const FZSTD_URL = 'https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js';
-
-  // ------------------------------------------------------------------ zstd na požádání (jen při kontrole .fmf)
-  let fzstdPromise = null;
-  function loadFzstd() {
-    if (window.fzstd) return Promise.resolve(window.fzstd);
-    if (!fzstdPromise) {
-      fzstdPromise = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = FZSTD_URL;
-        s.onload = () => (window.fzstd ? resolve(window.fzstd) : reject(new Error('Knihovna zstd se načetla, ale chybí.')));
-        s.onerror = () => {
-          fzstdPromise = null;
-          reject(new Error('Knihovnu pro rozbalení zstd se nepodařilo načíst.'));
-        };
-        document.head.appendChild(s);
-      });
-    }
-    return fzstdPromise;
-  }
-
   const T = () => window.TrenerTactics;
   const tacticsOf = (app) => FM27.context.tactics(app);
 
@@ -209,19 +188,16 @@ Odpověz POUZE JSON objektem:
   }
 
   // ------------------------------------------------------------------ kontrola .fmf
-  async function inspectFile(app, file, box) {
+  /** note: věta, kterou volající chce ukázat v rámečku (např. proč se soubor nepřečetl celý). */
+  async function inspectFile(app, file, box, note) {
     const Tc = T();
     setNote(box, h('p', { class: 'hint', text: 'Kontroluji soubor…' }));
     let report;
-    let zstdNote = '';
+    let zstdNote = note || '';
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      let decompress = null;
-      try {
-        decompress = window.TrenerFmfGlue.makeFirstFrameDecompressor(await loadFzstd());
-      } catch (e) {
-        zstdNote = e.message || String(e);
-      }
+      const decompress = window.TrenerZstd && window.TrenerFmfGlue ? window.TrenerFmfGlue.makeFirstFrameDecompressor(window.TrenerZstd) : null;
+      if (!decompress && !zstdNote) zstdNote = 'V této verzi aplikace chybí rozbalení zstd.';
       report = Tc.inspectFmf(bytes, decompress ? { decompress } : {});
     } catch (e) {
       setNote(box, h('div', { class: 'banner bad' }, h('b', { text: 'Soubor se nepodařilo zkontrolovat' }), h('span', { text: e.message || String(e) })));
@@ -263,6 +239,16 @@ Odpověz POUZE JSON objektem:
   const FC = () => window.TrenerFmfContainer;
   const TAC = () => window.TrenerFmfTac;
   const SRC_LABEL = { '.tac': 'Taktika (.tac)', '.img': 'Obrázek (.img)', '.aom': 'Detaily (.aom)' };
+  /** Text ze souboru do zobrazení: bez řídicích, neviditelných a přepínajících znaků a zkrácený (soubor je cizí vstup). */
+  const clean = (x, n) => (TAC() ? TAC().displayText(x, n) : String(x === undefined || x === null ? '' : x).replace(/[^\x20-\x7e\u00a0-\u024f]+/g, ' ').trim().slice(0, n || 80));
+  const srcLabel = (ext, path) => (Object.prototype.hasOwnProperty.call(SRC_LABEL, ext) ? SRC_LABEL[ext] : clean(path, 60) || 'zdroj');
+  /** Jedna věta o jednom zdroji: co se rozbalilo a co se přitom ověřilo (kontrolní součet je jen tam, kde ho soubor uvádí). */
+  function entryText(e) {
+    const size = `${e.size} B zašifrováno → ${e.content ? e.content.length : '?'} B rozbaleno`;
+    if (!e.ok) return `${size}, NEOVĚŘENO: ${clean((e.issues || []).join('; ') || 'neznámý důvod', 160)}`;
+    const sum = e.checks && e.checks.checksum === 'ok' ? 'velikost sedí s manifestem a kontrolní součet obsahu sedí' : 'velikost sedí s manifestem, kontrolní součet soubor u tohoto zdroje neuvádí (neověřeno)';
+    return `${size}, ${sum}`;
+  }
 
   /** Větou: jak dopadlo čtení stavby payloadu taktiky (jen stavba, ne význam čísel). */
   function structureText(s) {
@@ -285,11 +271,11 @@ Odpověz POUZE JSON objektem:
     const report = Object.assign({}, Fc.safeReport(read), { structure });
     const tacEntry = read.entries.find((e) => e.ext === '.tac');
     const rows = [
-      ['Název taktiky (z manifestu)', read.title || '–'],
-      ['Autor (podle souboru, neověřeno)', read.details && read.details.authorHandle ? read.details.authorHandle : 'nezjištěn'],
+      ['Název taktiky (z manifestu)', clean(read.title, 80) || '–'],
+      ['Autor (podle souboru, neověřeno)', read.details && read.details.authorHandle ? clean(read.details.authorHandle, 60) : 'nezjištěn'],
       ['Velikost souboru', `${read.size} B`],
     ];
-    for (const e of read.entries) rows.push([SRC_LABEL[e.ext] || e.path, `${e.size} B zašifrováno → ${e.content ? e.content.length : '?'} B rozbaleno, ${e.ok ? 'kontroly sedí' : 'NEOVĚŘENO: ' + (e.issues.join('; ') || 'neznámý důvod')}`]);
+    for (const e of read.entries) rows.push([srcLabel(e.ext, e.path), entryText(e)]);
     rows.push(['Struktura taktiky (stavba souboru)', structureText(structure)]);
     rows.push(['Pole taktiky (formace, role, instrukce…)', 'zatím nedekódována, nic z nich není ověřeno']);
     const verified = read.verified.concat(structure && structure.ok ? ['stavba payloadu taktiky souhlasí s popsanou gramatikou (každý bajt zařazen, všechny pevné bajty sedí; význam čísel to nedokazuje)'] : []);
@@ -300,13 +286,14 @@ Odpověz POUZE JSON objektem:
       h(
         'div',
         { class: 'banner ok', id: 'fmfReadBanner' },
-        h('b', { text: `Soubor „${file.name}“ je přečtený` }),
-        h('p', { text: 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI) a kontrolní součty sedí. Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.' }),
-        bad.length ? h('p', { class: 'hint', text: `Pozor: ${bad.length === 1 ? 'jeden zdroj' : bad.length + ' zdroje'} se nepodařilo ověřit (${bad.map((e) => e.path).join(', ')}).` }) : null
+        h('b', { text: `Soubor „${clean(file.name, 80)}“ je přečtený` }),
+        h('p', { text: 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI). Velikosti sedí s manifestem a kontrolní součty obsahu sedí tam, kde je soubor uvádí. Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.' }),
+        bad.length ? h('p', { class: 'hint', text: `Pozor: ${bad.length === 1 ? 'jeden zdroj' : bad.length + ' zdroje'} se nepodařilo ověřit (${bad.map((e) => clean(e.path, 60)).join(', ')}).` }) : null
       ),
       logo,
       h('div', { class: 'diag', id: 'fmfReadRows' }, rows.map(([k, v]) => h('div', null, h('span', { text: k }), h('span', { text: v })))),
-      verified.length ? h('ul', { class: 'list', id: 'fmfVerified' }, verified.map((v) => h('li', { text: 'Ověřeno: ' + v + '.' }))) : null,
+      read.warnings && read.warnings.length ? h('ul', { class: 'list', id: 'fmfWarnings' }, read.warnings.map((w) => h('li', { text: 'Pozor: ' + clean(w, 300) + '.' }))) : null,
+      verified.length ? h('ul', { class: 'list', id: 'fmfVerified' }, verified.map((v) => h('li', { text: 'Zkontrolováno: ' + clean(v, 300) + '.' }))) : null,
       h('div', { class: 'actions' }, h('button', {
         class: 'btn small',
         type: 'button',
@@ -314,13 +301,16 @@ Odpověz POUZE JSON objektem:
         text: 'Uložit zprávu o souboru',
         onclick: () => app.saveFile('fmf-zprava.json', JSON.stringify({ format: 'fm27-fmf-read', createdAt: new Date().toISOString(), fileName: file.name, report }, null, 2), 'application/json'),
       })),
-      tacEntry && tacEntry.ok ? h('p', { class: 'hint', text: 'Zpráva obsahuje jen velikosti a výsledky kontrol: žádný obsah taktiky, obrázek ani jméno autora.' }) : null
+      tacEntry && tacEntry.ok ? h('p', { class: 'hint', text: 'Zpráva obsahuje název souboru, název taktiky z manifestu, velikosti a výsledky kontrol; žádný obsah taktiky (formace, role, instrukce), obrázek ani jméno autora.' }) : null
     );
   }
 
   async function readFmfFile(app, file, box) {
     const Fc = FC();
-    if (!Fc || !window.crypto || !window.crypto.subtle) return inspectFile(app, file, box);
+    if (!Fc || !window.TrenerZstd) return inspectFile(app, file, box);
+    const subtle = window.crypto && window.crypto.subtle;
+    // bez WebCrypto (stránka mimo https) se zašifrované části nejdou přečíst: řekne se to přímo a zkontroluje se aspoň stavba souboru
+    if (!subtle) return inspectFile(app, file, box, 'Tenhle prohlížeč nebo tahle stránka nemá WebCrypto (dešifrování AES), a proto se zašifrované části souboru nepřečetly. Jde to jen na stránce se zabezpečeným spojením (https). Níže je jen kontrola stavby souboru.');
     setNote(box, h('p', { class: 'hint', id: 'fmfReading', text: 'Čtu soubor…' }));
     let bytes;
     try {
@@ -328,15 +318,7 @@ Odpověz POUZE JSON objektem:
     } catch (e) {
       return setNote(box, h('div', { class: 'banner bad' }, h('b', { text: 'Soubor se nepodařilo načíst' }), h('span', { text: e.message || String(e) })));
     }
-    let fzstd = null;
-    let zstdNote = '';
-    try {
-      fzstd = await loadFzstd();
-    } catch (e) {
-      zstdNote = e.message || String(e);
-    }
-    if (!fzstd) return setNote(box, h('div', { class: 'banner bad' }, h('b', { text: 'Soubor nejde přečíst' }), h('span', { text: zstdNote || 'Chybí knihovna pro rozbalení zstd.' })));
-    const read = await Fc.decode(bytes, { zstd: window.TrenerFmfGlue.makeFrameDecompressor(fzstd), aesCtr: window.TrenerFmfGlue.makeWebAesCtr(window.crypto.subtle) });
+    const read = await Fc.decode(bytes, { zstd: window.TrenerFmfGlue.makeFrameDecompressor(window.TrenerZstd), aesCtr: window.TrenerFmfGlue.makeWebAesCtr(subtle) });
     if (read.ok) return showFmfRead(app, file, box, read);
     // jiná hlavička než známý export: starší nebo cizí soubor řekne víc stará kontrola
     if (!(read.header && read.header.footerOk)) return inspectFile(app, file, box);

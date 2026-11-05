@@ -1,5 +1,5 @@
 /* Scénář 21: ČTENÍ SOUBORU .fmf (Moje taktiky → Import).
-   Co se zkouší: soubor se rozšifruje a rozbalí v prohlížeči (WebCrypto AES-CTR, zstd), ukáže se název, obrázek, velikosti a výsledky kontrol; poškozený soubor se nepřečte;
+   Co se zkouší: soubor se rozšifruje a rozbalí v prohlížeči (WebCrypto AES-CTR, vlastní dekodér zstd z aplikace, bez stahování čehokoli z internetu), ukáže se název, obrázek, velikosti a výsledky kontrol; poškozený soubor se nepřečte;
    starší nebo cizí soubor jde na původní kontrolu; nic se neposílá do AI a nic z obsahu taktiky ani přezdívky autora se neuloží do úložiště ani do zprávy o souboru.
    Soubory jsou SYNTETICKÉ (zapisovač podle ověřeného formátu). Když je nastavená proměnná FMF_SAMPLES_DIR, přečtou se i skutečné exporty z FM27 z toho adresáře
    (do repozitáře nepatří) a ověří se totéž.
@@ -12,10 +12,6 @@ const TB = require('../../fixtures/fmftac_builder.cjs');
 module.exports = async function run(env) {
   const { browser, check, h } = env;
   const { newContext, open, text } = h;
-  if (!process.env.FZSTD_DIR) {
-    console.log('PŘESKOČENO 21: chybí FZSTD_DIR (knihovna zstd pro zkoušku)');
-    return;
-  }
   const until = async (fn, ms) => {
     const end = Date.now() + (ms || 8000);
     while (Date.now() < end) {
@@ -27,6 +23,7 @@ module.exports = async function run(env) {
   const c = await newContext(browser, {});
   const page = c.page;
   await open(page, 'taktiky');
+  const blockedBefore = c.problems.failed.length; // požadavky ven, které zkušební prostředí zablokovalo (nic nepovoluje): po načtení stránky už nesmí přibýt žádný
   await page.fill('#careerClub', 'Chelsea');
   await page.click('#careerCreate');
   await page.waitForSelector('#tacFmfFile');
@@ -42,7 +39,7 @@ module.exports = async function run(env) {
   await page.waitForSelector('#fmfReadBanner', { timeout: 15000 });
   const rows = await text(page, '#fmfReadRows');
   check('21 soubor se přečte: banner „je přečtený“ a řekne, že se nic neposílá ven ani do AI', /je přečtený/.test(await text(page, '#fmfReadBanner')) && /nic se neposílá na internet ani do AI/.test(await text(page, '#fmfReadBanner')), await text(page, '#fmfReadBanner'));
-  check('21 řádky: název z manifestu, autor „neověřeno“, velikost souboru a velikosti zdrojů před a po rozbalení', new RegExp(`Název taktiky \\(z manifestu\\)\\s+${B.TITLE}`).test(rows) && /Autor \(podle souboru, neověřeno\)\s+autor_test/.test(rows) && new RegExp(`Velikost souboru\\s+${std.file.length} B`).test(rows) && new RegExp(`Taktika \\(\\.tac\\)\\s+${std.recs[1].rec.length} B zašifrováno → ${std.recs[1].content.length} B rozbaleno, kontroly sedí`).test(rows), rows);
+  check('21 řádky: název z manifestu, autor „neověřeno“, velikost souboru a velikosti zdrojů před a po rozbalení', new RegExp(`Název taktiky \\(z manifestu\\)\\s+${B.TITLE}`).test(rows) && /Autor \(podle souboru, neověřeno\)\s+autor_test/.test(rows) && new RegExp(`Velikost souboru\\s+${std.file.length} B`).test(rows) && new RegExp(`Taktika \\(\\.tac\\)\\s+${std.recs[1].rec.length} B zašifrováno → ${std.recs[1].content.length} B rozbaleno, velikost sedí s manifestem a kontrolní součet obsahu sedí`).test(rows), rows);
   check('21 pole taktiky se výslovně označí jako nedekódovaná a neověřená', /Pole taktiky \(formace, role, instrukce…\)\s+zatím nedekódována, nic z nich není ověřeno/.test(rows), rows);
   check('21 struktura taktiky: přečtena celá, počty dvojic, bloků, položek a záznamů sedí s tím, co je v souboru', new RegExp(`Struktura taktiky \\(stavba souboru\\)\\s+přečtena celá, každý bajt zařazen: ${cnt.pairs} dvojic bloků \\(${cnt.blocks} bloků celkem\\), ${cnt.items} položek, ${cnt.idEntries} záznamů seznamu id, ${cnt.footerLists} seznamů v patičce; 11 míst očíslovaných 0 až 10`).test(rows), rows);
   check('21 obrázek z PNG v souboru se ukáže (5 × 3 bodů)', await page.evaluate(() => { const i = document.querySelector('#fmfLogo'); return !!i && i.complete && i.naturalWidth === 5 && i.naturalHeight === 3; }));
@@ -50,6 +47,7 @@ module.exports = async function run(env) {
   check('21 mezi ověřenými tvrzeními je i stavba payloadu, s výhradou, že význam čísel nedokazuje', /stavba payloadu taktiky souhlasí s popsanou gramatikou[^.]*význam čísel to nedokazuje/.test(await text(page, '#fmfVerified')), await text(page, '#fmfVerified'));
   const calls = await page.evaluate(() => window.__mock.calls.length);
   check('21 čtení souboru nevolá AI', calls === 0, calls);
+  check('21 čtení souboru nestahuje nic z internetu: rozbalení zstd je součást aplikace (žádný zablokovaný požadavek ven)', c.problems.failed.length === blockedBefore, c.problems.failed.slice(blockedBefore));
 
   // ---------- zpráva o souboru: jen velikosti a výsledky kontrol
   await page.evaluate(() => { window.__mock.saves.length = 0; });
@@ -90,6 +88,23 @@ module.exports = async function run(env) {
   await page.waitForSelector('#fmfReadBanner.ok', { timeout: 15000 });
   check('21 soubor bez obrázku se přečte a obrázek se neukáže', (await page.locator('#fmfLogo').count()) === 0 && /je přečtený/.test(await text(page, '#fmfReadBanner')));
 
+  // ====================================================== C3) zdroj bez kontrolního součtu
+  await upload('bez_souctu.fmf', B.standardFmf(7, { noSum: true }).file);
+  await until(async () => /Taktika \(\.tac\)/.test(await text(page, '#fmfReadRows')) && /bez_souctu|je přečtený/.test(await text(page, '#fmfReadBanner')));
+  const noSumRows = await text(page, '#fmfReadRows');
+  check('21 zdroj bez kontrolního součtu: soubor se přečte, ale řádek říká, že součet soubor neuvádí a ověřila se jen velikost; ostatní zdroje součet mají', /Taktika \(\.tac\)\s+[^\n]*kontrolní součet soubor u tohoto zdroje neuvádí \(neověřeno\)/.test(noSumRows) && /Obrázek \(\.img\)\s+[^\n]*kontrolní součet obsahu sedí/.test(noSumRows), noSumRows);
+
+  // ====================================================== C4) bajty v datové části, které nepatří žádnému záznamu
+  const tail = B.buildFmf({ title: B.TITLE, resources: [{ dir: '', name: B.TITLE, ext: '.tac', content: B.tacContent(B.TITLE, 300, 1) }] }, 7);
+  const tailFile = Buffer.concat([Buffer.from(B.PREAMBLE), B.u64le(26 + tail.recs[0].rec.length + 5 - 9), B.u64le(17), Buffer.from([3]), tail.recs[0].rec, Buffer.alloc(5, 0xbb), Buffer.from(B.FOOTER), B.zc(tail.manifest)]);
+  await upload('bajty_navic.fmf', tailFile);
+  await page.waitForSelector('#fmfWarnings', { timeout: 15000 });
+  const warn = await text(page, '#fmfWarnings');
+  check('21 bajty v datové části bez záznamu: soubor se přečte, ale ukáže se výslovné upozornění a tvrzení „beze zbytku“ chybí', /Pozor: 5 bajtů v datové části nepatří žádnému záznamu/.test(warn) && !/beze zbytku/.test(await text(page, '#fmfVerified')) && /je přečtený/.test(await text(page, '#fmfReadBanner')), warn);
+  await upload('bez_upozorneni.fmf', B.standardFmf(3).file);
+  await until(async () => (await page.locator('#fmfWarnings').count()) === 0 && /je přečtený/.test(await text(page, '#fmfReadBanner')));
+  check('21 běžný soubor žádné upozornění nemá a ověřená tvrzení říkají, že záznamy vyplňují datovou část beze zbytku', (await page.locator('#fmfWarnings').count()) === 0 && /záznamy beze zbytku vyplňují datovou část/.test(await text(page, '#fmfVerified')), await text(page, '#fmfVerified'));
+
   // ====================================================== C2) payload, který nemá popsanou stavbu
   await upload('jina_stavba.fmf', B.standardFmf(9).file); // obsah .tac je vymyšlená změť bajtů: kontejner se přečte, stavba taktiky ne
   await page.waitForSelector('#fmfReadBanner.ok', { timeout: 15000 });
@@ -112,7 +127,7 @@ module.exports = async function run(env) {
       await until(async () => /je přečtený|nepodařilo se ho přečíst|nebyl interpretován/.test(await note()), 15000);
       const t = await note();
       const logo = await page.evaluate(() => { const i = document.querySelector('#fmfLogo'); return i ? [i.naturalWidth, i.naturalHeight] : null; });
-      check(`21 skutečný export „${f.slice(0, 28)}“: přečtený, tři zdroje s kontrolami, struktura taktiky přečtená celá (11 míst)${logo ? `, obrázek ${logo[0]} × ${logo[1]}` : ''}`, /je přečtený/.test(t) && (t.match(/kontroly sedí/g) || []).length === 3 && /Struktura taktiky \(stavba souboru\)\s+přečtena celá, každý bajt zařazen: 11 dvojic bloků[^;]*; 11 míst očíslovaných 0 až 10/.test(t), t.slice(0, 600));
+      check(`21 skutečný export „${f.slice(0, 28)}“: přečtený, tři zdroje s kontrolami, struktura taktiky přečtená celá (11 míst)${logo ? `, obrázek ${logo[0]} × ${logo[1]}` : ''}`, /je přečtený/.test(t) && (t.match(/kontrolní součet obsahu sedí/g) || []).length === 3 && /Struktura taktiky \(stavba souboru\)\s+přečtena celá, každý bajt zařazen: 11 dvojic bloků[^;]*; 11 míst očíslovaných 0 až 10/.test(t), t.slice(0, 600));
     }
   }
 

@@ -453,12 +453,16 @@ Odpověz POUZE JSON objektem:
     const exportBox = h('div');
     const feedBox = h('div');
     const shotBox = h('div');
+    const recruitBox = h('div');
     const drawList = () => listBox.replaceChildren(listCard(app, drawList));
     const drawExport = () => exportBox.replaceChildren(exportCard(app, () => (drawList(), drawExport())));
+    // Karta Přestupy se sestaví jednou a sama se stará o překreslení výsledků při změně dat (ovládací prvky a rozepsané údaje zůstávají).
+    const drawRecruit = () => recruitBox.replaceChildren(FM27.recruitUI ? FM27.recruitUI.card(app) : null);
     if (!app.requireCareer(root, 'Soupiska')) return;
-    root.replaceChildren(listBox, feedBox, exportBox, shotBox);
+    root.replaceChildren(listBox, recruitBox, feedBox, exportBox, shotBox);
     drawList();
     drawExport();
+    drawRecruit();
     if (FM27.feed) feedBox.replaceChildren(FM27.feed.card(app, 'squad', { redraw: drawList }));
     shotBox.replaceChildren(screenshotCard(app, drawList));
     app.watch(['player'], () => root.contains(listBox) && drawList());

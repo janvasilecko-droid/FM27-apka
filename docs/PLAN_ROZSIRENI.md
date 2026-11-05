@@ -30,7 +30,7 @@ Navazuje na zadávací dokument majitele z 5. 11. 2026 („MASTER PROMPT – roz
 | Plugin FMMatchLens | **funkční proti náhražce** | Čte `/health`, `/meta`, `/current`; **nečte `/frames` a události**; tvar odpovědí neověřen na skutečné hře. |
 | Tepelné mapy, síť přihrávek, mapa střel, vlastní xG | **chybí** | Vyžadují prostorová data (plugin frames a události); xG se jen čte ze hry. |
 | Soupeř (profil, plán) | **částečně** | Plán je textový rozbor; strukturovaný plán A/B a větve „vedeme / remíza / prohráváme“ chybí. |
-| Přestupový poradce | **chybí** | Neexistuje fond kandidátů; údaje o ceně a mzdě se nikde neukládají. |
+| Přestupový poradce | **hotovo (etapa 3, na zadaných datech)** | Kandidáti (ručně, z tabulky), dopad příchodu a odchodu na sestavu A + B, hledání podle role, doporučení s výsledkem; cena a mzda jen zadané. |
 | Paměť kariéry | **částečně** | Zápasy, taktiky, soupiska, poznámky; chybí historie výkonů hráčů, přestupů, zranění, **seznam doporučení a jejich úspěšnosti**. |
 | Rozbor po zápase | **funkční** | Graf, období, změny, nálezy; chybí tepelné mapy, sítě přihrávek, mapa střel a **vyhodnocení, zda předchozí rada pomohla**. |
 | Škola taktiky | **funkční** | 28 lekcí, scénáře, kvízy, „co udělat“ a „proč“. |
@@ -57,8 +57,8 @@ Každý záznam má `careerId`, čas a **původ údaje** (`user_entered`, `scree
 | `weightprofile` | **hotovo (etapa 2)** | pojmenovaný profil vah DWRS: kategorie atributů po skupinách pozic, násobiče, popis změn oproti výchozímu; globální (bez `careerId`) |
 | `lineup` | **odloženo (etapa 7)** | uložená sestava A + B (taktika, hráči po místech, součty, čas, otisk vstupů) pro porovnání v čase; v etapě 2 se sestava jen počítá a porovnává „před a po změně“, do historie se neukládá |
 | `slot.oop` | **rozšíření taktiky (etapa 4)** | volitelná druhá role místa (bez míče: `role`, `duty`); starší taktiky bez ní zůstávají platné |
-| `candidate` | **nový (etapa 3)** | cizí hráč jako kandidát na přestup: atributy (viditelné), věk, `price`/`wage` (`null` = UNKNOWN), původ, poznámka, stav jednání s platností |
-| `recommendation` | **nový (etapa 3 a 6)** | doporučení (přestup, změna taktiky): čas, kariéra, důvod, použitá data, očekávaný přínos, **skutečný výsledek** doplněný později |
+| `candidate` | **hotovo (etapa 3)** | cizí hráč jako kandidát na přestup: atributy (viditelné), věk, `price`/`wage` (`null` = UNKNOWN), měna, původ (ručně, nebo tabulka a soubor), poznámka, jednání (stav, platnost RRRR-MM-DD, poznámka) |
+| `recommendation` | **hotovo pro přestupy (etapa 3), změny taktiky v etapě 6** | doporučení: čas, kariéra, kandidát, místo, model, doklady, očekávaný přínos, **skutečný výsledek** (rozhodnutí, hodnocení, poznámka) doplněný později |
 | `matchframes` / události | **nový (etapa 5)** | polohy a události ze zápasu (jen z pluginu); ukládat po částech mimo dokument 240 kB |
 
 **Moduly (čisté, s jednotkovými zkouškami) a obrazovky:**
@@ -67,7 +67,7 @@ Každý záznam má `careerId`, čas a **původ údaje** (`user_entered`, `scree
 |---|---|---|
 | Player Analytics | `dwrs.js` (nový), `rolefit.js` (stávající) | Můj tým (detail hráče), Nastavení (správa vah) |
 | Squad Optimizer | `squadopt.js` (nový) | Moje taktiky (sestava A/B) |
-| Recruitment Advisor | `recruit.js` (etapa 3) | Můj tým / nová sekce |
+| Recruitment Advisor | `recruit.js` (**hotovo**, etapa 3) | Můj tým (karta Přestupy, `screens/recruit.js`) |
 | Tactic Analyzer | `tacticanalysis.js` (etapa 4) | Taktická laboratoř / Moje taktiky |
 | Live Match Analytics | `heat.js`, `passnet.js`, `shotmap.js` (etapa 5) | Live Coach, Historie |
 | AI Match Coach | `analysis.js` (stávající), `coach.js` (etapa 6) | Live Coach, Osobní trenér |
@@ -84,7 +84,7 @@ Každá etapa končí: čisté moduly s jednotkovými zkouškami (včetně hrub�
 |---|---|---|---|
 | **1. Audit** | tyto tři dokumenty | – | **hotovo** (5. 11. 2026) |
 | **2. Hráči a sestava** | DWRS (kategorie 8/4/2/1/0,2, násobiče 1,5/1,2/1,0, normalizace 0 až 100), model brankáře, přednastavené profily a správa vah, role s rozpadem po atributech, sestava A + B (přísné pořadí cílů), slabé pozice, dopad změn | profily rolí z obrazovky (hotovo) | **hotovo na náhražkách** (5. 11. 2026): `dwrs.js`, `squadopt.js`, karta Nejlepší sestava (A + B, zámky, vyřazení, zranění, náhrady s dopadem, hloubka, dopad výpadku, rizika), rozbor hráče, správa vah v Nastavení; metodika M15 až M22. Ověření DWRS na skutečných datech FM27 čeká na majitele. Z plánu **nevzniklo** ukládání sestav do historie (`lineup`, odloženo na etapu 7) a obrazovka pro podobné hráče (funkce je hotová, použije ji etapa 3) |
-| **3. Přestupový poradce** | kandidáti (export tabulek, ruční zadání), role-based hledání, simulace příchodu a odchodu s přepočtem sestavy, cena a mzda jen zadané (jinak UNKNOWN), historie doporučení | etapa 2; zdroj kandidátů (exporty) | čeká |
+| **3. Přestupový poradce** | kandidáti (export tabulek, ruční zadání), role-based hledání, simulace příchodu a odchodu s přepočtem sestavy, cena a mzda jen zadané (jinak UNKNOWN), historie doporučení | etapa 2; zdroj kandidátů (exporty) | **hotovo na zadaných a vymyšlených datech** (5. 11. 2026): `recruit.js` (kandidát, čtení částek, dopad příchodu, odchodu a výměny na sestavu A + B, hledání na celý tým i na jedno místo, potřeby týmu, podobní kandidáti, doporučení s výsledkem a úspěšností podle hodnocení uživatele), karta Přestupy v Můj tým, metodika M23 až M28, zkouška 22. **Neověřeno na skutečných exportech cizích nástrojů** (názvy sloupců a zápis cen se u nich hádat nesmí: mapování potvrzuje uživatel). Hodnocení hráčů je odhad aplikace (ESTIMATED), cena a mzda jen zadané. |
 | **4. Tactic Analyzer** | model taktiky se dvěma fázemi, pravidla rozporů se sedmi poli, čtyři vlastní skóre, kontrola instrukcí | etapa 2; **skutečný `.fmf` export taktiky FM27 od majitele** | **zahájeno** (5. 11. 2026): majitel poslal tři skutečné exporty; **kontejner `.fmf` je rozluštěný a aplikace ho čte, včetně stavby taktiky uvnitř** (`docs/FORMAT_FMF.md`, `fmfcontainer.js`, `fmftac.js`); rozbor významu čísel uvnitř běží, jejich ověření potřebuje snímky obrazovky těchže taktik ze hry |
 | **5. Live Match Analytics** | čtení `/frames` a událostí, tepelné mapy, síť přihrávek, mapa střel, časová osa s návratem, archiv | **ověření tvaru dat na skutečném pluginu a souborech `.fmlens`** | čeká |
 | **6. AI Match Coach** | diagnostika příčin z dat, priorizace jedné změny, sledování výsledku změny, plán A/B a větve soupeře | etapy 4 a 5 | čeká |
@@ -107,7 +107,7 @@ Každá etapa končí: čisté moduly s jednotkovými zkouškami (včetně hrub�
 
 ## 5. Závislosti a licenční omezení
 
-**Naše závislosti:** žádné knihovny za běhu. Písma Inter a Barlow (SIL OFL) z Google Fonts; čtení PDF pdf.js (Apache-2.0, z cdnjs); dekomprese fzstd (MIT, jen inspektor `.fmf`). Vývoj a zkoušky: Node, Playwright (Apache-2.0), Python s `reportlab`.
+**Naše závislosti:** žádné knihovny za běhu. Písma Inter a Barlow (SIL OFL) z Google Fonts; čtení PDF pdf.js (Apache-2.0, z cdnjs); dekomprese zstd je vlastní modul `trener/src/zstd.js` (jen čtení `.fmf`; bez knihovny třetí strany a bez stahování z internetu). Vývoj a zkoušky: Node, Playwright (Apache-2.0), Python s `reportlab`.
 
 **Referenční projekty:**
 

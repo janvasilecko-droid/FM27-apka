@@ -1134,8 +1134,8 @@
   }
 
   /** Zkontroluje soubor .fmf bez dekódování nastavení taktiky. opts.decompress(bytes, maxBytes) → Uint8Array|null
-      rozbalí první zstd rámec od začátku `bytes` (nejvýš maxBytes; null = nejde); dodává ho volající, modul
-      sám nic nerozbaluje. Cizí nebo nečitelný soubor: ok:false s českým důvodem, bez výjimky. */
+      rozbalí první zstd rámec od začátku `bytes` (nejvýš maxBytes; null = nejde; chyba s kódem 'limit' = rámec je větší než maxBytes);
+      dodává ho volající (fmfglue.js nad zstd.js), modul sám nic nerozbaluje. Cizí nebo nečitelný soubor: ok:false s českým důvodem, bez výjimky. */
   function inspectFmf(input, opts) {
     const decompress = isObj(opts) && typeof opts.decompress === 'function' ? opts.decompress : null;
     const result = {
@@ -1188,6 +1188,12 @@
         out = decompress(bytes.subarray(offset), FMF.MAX_MANIFEST_BYTES + 1);
       } catch (e) {
         out = null;
+        if (e && e.code === 'limit') {
+          // rozbalovač řekl, že rámec má víc výstupu, než povoluje strop: je to „příliš velký“, ne „nejde rozbalit“
+          frame.reason = 'překročil limit 1 MiB';
+          oversize = true;
+          continue;
+        }
       }
       const content = toBytes(out);
       if (!content) {

@@ -369,9 +369,6 @@ async function newContext(browser, opts) {
   await context.route(URL_PAGE, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: opts.standalone ? HTML_STANDALONE : HTML }));
   await context.route('https://artifact.test/favicon.ico', (route) => route.fulfill({ status: 204, body: '' }));
   await context.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ contentType: 'text/css', body: '' }));
-  if (process.env.FZSTD_DIR) {
-    await context.route('https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js', (route) => route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(process.env.FZSTD_DIR, 'fzstd', 'umd', 'index.js')) }));
-  }
   await context.route('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/*', (route) => {
     const file = route.request().url().split('/').pop();
     if (!cdnMap[file]) return route.abort();

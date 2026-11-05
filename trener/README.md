@@ -44,7 +44,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 |---|---|
 | `src/core.js` | jádro bez DOM: text, odstavce, BM25, kontrola poctivosti, prompty |
 | `src/websources.js`, `web.js` | zdroje z webu: druh zdroje, verze FM, čtení výsledků, plány hledání (čistý modul); doprava, paměť, limity a karta zdroje (rozhraní) |
-| `src/tactics.js`, `analysis.js`, `school.js`, `providers.js`, `alerts.js`, `opponent.js`, `report.js`, `labexplain.js`, `fmfglue.js` | čisté moduly bez DOM (UMD), běží v prohlížeči i v Node |
+| `src/tactics.js`, `analysis.js`, `school.js`, `providers.js`, `alerts.js`, `opponent.js`, `report.js`, `labexplain.js`, `zstd.js`, `fmfglue.js` | čisté moduly bez DOM (UMD), běží v prohlížeči i v Node |
 | `src/store.js` | místní úložiště a zrcadlení do `db` (poslední zápis vyhrává, náhrobky, limit 240 kB na dokument) |
 | `src/ui.js`, `app.js`, `library.js`, `ai.js`, `context.js`, `advice.js`, `live.js`, `voice.js`, `widgets.js` | rozhraní a napojení na prohlížeč |
 | `src/screens/*.js` | jedna obrazovka na soubor; `zz_stubs.js` zachytí sekci bez obrazovky a poctivě řekne, že není hotová |
@@ -53,29 +53,38 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/styles.css` | celý vzhled: barvy jako proměnné (tmavý a světlý vzhled), karty, levé menu, tlačítka, graf, hřiště; hlídá ho `test/styles.test.mjs` |
 | `src/careerread.js`, `clubread.js` | klub, soutěž a sezóna ze hry při zakládání kariéry: pravidla čtení a čištění (čistý modul); blok „Načíst klub ze hry“ ve formuláři kariéry (rozhraní) |
 | `src/dwrs.js`, `squadopt.js` | hodnocení hráče na roli (DWRS: kategorie atributů, násobiče role, 0 až 100, profily vah) a nejlepší sestava A + B (maďarský algoritmus s přísným pořadím cílů, zámky, vyřazení, zranění, náhrady s dopadem, hloubka, dopad výpadku, rizika); čisté moduly, metodika M15 až M22 v `docs/ANALYTICS_METHODOLOGY.md` |
+| `src/recruit.js`, `screens/recruit.js` | přestupový poradce: kandidáti (ručně, z tabulky), čtení cen a mezd (jen čitelné, jinak neznámé), přesný dopad příchodu, odchodu a výměny na sestavu A + B, hledání na celý tým i na místo, potřeby týmu, podobní kandidáti, jednání s platností, doporučení s výsledkem; metodika M23 až M28, zkouška 22 |
+| `src/zstd.js` | vlastní dekodér zstd (RFC 8878) bez závislostí: strop výstupu, bloku a okna, přísné odmítání vadných rámců; zkoušený proti libzstd (`test/zstd.test.mjs`) |
 | `src/fmfcontainer.js`, `fmfglue.js`, `fmftac.js` | čtečka kontejneru `.fmf` z FM27 (rozšifrování AES-128-CTR a rozbalení zstd v zařízení, kontrolní součty, limity) a přísná čtečka **stavby** payloadu taktiky (bloky, položky, seznamy; popis v `docs/FORMAT_FMF.md`); **význam čísel** (formace, role, instrukce) zatím nečte |
 | `src/screens/weights.js`, `playeranalysis.js` | správa vah DWRS v Nastavení (přednastavení, vlastní profily, porovnání); rozbor hráče v Můj tým (nejlepší a nejhorší role, silné stránky a mezery, pořadí v týmu) |
-| `test/*.test.mjs` | 790 testů čistých modulů, úložiště a barev vzhledu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (21 scénářů, 839 kontrol), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 865 testů čistých modulů, úložiště a barev vzhledu |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 896 kontrol), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 790 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 865 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
-Zkoušky v prohlížeči potřebují Playwright s Chromiem, `reportlab`, `pdfjs-dist@3.11.174` (pdf.js se načítá místní kopií místo cdnjs)
-a `fzstd@0.1.1` (čtení `.fmf`):
+Zkoušky v prohlížeči potřebují Playwright s Chromiem, `reportlab` a `pdfjs-dist@3.11.174` (pdf.js se načítá místní kopií místo cdnjs).
+Čtení `.fmf` žádnou knihovnu nepotřebuje: rozbalení zstd je vlastní modul `trener/src/zstd.js` přímo v aplikaci.
 
 ```bash
-npm install --prefix /tmp/pdfjs pdfjs-dist@3.11.174 fzstd@0.1.1
+npm install --prefix /tmp/pdfjs pdfjs-dist@3.11.174
 python3 trener/test/e2e/make_fixtures.py /tmp/fx
 node trener/build.mjs
-FIXTURES=/tmp/fx PDFJS_DIR=/tmp/pdfjs/node_modules/pdfjs-dist/build FZSTD_DIR=/tmp/pdfjs/node_modules OUT=/tmp/out \
+FIXTURES=/tmp/fx PDFJS_DIR=/tmp/pdfjs/node_modules/pdfjs-dist/build OUT=/tmp/out \
   node trener/test/e2e/e2e.cjs                         # všechny scénáře; ONLY=05,09 vybere jen některé
+```
+
+Vlastní dekodér zstd se zkouší i proti libzstd. Bez Pythonu se tyhle porovnávací zkoušky přeskočí; s ním (balíček `zstandard` ve virtuálním prostředí) běží celé:
+
+```bash
+python3 -m venv /tmp/zv && /tmp/zv/bin/pip install zstandard
+ZSTD_ORACLE_PYTHON=/tmp/zv/bin/python node --test trener/test/zstd.test.mjs   # ZSTD_SEED=n zkusí jiné náhodné vstupy
 ```
 
 Zkoušky nahrazují Claude, `db`, sdílení obrazovky, hlas a mikrofon zkušebními náhražkami (`trener/test/e2e/e2e.cjs`, `fakedb.cjs`)
