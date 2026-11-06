@@ -226,7 +226,7 @@
       mentality: '',
       teamInstructions: [],
       notes: '',
-      slots: f.slots.map((s, i) => ({ key: 's' + (i + 1), pos: s.pos, x: s.x, y: s.y, ox: s.x, oy: s.y, playerId: null, role: '', duty: '' })),
+      slots: f.slots.map((s, i) => ({ key: 's' + (i + 1), pos: s.pos, x: s.x, y: s.y, ox: s.x, oy: s.y, playerId: null, role: '', oopRole: '', duty: '' })),
       source: { type: 'manual', fileName: null, importedAt: null, fields: {} },
     };
   }

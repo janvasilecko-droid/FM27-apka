@@ -355,8 +355,9 @@ Odpověz POUZE JSON objektem:
     const slotRows = tactic.slots.map((s) => {
       const player = ui.select([['', '(nikdo)'], ...squad.map((p) => [p.id, p.name])], s.playerId || '', { id: 'slPl-' + s.key });
       const role = ui.input({ id: 'slRole-' + s.key, maxlength: 60, value: s.role || '', placeholder: 'role' });
-      const duty = ui.input({ id: 'slDuty-' + s.key, maxlength: 40, value: s.duty || '', placeholder: 'povinnost' });
-      return { key: s.key, pos: s.pos, player, role, duty };
+      const oop = ui.input({ id: 'slOop-' + s.key, maxlength: 60, value: s.oopRole || '', placeholder: 'role bez míče' });
+      const duty = ui.input({ id: 'slDuty-' + s.key, maxlength: 40, value: s.duty || '', placeholder: 'povinnost (jen starší FM)' });
+      return { key: s.key, pos: s.pos, player, role, oop, duty };
     });
     const msg = h('p', { class: 'hint', id: 'tacMsg' });
 
@@ -381,14 +382,14 @@ Odpověz POUZE JSON objektem:
           fresh.slots = fresh.slots.map((s, i) => {
             const same = tactic.slots.find((o) => o.pos === s.pos && !used.has(o.key)) || tactic.slots[i];
             if (same) used.add(same.key);
-            return Object.assign(s, same ? { playerId: same.playerId, role: same.role, duty: same.duty } : {});
+            return Object.assign(s, same ? { playerId: same.playerId, role: same.role, oopRole: same.oopRole || '', duty: same.duty } : {});
           });
           next.formation = fresh.formation;
           next.slots = fresh.slots;
         } else {
           next.slots = next.slots.map((s) => {
             const r = slotRows.find((x) => x.key === s.key);
-            return Object.assign({}, s, { playerId: r.player.value || null, role: r.role.value.trim(), duty: r.duty.value.trim() });
+            return Object.assign({}, s, { playerId: r.player.value || null, role: r.role.value.trim(), oopRole: r.oop.value.trim(), duty: r.duty.value.trim() });
           });
         }
         await saveTactic(app, next);
@@ -409,7 +410,7 @@ Odpověz POUZE JSON objektem:
       ui.field('Týmové instrukce', instr),
       h('h3', { text: 'Hráči na pozicích', style: 'margin-top:14px' }),
       squad.length ? null : h('p', { class: 'hint', text: 'Soupiska je prázdná. Hráče přidej v Můj tým, pak je tady přiřadíš k pozicím.' }),
-      h('div', { class: 'slots' }, slotRows.map((r) => h('div', { class: 'row slot' }, h('b', { class: 'mono', text: r.pos, style: 'width:42px;flex:none' }), ui.field('Hráč', r.player, { grow: true, noMargin: true }), ui.field('Role', r.role, { grow: true, noMargin: true }), ui.field('Povinnost', r.duty, { width: '140px', noMargin: true })))),
+      h('div', { class: 'slots' }, slotRows.map((r) => h('div', { class: 'row slot' }, h('b', { class: 'mono', text: r.pos, style: 'width:42px;flex:none' }), ui.field('Hráč', r.player, { grow: true, noMargin: true }), ui.field('Role s míčem', r.role, { grow: true, noMargin: true }), ui.field('Role bez míče', r.oop, { grow: true, noMargin: true }), ui.field('Povinnost', r.duty, { width: '120px', noMargin: true })))),
       ui.field('Poznámky', notes),
       h(
         'div',
@@ -485,7 +486,7 @@ Odpověz POUZE JSON objektem:
         'section',
         { class: 'card' },
         h('h2', { text: 'Moje taktiky' }),
-        h('p', { class: 'lead', text: 'Hlavní a alternativní taktiky tvé kariéry. Trenér čte aktivní taktiku při každé radě. Role, povinnosti a instrukce piš tak, jak je vidíš ve hře: aplikace jejich oficiální názvy nezná.' }),
+        h('p', { class: 'lead', text: 'Hlavní a alternativní taktiky tvé kariéry. Trenér čte aktivní taktiku při každé radě. Role (s míčem i bez míče) a instrukce piš tak, jak je vidíš ve hře, anglicky (například „Defensive Line: Higher“). Rozbor taktiky je pozná, co nepozná, řekne a nehádá.' }),
         all.length
           ? h('div', { class: 'row' }, ui.field('Vybraná taktika', ui.select(all.map((t) => [t.id, `${t.name} (${t.formation}${t.kind === 'primary' ? ', hlavní' : ', alternativní'})`]), selectedId, { id: 'tacSelect', onchange: (e) => ((selectedId = e.target.value), draw()) }), { grow: true, noMargin: true }))
           : h('div', { class: 'empty' }, h('b', { text: 'Zatím žádná taktika' }), h('p', { class: 'hint', text: 'Vytvoř ji níže, nebo nahraj ruční plán.' })),
@@ -502,7 +503,7 @@ Odpověz POUZE JSON objektem:
         importBox
       );
       const RFU = FM27.rolefitUI;
-      root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, tactic && RFU ? RFU.bestCard(app, tactic, draw) : null, RFU ? RFU.profilesCard(app, draw) : null, tacticReadCard(app, draw), imports);
+      root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, tactic && FM27.tacticCheckUI ? FM27.tacticCheckUI.card(app, tactic) : null, tactic && RFU ? RFU.bestCard(app, tactic, draw) : null, RFU ? RFU.profilesCard(app, draw) : null, tacticReadCard(app, draw), imports);
     };
     const guard = ui.dirtyGuard(root, app, () => draw());
     draw();
