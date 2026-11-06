@@ -19,6 +19,8 @@ permissions:
   contents: read
 
 jobs:
+  # Známé omezení, zatím neopravené: GitHub při každém běhu varuje, že akce checkout@v4, setup-node@v4 a setup-python@v5 míří na zastaralý Node.js 20
+  # a runner je nuceně spouští na Node.js 24. Novější hlavní verze akcí se nepodařilo ověřit, proto se verze nemění (viz trener/README.md, část „CI na GitHubu“).
   oracle:
     runs-on: ubuntu-latest
     steps:
