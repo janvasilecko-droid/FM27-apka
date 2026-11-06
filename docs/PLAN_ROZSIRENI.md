@@ -78,7 +78,7 @@ Každý záznam má `careerId`, čas a **původ údaje** (`user_entered`, `scree
 
 ## 3. Etapy a kritéria hotovosti
 
-Každá etapa končí: čisté moduly s jednotkovými zkouškami (včetně hrubé síly u optimalizací), zkouška v prohlížeči, aktualizace `ANALYTICS_METHODOLOGY.md` (vzorec, zdroj, štítek, příklad), mutační kontrola (úmyslná porucha musí zkoušku shodit; u etap 2 a 3 šlo o jednorázovou ruční kontrolu při psaní kódu, záznam jen ve zprávách commitů f8d7ad8 a 67f3629, skripty v repozitáři nejsou; trvalé mutační seznamy v `trener/test/mutation/` jsou jen pro dekodér zstd, jeho lepidlo a čtečku kontejneru), nasazení a ověření.
+Každá etapa končí: čisté moduly s jednotkovými zkouškami (včetně hrubé síly u optimalizací), zkouška v prohlížeči, aktualizace `ANALYTICS_METHODOLOGY.md` (vzorec, zdroj, štítek, příklad), mutační kontrola (úmyslná porucha musí zkoušku shodit; u etap 2 a 3 šlo o jednorázovou ruční kontrolu při psaní kódu, záznam jen ve zprávách commitů f8d7ad8 (moduly etapy 2), 760ca55 (obrazovky etapy 2) a 67f3629 (etapa 3), skripty v repozitáři nejsou; trvalé mutační seznamy v `trener/test/mutation/` jsou jen pro dekodér zstd, jeho lepidlo a čtečku kontejneru), nasazení a ověření.
 
 | Etapa | Obsah | Závisí na | Stav |
 |---|---|---|---|

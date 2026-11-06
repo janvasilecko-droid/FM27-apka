@@ -57,25 +57,25 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/zstd.js` | vlastní dekodér zstd (RFC 8878) bez závislostí: strop výstupu, bloku, okna a počtu bloků, přísné odmítání vadných rámců; zkoušený proti libzstd (`test/zstd.test.mjs`) |
 | `src/fmfcontainer.js`, `fmfglue.js`, `fmftac.js` | čtečka kontejneru `.fmf` z FM27 (rozšifrování AES-128-CTR a rozbalení zstd v zařízení, kontrolní součty, limity; `fmfglue.js` hlídá na jedno čtení souboru dva rozpočty, bloků (20 000) a výstupu (33 MiB), a to i za rámce, které selžou) a přísná čtečka **stavby** payloadu taktiky (bloky, položky, seznamy; popis v `docs/FORMAT_FMF.md`); **význam čísel** (formace, role, instrukce) zatím nečte |
 | `src/screens/weights.js`, `playeranalysis.js` | správa vah DWRS v Nastavení (přednastavení, vlastní profily, porovnání); rozbor hráče v Můj tým (nejlepší a nejhorší role, silné stránky a mezery, pořadí v týmu) |
-| `test/*.test.mjs` | 897 testů čistých modulů, úložiště a barev vzhledu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 904 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 898 testů čistých modulů, úložiště a barev vzhledu |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 907 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 **Požadavky.** Aplikace ani sestavení nemají žádnou závislost (repozitář nemá `package.json` ani seznam balíčků; čtení `.fmf` žádnou knihovnu nepotřebuje, rozbalení zstd je vlastní modul `trener/src/zstd.js` přímo v aplikaci); zkoušky potřebují:
 
-- **Node 22.15 nebo novější.** Zkoušky dekodéru zstd, čtečky kontejneru a čtečky stavby taktiky i generátor souborů `.fmf` pro zkoušky v prohlížeči volají `zlib.zstdCompressSync`, který má Node od verze 22.15.0 (podle CHANGELOG Node 22).
-  Na Node bez něj zkoušky nepřeskočí, ale selžou (ověřeno jen odebráním funkcí `zlib.zstd*`, ne na skutečném starším Node). CI používá `node-version: 22`. „Node 18+“ v hlavičce `build.mjs` platí jen pro samotné sestavení (a na skutečném Node 18 se neověřilo).
+- **Node 22.15 nebo novější.** Zkoušky dekodéru zstd, čtečky kontejneru a čtečky stavby taktiky i generátor souborů `.fmf` pro zkoušky v prohlížeči volají `zlib.zstdCompressSync` nebo `zlib.zstdDecompressSync`, které má Node od verze 22.15.0 (podle CHANGELOG Node 22).
+  Na Node bez nich zkoušky nepřeskočí, ale selžou (výjimka: jediná zkouška v `tactics.test.mjs` má ochranu a přeskočí se; ověřeno jen odebráním funkcí `zlib.zstd*`, ne na skutečném starším Node). CI používá `node-version: 22`. „Node 18+“ v hlavičce `build.mjs` platí jen pro samotné sestavení (a na skutečném Node 18 se neověřilo).
 - **Python 3**: `reportlab` a písmo DejaVu Sans pro `make_fixtures.py` (skript má cestu `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` napevno; na Debianu a Ubuntu je v balíčku `fonts-dejavu-core`) a `zstandard==0.25.0` pro věštírnu libzstd
   (verze, na které se zkoušky ladily a kterou připíná CI; bez ní se porovnání s libzstd přeskočí).
-- **Playwright s Chromiem** a `pdfjs-dist@3.11.174` pro zkoušky v prohlížeči (příkazy níže). Playwright se nedodává s repozitářem a `e2e.cjs` ho bere přes `require('playwright')`, takže musí být vidět přes `NODE_PATH` nebo nainstalovaný globálně.
+- **Playwright s Chromiem** a `pdfjs-dist@3.11.174` pro zkoušky v prohlížeči (příkazy níže). Playwright se nedodává s repozitářem a `e2e.cjs` ho bere přes `require('playwright')`, takže musí být vidět přes `NODE_PATH`; ani globální instalace (`npm i -g playwright`) nestačí, Node hledá moduly jen v místních adresářích `node_modules` a v `NODE_PATH`, ne v globálním adresáři npm (u globální instalace: `export NODE_PATH=$(npm root -g)`).
 - **`FMF_SAMPLES_DIR`** (nepovinná proměnná): složka se skutečnými exporty `.fmf` z FM27. Jsou to soukromé soubory majitele, v repozitáři nejsou a nikdy nesmí být. Bez proměnné se zkoušky jádra se skutečnými exporty viditelně přeskočí
-  a ve scénáři 21 se vynechají 4 kontroly (z 904 jich pak běží 900).
+  a ve scénáři 21 se vynechají 4 kontroly (z 907 jich pak běží 903).
 
 ```bash
 node trener/build.mjs                                   # běžné sestavení
 STRICT=1 node trener/build.mjs                          # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                      # 897 testů bez prohlížeče
+node --test trener/test/*.test.mjs                      # 898 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .   # shoda validátoru s Pythonem a hlídání tvarů klíčů v repu (jen v textových souborech uvedených přípon; hesla a texty knih nehlídá)
 python3 -m unittest discover -s fmf_research/tests -t . # inspektor `.fmf` v Pythonu (bez balíčku `zstandard` se přeskočí)
 ```
@@ -85,7 +85,7 @@ python3 -m unittest discover -s fmf_research/tests -t . # inspektor `.fmf` v Pyt
 ```bash
 npm install --prefix /tmp/pw playwright                # balíček Playwright (v repozitáři není)
 /tmp/pw/node_modules/.bin/playwright install chromium  # prohlížeč; na Linuxu případně s --with-deps (systémové knihovny)
-export NODE_PATH=/tmp/pw/node_modules                  # aby ho `require('playwright')` v e2e.cjs našel (nebo Playwright nainstaluj globálně)
+export NODE_PATH=/tmp/pw/node_modules                  # aby ho `require('playwright')` v e2e.cjs našel (u globální instalace: export NODE_PATH=$(npm root -g))
 npm install --prefix /tmp/pdfjs pdfjs-dist@3.11.174    # pdf.js se načítá místní kopií místo cdnjs
 python3 trener/test/e2e/make_fixtures.py /tmp/fx
 node trener/build.mjs
@@ -94,10 +94,10 @@ FIXTURES=/tmp/fx PDFJS_DIR=/tmp/pdfjs/node_modules/pdfjs-dist/build OUT=/tmp/out
 ```
 
 **Úplný běh zkoušek v prohlížeči chce volný stroj.** Na vytíženém stroji může scénář 01 závodit s aplikací a selhat bez chyby v aplikaci: kontroly četly výsledek rady dřív, než se uložil a vykreslil, protože `screens/coach.js` uvolnil tlačítka hned po odpovědi
-(pomocník `waitIdle` čeká jen na tlačítka). Příčina v `screens/coach.js` je odstraněná (tlačítka se uvolní až po vykreslení výsledku), ale časové meze zkoušek (v Node například zastavení rámce z drahých bloků a čtení kontejneru, v prohlížeči čekání na stránku a na tlačítka)
+(pomocník `waitIdle` čeká jen na tlačítka). Příčina v `screens/coach.js` je odstraněná (tlačítka se uvolní až po vykreslení výsledku; hlídá to kontrola A18 ve scénáři 01, která uložení rady zpomalí a stránku přečte v prvním okamžiku, kdy jsou tlačítka volná), ale časové meze zkoušek (v Node například zastavení rámce z drahých bloků a čtení kontejneru, v prohlížeči čekání na stránku a na tlačítka)
 jsou odvozené z měření na jednom stroji, takže na pomalém nebo vytíženém stroji mohou selhat i bez chyby v kódu. Selže-li jediná kontrola, pusť nejdřív samotný scénář (například `ONLY=01`) na volném stroji, než začneš hledat chybu.
 
-Vlastní dekodér zstd se zkouší i proti libzstd (Python balíček `zstandard` jako „věštírna“, `test/fixtures/zstd_oracle.py`). Bez Pythonu a balíčku se porovnávací zkoušky přeskočí: viditelně tři (dostupnost věštírny, poškozené rámce, náhodné bloky sekvencí);
+Vlastní dekodér zstd se zkouší i proti libzstd (Python balíček `zstandard` jako „věštírna“, `test/fixtures/zstd_oracle.py`; interpret se bere z `ZSTD_ORACLE_PYTHON`, jinak `python3`). Bez Pythonu a balíčku se porovnávací zkoušky přeskočí: viditelně tři (dostupnost věštírny, poškozené rámce, náhodné bloky sekvencí);
 ostatní zkoušky v `zstd.test.mjs`, které se libzstd ptají, proběhnou jen svými přímými kontrolami dekodéru, bez porovnání s libzstd a bez značky přeskočení. S balíčkem (ve virtuálním prostředí) běží celé.
 S `ZSTD_ORACLE_REQUIRED=1` je věštírna povinná v každé zkoušce, která se jí ptá, i když zkoušku vybereš samostatně přes `--test-name-pattern`: bez fungující věštírny pak zkouška selže, místo aby se tiše přeskočila.
 
