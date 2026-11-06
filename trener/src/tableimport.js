@@ -37,9 +37,9 @@
     if (u8.length > MAX_BYTES) return { ok: false, error: `Soubor je větší než ${MAX_BYTES / 1048576} MB, na tabulku z hry je to moc.` };
     const dec = (label, fatal) => new TextDecoder(label, { fatal: !!fatal }).decode(u8);
     try {
-      if (u8.length >= 2 && u8[0] === 0xff && u8[1] === 0xfe) return { ok: true, text: dec('utf-16le').replace(/^﻿/, ''), encoding: 'UTF-16' };
-      if (u8.length >= 2 && u8[0] === 0xfe && u8[1] === 0xff) return { ok: true, text: dec('utf-16be').replace(/^﻿/, ''), encoding: 'UTF-16' };
-      if (u8.length >= 3 && u8[0] === 0xef && u8[1] === 0xbb && u8[2] === 0xbf) return { ok: true, text: dec('utf-8').replace(/^﻿/, ''), encoding: 'UTF-8' };
+      if (u8.length >= 2 && u8[0] === 0xff && u8[1] === 0xfe) return { ok: true, text: dec('utf-16le').replace(/^\ufeff/, ''), encoding: 'UTF-16' };
+      if (u8.length >= 2 && u8[0] === 0xfe && u8[1] === 0xff) return { ok: true, text: dec('utf-16be').replace(/^\ufeff/, ''), encoding: 'UTF-16' };
+      if (u8.length >= 3 && u8[0] === 0xef && u8[1] === 0xbb && u8[2] === 0xbf) return { ok: true, text: dec('utf-8').replace(/^\ufeff/, ''), encoding: 'UTF-8' };
       try {
         return { ok: true, text: dec('utf-8', true), encoding: 'UTF-8' };
       } catch (e) {
@@ -157,7 +157,7 @@
   }
 
   function parseDelimited(text) {
-    const t = String(text || '').replace(/^﻿/, '');
+    const t = String(text || '').replace(/^\ufeff/, '');
     const d = detectDelimiter(t);
     if (d) return { rows: splitRecords(t, d).map((r) => r.map((c) => c.trim().slice(0, MAX_CELL)).slice(0, MAX_COLS)), kind: { '\t': 'tsv', ';': 'csv-strednik', '|': 'svislitka', ',': 'csv' }[d] };
     const spaced = splitSpaced(t);

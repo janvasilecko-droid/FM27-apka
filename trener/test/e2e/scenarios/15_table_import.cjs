@@ -35,7 +35,7 @@ module.exports = async function run(env) {
   check('15 karta říká, že se načítá jen v tomto zařízení a bez volání AI', /čte se jen v tomto zařízení/.test(await text(page, '#exportCard')) && /nestojí žádné volání AI/.test(await text(page, '#exportCard')));
 
   // ---------- CSV s českou hlavičkou (UTF-8 s BOM)
-  const csv = '﻿Jméno,Věk,Pozice,Finishing,Passing,Pace,Stamina,Vision,Zápasy,CA\nJan Novák,24,ST,15,12,14,13,11,9,140\nPetr Dvořák,31,GK,3,8,9,5,7,18,120\nKarel Čermák,27,DC,5,11,10,6,9,14,100\n';
+  const csv = '\ufeffJméno,Věk,Pozice,Finishing,Passing,Pace,Stamina,Vision,Zápasy,CA\nJan Novák,24,ST,15,12,14,13,11,9,140\nPetr Dvořák,31,GK,3,8,9,5,7,18,120\nKarel Čermák,27,DC,5,11,10,6,9,14,100\n';
   await upload('soupiska.csv', Buffer.from(csv, 'utf8'), 'text/csv');
   check('15 stav ukáže počet řádků a sloupců, druh souboru a kódování', /3 řádky, 10 sloupců \(CSV \(čárka\), kódování UTF-8\)/.test(await text(page, '#exportStatus')), await text(page, '#exportStatus'));
   const roles = Object.fromEntries(await Promise.all(['Jméno', 'Věk', 'Pozice', 'Finishing', 'Pace', 'Zápasy', 'CA'].map(async (k) => [k, await roleOf(k)])));
@@ -61,7 +61,7 @@ module.exports = async function run(env) {
   check('15 stejný soubor podruhé: všichni už v soupisce jsou a není koho přidat', /Už v soupisce jsou nebo se opakují: 3/.test(await text(page, '#exportSummary')) && (await page.isDisabled('#exportAdd')) && /Není koho přidat/.test(await text(page, '#exportAdd')), await text(page, '#exportSummary'));
 
   // ---------- TSV v UTF-16 (BOM), anglická hlavička
-  const tsv = '﻿Name\tAge\tPosition\tFinishing\tPassing\tPace\tStamina\tTackling\nLukáš Procházka\t22\tST\t14\t12\t15\t13\t6\nMarek Šťastný\t29\tDM\t8\t13\t10\t14\t16\n';
+  const tsv = '\ufeffName\tAge\tPosition\tFinishing\tPassing\tPace\tStamina\tTackling\nLukáš Procházka\t22\tST\t14\t12\t15\t13\t6\nMarek Šťastný\t29\tDM\t8\t13\t10\t14\t16\n';
   await upload('export.tsv', Buffer.from(tsv, 'utf16le'), 'text/tab-separated-values');
   check('15 UTF-16 se přečte, čeština zůstane a druh je TSV', /TSV \(tabulátor\), kódování UTF-16/.test(await text(page, '#exportStatus')) && /Lukáš Procházka/.test(await text(page, '#exportPlayers')), await text(page, '#exportStatus'));
   await addAll();

@@ -406,7 +406,7 @@
       strayBytes += Math.max(0, dataLen - cursor);
       res.layout = { entries: man.entries.length, strayBytes, outside, contiguous: strayBytes === 0 && outside === 0 };
       if (strayBytes > 0) res.warnings.push(`${strayBytes} bajtů v datové části nepatří žádnému záznamu z manifestu; nevím, co v nich je, a nečtu je`);
-      if (outside > 0) res.warnings.push(`${outside} ${outside === 1 ? 'záznam z manifestu leží' : 'záznamů z manifestu leží'} zčásti nebo celý mimo datovou část; takové záznamy se nečtou`);
+      if (outside > 0) res.warnings.push(`${outside} ${outside === 1 ? 'záznam z manifestu leží' : outside <= 4 ? 'záznamy z manifestu leží' : 'záznamů z manifestu leží'} zčásti nebo celý mimo datovou část; takové záznamy se nečtou`);
       let total = 0;
       for (const e of man.entries) {
         const entry = { path: e.path, dir: e.dir, name: e.name, ext: e.ext, offset: e.offset, size: e.size, third: e.third, ok: false, issues: [], checks: { keyIvFields: false, frameMagic: false, frameExact: false, lengthMatchesManifest: false, checksum: 'absent' }, content: null };

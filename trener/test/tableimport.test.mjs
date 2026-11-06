@@ -11,9 +11,9 @@ const csvOf = (rows) => rows.map((r) => r.join(',')).join('\n');
 
 // ---------------------------------------------------------------- bajty
 test('decodeBytes: UTF-8 s BOM i bez, UTF-16 s BOM, stará česká znaková sada', () => {
-  assert.deepEqual(TI.decodeBytes(bytes('﻿Jméno;Věk\nDvořák;24', 'utf8')), { ok: true, text: 'Jméno;Věk\nDvořák;24', encoding: 'UTF-8' });
+  assert.deepEqual(TI.decodeBytes(bytes('\ufeffJméno;Věk\nDvořák;24', 'utf8')), { ok: true, text: 'Jméno;Věk\nDvořák;24', encoding: 'UTF-8' });
   assert.equal(TI.decodeBytes(bytes('Jméno;Věk')).text, 'Jméno;Věk');
-  const u16 = TI.decodeBytes(bytes('﻿Jméno\tVěk\nDvořák\t24', 'utf16le'));
+  const u16 = TI.decodeBytes(bytes('\ufeffJméno\tVěk\nDvořák\t24', 'utf16le'));
   assert.equal(u16.ok, true);
   assert.equal(u16.encoding, 'UTF-16');
   assert.equal(u16.text, 'Jméno\tVěk\nDvořák\t24');
@@ -225,7 +225,7 @@ test('shortlist z FMSuperScout (BOM, konce řádků CRLF, vše v uvozovkách): j
     ['Jan Novák', 'DC, DR', '24', 'Sparta Praha', 'Czechia', '140', '165', '2500000', '3000000', '12000', '2028-06-30', 'High'],
     ['Petr Dvořák', 'ST', '31', 'Slavia Praha', 'Czechia', '120', '120', '800000', '900000', '8000', '2027-06-30', 'Fair'],
   ];
-  const text = '﻿' + rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\r\n') + '\r\n';
+  const text = '\ufeff' + rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\r\n') + '\r\n';
   const dec = TI.decodeBytes(new Uint8Array(Buffer.from(text, 'utf8')));
   assert.equal(dec.encoding, 'UTF-8');
   const t = TI.extractTable(dec.text);
@@ -337,7 +337,7 @@ test('rowsToPlayers: text z buňky je jen text (značky a řídicí znaky pryč)
 });
 
 test('celá cesta: UTF-16 TSV s českými jmény → mapování → hráči', () => {
-  const text = '﻿Jméno\tVěk\tPozice\tFinishing\tPassing\tPace\tStamina\tVision\nJan Novák\t24\tST\t15\t12\t14\t13\t11\nPetr Dvořák\t31\tGK\t3\t8\t9\t5\t7\nKarel Čermák\t27\tDC\t5\t11\t10\t6\t9\n';
+  const text = '\ufeffJméno\tVěk\tPozice\tFinishing\tPassing\tPace\tStamina\tVision\nJan Novák\t24\tST\t15\t12\t14\t13\t11\nPetr Dvořák\t31\tGK\t3\t8\t9\t5\t7\nKarel Čermák\t27\tDC\t5\t11\t10\t6\t9\n';
   const d = TI.decodeBytes(bytes(text, 'utf16le'));
   const t = TI.extractTable(d.text);
   assert.equal(t.kind, 'tsv');

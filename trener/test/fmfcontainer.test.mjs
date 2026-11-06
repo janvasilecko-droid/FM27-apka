@@ -468,6 +468,9 @@ test('decode: záznam zčásti nebo celý mimo datovou část se hlásí (outsid
   assert.equal(far.layout.outside, 1);
   assert.equal(far.layout.contiguous, false);
   assert.ok(!far.verified.some((v) => /beze zbytku/.test(v)));
+  // skutečné bajty záznamu, na které manifest neukazuje, jsou nepokrytá místa (a nepočítají se dvakrát): ořez na datovou část
+  assert.equal(far.layout.strayBytes, Math.min(1000, imgLen));
+  assert.ok(far.warnings.some((w) => /^1 záznam z manifestu leží zčásti nebo celý mimo datovou část/.test(w)), far.warnings.join('|'));
   // zpráva o souboru nese tentýž popis rozložení
   assert.deepEqual(C.safeReport(overrun).layout, { entries: 2, strayBytes: 0, outside: 1, contiguous: false });
   // zdroj, který se rozbalil, má správný kontrolní součet, ale jinou velikost, než slibuje manifest: není ověřený, a tak se mezi „souhlasí u N z nich“ nepočítá
@@ -481,6 +484,94 @@ test('decode: záznam zčásti nebo celý mimo datovou část se hlásí (outsid
   // vzorový soubor: obě čísla jsou plná
   const good = await read(plain.file);
   assert.ok(good.verified.some((v) => /^2 z 2 zdrojů dešifrováno a rozbaleno, velikosti sedí s manifestem; kontrolní součet zstd souhlasí u 2 z nich/.test(v)), good.verified.join('|'));
+});
+
+test('decode: rozložení v datové části: meze o jediný bajt, množná čísla varování, manifest s opačným pořadím záznamů', async () => {
+  const tacRes = { dir: '', name: TITLE, ext: '.tac', content: tacContent(TITLE, 300, 1) };
+  const imgRes = { dir: '', name: 'image', ext: '.img', content: imageContent(tinyPng(5, 3)) };
+  const read = (file) => C.decode(new Uint8Array(file), makeOwn());
+  const plain = buildFmf({ title: TITLE, resources: [tacRes, imgRes] }, 3);
+  const [tacRec, imgRec] = plain.recs;
+  // poslední záznam končí přesně na konci datové části: v pořádku; o jediný bajt dál: mimo
+  const exact = await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, manifestSize: imgRec.rec.length }] }, 3).file);
+  assert.deepEqual(exact.layout, { entries: 2, strayBytes: 0, outside: 0, contiguous: true });
+  const plusOne = await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, manifestSize: imgRec.rec.length + 1 }] }, 3).file);
+  assert.deepEqual(plusOne.layout, { entries: 2, strayBytes: 0, outside: 1, contiguous: false });
+  // překryv o jediný bajt se odmítne, záznamy těsně vedle sebe ne
+  const overlap = await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, manifestOffset: tacRec.rec.length - 1 }] }, 3).file);
+  assert.equal(overlap.ok, false);
+  assert.match(overlap.reason, /se překrývají/);
+  // množná čísla: jeden záznam, dva až čtyři, pět a víc (česky záznam / záznamy / záznamů); záznamy mají v manifestu posun daleko za koncem datové části, každý jinde
+  const beyond = (n) => Array.from({ length: n }, (_, k) => ({ dir: '', name: 'x' + k, ext: '.bin', content: Buffer.from('x'), manifestOffset: 100000 + 500 * k, manifestSize: 50 }));
+  const warnFor = async (n) => {
+    const built = buildFmf({ title: TITLE, resources: [tacRes, imgRes, ...beyond(n)] }, 3);
+    const r = await read(built.file);
+    assert.equal(r.ok, true, JSON.stringify(r.issues));
+    assert.equal(r.layout.outside, n);
+    // skutečné záznamy, na které manifest neukazuje, jsou nepokrytá místa; záznamy daleko za koncem k nim nic nepřidávají ani neubírají (ořez na datovou část i u kurzoru)
+    assert.equal(r.layout.strayBytes, built.recs.slice(2).reduce((a, x) => a + x.rec.length, 0), 'n = ' + n);
+    return r.warnings.filter((w) => /mimo datovou část/.test(w));
+  };
+  assert.deepEqual(await warnFor(1), ['1 záznam z manifestu leží zčásti nebo celý mimo datovou část; takové záznamy se nečtou']);
+  assert.deepEqual(await warnFor(2), ['2 záznamy z manifestu leží zčásti nebo celý mimo datovou část; takové záznamy se nečtou']);
+  assert.deepEqual(await warnFor(4), ['4 záznamy z manifestu leží zčásti nebo celý mimo datovou část; takové záznamy se nečtou']);
+  assert.deepEqual(await warnFor(5), ['5 záznamů z manifestu leží zčásti nebo celý mimo datovou část; takové záznamy se nečtou']);
+  // manifest uvádí záznamy v jiném pořadí, než leží v souboru: dva obrázky si v manifestu vymění posun, velikost i velikost po rozbalení; po seřazení je rozložení souvislé a oba se přečtou
+  const imgB = { dir: '', name: 'second', ext: '.img', content: imageContent(tinyPng(7, 4)) };
+  const base = buildFmf({ title: TITLE, resources: [tacRes, imgRes, imgB] }, 3);
+  const [, a, b] = base.recs;
+  const swapped = buildFmf({
+    title: TITLE,
+    resources: [tacRes, { ...imgRes, manifestOffset: b.offset, manifestSize: b.rec.length, third: imgB.content.length }, { ...imgB, manifestOffset: a.offset, manifestSize: a.rec.length, third: imgRes.content.length }],
+  }, 3);
+  const sw = await read(swapped.file);
+  assert.equal(sw.ok, true, JSON.stringify(sw.issues));
+  assert.deepEqual(sw.layout, { entries: 3, strayBytes: 0, outside: 0, contiguous: true });
+  assert.ok(sw.entries.every((e) => e.ok), JSON.stringify(sw.entries.map((e) => e.issues)));
+});
+
+test('meze kontejneru proti nepřátelskému souboru platí na bajt přesně: soubor 24 MiB, manifest 1 MiB, záznam 16 MiB, součet 32 MiB, 64 souborů v manifestu, 100 000 bloků v rámci', async () => {
+  const MiB = 1024 * 1024;
+  const read = (file) => C.decode(new Uint8Array(file), makeOwn());
+  const tacRes = { dir: '', name: TITLE, ext: '.tac', content: tacContent(TITLE, 300, 1) };
+  const imgRes = { dir: '', name: 'image', ext: '.img', content: imageContent(tinyPng(5, 3)) };
+  // soubor: nad 24 MiB se odmítne hned (jiný důvod než u souboru přesně 24 MiB, který jen není export)
+  assert.match(C.scan(new Uint8Array(24 * MiB + 1)).errors[0], /větší než 24 MiB/);
+  assert.doesNotMatch(C.scan(new Uint8Array(24 * MiB)).errors[0], /větší než/);
+  // manifest: rámec s obsahem 1 MiB + 1 B se rozbalovači nedá (strop 1 MiB), rámec s obsahem přesně 1 MiB se rozbalí a teprve jeho obsah (samé nuly) není manifest
+  const withManifest = (content) => buildFmf({ title: TITLE, resources: [tacRes, imgRes], manifestFrame: zc(content) }, 3).file;
+  const bigM = await read(withManifest(Buffer.alloc(MiB + 1)));
+  assert.equal(bigM.ok, false);
+  assert.match(bigM.reason, /Manifest se nepodařilo rozbalit/);
+  const edgeM = await read(withManifest(Buffer.alloc(MiB)));
+  assert.equal(edgeM.ok, false);
+  assert.doesNotMatch(edgeM.reason, /nepodařilo rozbalit/);
+  assert.match(edgeM.reason, /^Manifest: /);
+  // záznam: slíbená velikost po rozbalení 16 MiB + 1 B se odmítne před rozbalením, přesně 16 MiB se rozbalovači dá (a teprve skutečná velikost nesedí s manifestem)
+  const withThird = (third) => buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, third }] }, 3).file;
+  const bigE = (await read(withThird(16 * MiB + 1))).entries.find((e) => e.ext === '.img');
+  assert.match(bigE.issues.join(';'), /by přesáhl povolenou velikost/);
+  const edgeE = (await read(withThird(16 * MiB))).entries.find((e) => e.ext === '.img');
+  assert.doesNotMatch(edgeE.issues.join(';'), /by přesáhl/);
+  assert.match(edgeE.issues.join(';'), /nesedí s manifestem/);
+  // součet: dva záznamy po 12 MiB skutečně rozbalené a třetí, který by součet přivedl přes 32 MiB, se před rozbalením odmítne; přesně na 32 MiB ještě ne
+  const big12 = (name) => ({ dir: '', name, ext: '.bin', content: Buffer.alloc(12 * MiB) });
+  const over = await read(buildFmf({ title: TITLE, resources: [tacRes, big12('a'), big12('b'), { ...imgRes, third: 8 * MiB + 1 }] }, 3).file);
+  const [, oa, ob, oc] = over.entries;
+  assert.ok(oa.ok && ob.ok, JSON.stringify([oa.issues, ob.issues]));
+  assert.match(oc.issues.join(';'), /by přesáhl povolenou velikost/);
+  const edge = await read(buildFmf({ title: TITLE, resources: [tacRes, big12('a'), big12('b'), { ...imgRes, third: 8 * MiB - tacRes.content.length }] }, 3).file);
+  assert.doesNotMatch(edge.entries[3].issues.join(';'), /by přesáhl/);
+  // počet souborů v manifestu: 64 ještě ano, 65 ne
+  const many = (n) => buildFmf({ title: TITLE, resources: [tacRes, ...Array.from({ length: n - 1 }, (_, k) => ({ dir: '', name: 'f' + k, ext: '.bin', content: Buffer.from('x') }))] }, 3).file;
+  assert.equal((await read(many(64))).entries.length, 64);
+  const tooMany = await read(many(65));
+  assert.equal(tooMany.ok, false);
+  assert.match(tooMany.reason, /příliš mnoho souborů/);
+  // bloky v jednom rámci (kontrola rámce před rozbalením): 100 000 ještě ano, 100 001 ne
+  const ZB = require('./fixtures/zstd_builders.cjs');
+  assert.equal(C.zstdFrameInfo(ZB.emptyBlocksFrame(100000), 0).blocks, 100000);
+  assert.match(C.zstdFrameInfo(ZB.emptyBlocksFrame(100001), 0).error, /příliš mnoho bloků/);
 });
 
 test('decode: soubor s mnoha záznamy z drahých rámců vadných až na konci se dočte za zlomek času: rozpočet bloků na soubor platí i pro rámce, které selžou', async () => {

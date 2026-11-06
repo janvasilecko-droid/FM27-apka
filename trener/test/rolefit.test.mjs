@@ -62,11 +62,11 @@ test('normalizeRoleExtraction: neobjekty, chybějící role nebo atributy nejsou
   const noAttr = RF.normalizeRoleExtraction({ role: 'Poacher', key: [], preferred: [] });
   assert.equal(noAttr.ok, false);
   assert.ok(noAttr.issues.some((i) => /klíčové ani žádoucí atributy/.test(i)));
-  const many = RF.normalizeRoleExtraction({ role: 'R'.repeat(200), key: Array.from({ length: 80 }, (_, i) => `Atribut ${i}`), pref: [1, null, {}, 'x', 'Dvojtečka\u0000‮: ' + 'q'.repeat(100)] });
+  const many = RF.normalizeRoleExtraction({ role: 'R'.repeat(200), key: Array.from({ length: 80 }, (_, i) => `Atribut ${i}`), pref: [1, null, {}, 'x', 'Dvojtečka\u0000\u202e: ' + 'q'.repeat(100)] });
   assert.equal(many.read.role.length, 60);
   assert.equal(many.read.key.length, 20);
   assert.equal(many.read.pref.length, 1); // čísla, null, objekty a jednopísmenný text se zahodí
-  assert.ok(!/[\u0000‮]/.test(many.read.pref[0]));
+  assert.ok(!/[\u0000\u202e]/.test(many.read.pref[0]));
   assert.ok(many.read.pref[0].length <= 30);
 });
 

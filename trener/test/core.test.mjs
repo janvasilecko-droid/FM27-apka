@@ -47,7 +47,7 @@ test('hledání ignoruje diakritiku a koncovky', () => {
 
 test('normalizeSpace spojí dělená slova a zruší měkký spojovník', () => {
   assert.equal(core.normalizeSpace('útoč-\nník   běží\n\nrychle'), 'útočník běží rychle');
-  assert.equal(core.normalizeSpace('po­ložení'), 'položení');
+  assert.equal(core.normalizeSpace('po\u00adložení'), 'položení');
   assert.equal(core.normalizeSpace('A-\nB'), 'A- B'); // velké písmeno: pomlčka zůstává
 });
 

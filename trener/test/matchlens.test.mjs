@@ -218,8 +218,8 @@ test('parseMeta: atributy soupeře se zahodí (plugin čte přesné hodnoty, hra
 });
 
 test('parseMeta: neviditelné a řídicí znaky ve jménech se odstraní, jména se zkrátí', () => {
-  const m = ML.parseMeta(meta({ home: { name: `Chel‮sea\u0000 ${'x'.repeat(200)}` }, players: [{ slot: 1, team: 'home', displayName: 'Jan​  Novák\n' }] }));
-  assert.ok(!/[‮\u0000​\n]/.test(m.home.name + m.players[0].name));
+  const m = ML.parseMeta(meta({ home: { name: `Chel\u202esea\u0000 ${'x'.repeat(200)}` }, players: [{ slot: 1, team: 'home', displayName: 'Jan\u200b  Novák\n' }] }));
+  assert.ok(!/[\u202e\u0000\u200b\n]/.test(m.home.name + m.players[0].name));
   assert.ok(m.home.name.length <= 60);
   assert.equal(m.players[0].name, 'Jan Novák');
 });

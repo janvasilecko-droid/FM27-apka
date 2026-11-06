@@ -53,7 +53,7 @@ function buildFmf(spec, seed) {
   const manifest = Buffer.concat([str(spec.title), u32le(root.length), ...root.map(entry), u32le(dirs.length), ...dirs.map((d) => { const fs = recs.filter((r) => r.dir === d); return Buffer.concat([str(d), u32le(fs.length), ...fs.map(entry), u32le(0)]); })]);
   const A = 26 + off - 9;
   const pre = Buffer.concat([Buffer.from(PREAMBLE), u64le(A), u64le(17), Buffer.from([3])]);
-  const file = Buffer.concat([pre, ...recs.map((r) => r.rec), Buffer.from(FOOTER), zc(manifest)]);
+  const file = Buffer.concat([pre, ...recs.map((r) => r.rec), Buffer.from(FOOTER), spec.manifestFrame ? Buffer.from(spec.manifestFrame) : zc(manifest)]); // spec.manifestFrame: hotový rámec místo manifestu (jen pro zkoušky vadných souborů)
   return { file, recs, manifest, A };
 }
 

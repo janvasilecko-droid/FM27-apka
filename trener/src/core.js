@@ -57,7 +57,7 @@
 
   function normalizeSpace(text) {
     return String(text)
-      .replace(/­/g, '')
+      .replace(/\u00ad/g, '')
       .replace(/([\p{L}])-\s*\n\s*(\p{Ll})/gu, '$1$2')
       .replace(/\s+/g, ' ')
       .trim();

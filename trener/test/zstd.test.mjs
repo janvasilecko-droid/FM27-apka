@@ -55,14 +55,21 @@ const ours = (frame, opts) => {
   }
 };
 const same = (a, b) => a !== null && b !== null && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0;
-/** Přísná věštírna (libzstd přes Python `zstandard`, viz fixtures/zstd_oracle.py): pole null (odmítnuto) nebo Uint8Array. Bez Pythonu a balíčku vrací null a zkoušky, které ji potřebují, se přeskočí. */
+/** Přísná věštírna (libzstd přes Python `zstandard`, viz fixtures/zstd_oracle.py): pole null (odmítnuto) nebo Uint8Array. Bez Pythonu a balíčku vrací null a zkoušky, které ji potřebují, se přeskočí.
+    Jakmile se věštírna při zkoušce dostupnosti osvědčila (oracleWorked), je její selhání na další dávce chyba zkoušky, ne důvod k přeskočení: jinak by se při pádu Pythonu nebo nedostatku paměti
+    tiše přeskočila všechna porovnání s libzstd, a to i s ZSTD_ORACLE_REQUIRED=1. */
+let oracleWorked = false;
 function oracle(frames) {
   const py = process.env.ZSTD_ORACLE_PYTHON || 'python3';
-  const r = spawnSync(py, [new URL('./fixtures/zstd_oracle.py', import.meta.url).pathname], { input: frames.map((f) => Buffer.from(f).toString('hex')).join('\n') + '\n', encoding: 'utf8', maxBuffer: 1 << 29 });
-  if (r.error || r.status !== 0) return null;
+  const r = spawnSync(py, [new URL('./fixtures/zstd_oracle.py', import.meta.url).pathname], { input: frames.map((f) => Buffer.from(f).toString('hex')).join('\n') + '\n', encoding: 'utf8', maxBuffer: 1 << 29, timeout: 300000 });
+  const fail = (why) => {
+    if (oracleWorked) throw new Error(`věštírna selhala na dávce ${frames.length} rámců: ${why}`);
+    return null;
+  };
+  if (r.error || r.status !== 0) return fail(r.error ? String(r.error) : `stav ${r.status}, ${String(r.stderr || '').slice(0, 300)}`);
   const lines = r.stdout.split('\n');
   lines.pop();
-  if (lines.length !== frames.length) return null;
+  if (lines.length !== frames.length) return fail(`vrátila ${lines.length} řádků místo ${frames.length}`);
   return lines.map((l) => (l === 'ERR' ? null : Uint8Array.from(Buffer.from(l, 'hex'))));
 }
 /** Kódy chyb, v nichž je libzstd 1.5.7 podle pozorování shovívavější než specifikace (viz judge). */
@@ -72,6 +79,7 @@ const ORACLE_PROBE = (() => {
   const w = oracle([zframe([{ raw: Buffer.from('ahoj') }])]);
   return !!(w && w[0] && Buffer.from(w[0]).toString() === 'ahoj');
 })();
+oracleWorked = ORACLE_PROBE;
 
 // ---------------------------------------------------------------- věštírna
 test('věštírna (libzstd přes Python balíček zstandard) je k dispozici; bez ní se porovnání s libzstd přeskočí, s ZSTD_ORACLE_REQUIRED=1 zkouška selže', (t) => {
@@ -249,7 +257,7 @@ test('tři pozorované shovívavosti libzstd 1.5.7 (odkaz za okno, blok větší
 });
 
 // ---------------------------------------------------------------- poškozené rámce: stejné rozhodnutí jako libzstd
-test('poškozené rámce: co libzstd odmítne, odmítneme i my (kromě vadného kontrolního součtu), co oba přijmou, vyjde stejně; tolerují se jen tři pozorované shovívavosti libzstd (12 000 poškození; bez věštírny se přeskočí; ZSTD_SEED pro delší zkoušky s jiným semínkem)', () => {
+test('poškozené rámce: co libzstd odmítne, odmítneme i my (kromě vadného kontrolního součtu), co oba přijmou, vyjde stejně; tolerují se jen tři pozorované shovívavosti libzstd (12 000 poškození; bez věštírny se přeskočí; ZSTD_SEED pro delší zkoušky s jiným semínkem)', (t) => {
   const r = rng(Number(process.env.ZSTD_SEED) || 4);
   const pick = (n) => Math.floor(r() * n);
   const bases = [];
@@ -272,7 +280,7 @@ test('poškozené rámce: co libzstd odmítne, odmítneme i my (kromě vadného 
     frames.push(f);
   }
   const want = oracle(frames);
-  if (!want) return; // věštírna není k dispozici
+  if (!want) return t.skip('věštírna libzstd není k dispozici: tahle zkouška bez ní nehlídá nic');
   const c = judge(frames, want);
   assert.ok(c.accepted > 600 && c.rejected > 4000, `přijato ${c.accepted}, odmítnuto ${c.rejected}: zkouška by byla slabá`);
   assert.ok(c.endClass > 0, 'zkouška nikdy nezasáhla shovívavost libzstd (konec proudu literálů, okno nebo velikost bloku): povolená výjimka by zůstala nevyzkoušená');
@@ -606,7 +614,7 @@ test('sekvence: odkaz dál než 2^25 bajtů (bity posunu nad 24) se přečte př
   if (want) assert.ok(want[0] && same(want[0], out), 'libzstd dá totéž');
 });
 
-test('sekvence: náhodné bloky s RLE tabulkami a náhodnými bity navíc (opakované posuny, všechny druhy kódů) mají stejné rozhodnutí a výstup jako libzstd', () => {
+test('sekvence: náhodné bloky s RLE tabulkami a náhodnými bity navíc (opakované posuny, všechny druhy kódů) mají stejné rozhodnutí a výstup jako libzstd', (t) => {
   const r = rng(Number(process.env.ZSTD_SEED) || 61);
   const pick = (n) => Math.floor(r() * n);
   const frames = [];
@@ -624,7 +632,7 @@ test('sekvence: náhodné bloky s RLE tabulkami a náhodnými bity navíc (opako
     frames.push(zframe(blocks));
   }
   const want = oracle(frames);
-  if (!want) return;
+  if (!want) return t.skip('věštírna libzstd není k dispozici: tahle zkouška bez ní nehlídá nic');
   const c = judge(frames, want);
   assert.ok(c.accepted > 1500 && c.rejected > 100, `přijato ${c.accepted}, odmítnuto ${c.rejected}: zkouška by byla slabá`);
 });
