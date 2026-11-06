@@ -44,7 +44,7 @@ module.exports = async function run(env) {
 
   // ====================================================== A) úvod a role bez míče
   const lead = await text(page, '#tacCheckCard');
-  check('23 karta Rozbor taktiky je v Moje taktiky a říká, že jde o pomůcku, ne pravidlo FM27 ani předpověď', /Rozbor taktiky/.test(lead) && /ne pravidlo FM27 a ne předpověď výsledku/.test(lead) && /bez AI/.test(lead), lead.slice(0, 200));
+  check('23 karta Rozbor sestavy a taktiky je v Moje taktiky a říká, že jde o pomůcku, ne pravidlo FM27 ani předpověď', /Rozbor sestavy a taktiky/.test(lead) && /ne pravidlo FM27 a ne předpověď výsledku/.test(lead) && /bez AI/.test(lead), lead.slice(0, 200));
   check('23 před kliknutím žádný výsledek není', (await page.locator('#tacCheckResult').count()) === 0);
   check('23 editor má pole „Role bez míče“ u každého místa a uložená role bez míče se zobrazí', (await page.locator('[id^="slOop-"]').count()) === 11 && (await page.inputValue('#slOop-s1')) === 'Line-Holding Keeper');
 
@@ -75,7 +75,7 @@ module.exports = async function run(env) {
   await page.fill('#tacInstr', 'Line of Engagement: Mid Block\nDefensive Line: Standard');
   await page.click('#tacSave');
   await page.waitForSelector('#tacCheckStale');
-  check('23 po úpravě taktiky starý rozbor zmizí a aplikace řekne, že je potřeba spustit nový', /Klikni znovu na „Analyzovat taktiku“/.test(await text(page, '#tacCheckStale')) && (await page.locator('#tacCheckResult').count()) === 0);
+  check('23 po úpravě taktiky starý rozbor zmizí a aplikace řekne, že je potřeba spustit nový', /Klikni znovu na „Analyzovat sestavu a taktiku“/.test(await text(page, '#tacCheckStale')) && (await page.locator('#tacCheckResult').count()) === 0);
   await page.click('#tacCheckBtn');
   await page.waitForSelector('#tacCheckResult');
   const ids2 = await page.$$eval('#tacCheckFindings [data-rule], #tacCheckBanner', (els) => els.map((e) => e.getAttribute('data-rule') || 'banner'));

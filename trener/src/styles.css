@@ -347,6 +347,7 @@ button.ref:hover, a.ref:hover { border-color: var(--accent-line); }
 .toast[hidden] { display: none !important; }
 
 /* tabulky a rozbalovací bloky */
+.tblscroll { overflow-x: auto; max-width: 100%; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .tbl th { text-align: left; font: 600 12px/1.4 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line-2); }
 .tbl td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
