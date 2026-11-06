@@ -768,10 +768,12 @@
   /** Text z pozorování, úryvků, názvů a zdrojů je do promptu vždy jen DATA na jednom řádku: zalomení řádků se nahradí
       středníkem, svislice (oddělovač sloupců) se změní na podobný znak a řídicí znaky zmizí. Bez toho by text mohl
       obsahovat řádek vydávající se za jiné pozorování („- snap-2 | screenshot_verified | …“) a model by ho vzal za skutečný. */
+  // řídicí znaky, formátovací znaky Unicode (nulová šířka, řízení směru písma, značky U+E0000 a dál, kterými jde do textu ukrýt pokyn pro model), znaky ignorované při zobrazení, prázdné braillské písmeno a náhradní znak objektu
+  const PROMPT_HIDDEN = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
   function oneLine(text, max) {
     const t = String(text === null || text === undefined ? '' : text)
-      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ')
       .replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ; ')
+      .replace(PROMPT_HIDDEN, ' ')
       .replace(/\s+/g, ' ')
       .replace(/\|/g, '¦')
       .trim();

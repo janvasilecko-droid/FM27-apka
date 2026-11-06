@@ -503,11 +503,40 @@ test('decode: soubor s mnoha záznamy z drahých rámců vadných až na konci s
   for (let i = 4; i < 12; i++) assert.match(why[i], /příliš mnoho bloků dohromady/, 'záznam ' + i);
   // bez rozpočtu by to bylo 12 × 6 002 drahých bloků (kolem 3 sekund); s ním nejvýš 20 000 (kolem jedné sekundy); strop je štědrý i pro pomalý stroj
   assert.ok(ms < 5000, 'čtení trvalo ' + ms + ' ms');
-  // totéž bez omezení rozpočtu na soubor (výchozí 40 000) se zastaví po šesti záznamech a výsledek je tentýž druh chyby
+  // totéž s výchozím rozpočtem (20 000 bloků) se zastaví po třech záznamech a výsledek je tentýž druh chyby
   const dflt = await C.decode(new Uint8Array(file), { ...deps, zstd: G.makeFrameDecompressor(Z) });
   assert.equal(dflt.ok, false);
-  assert.ok(dflt.entries.slice(0, 6).every((e) => /Odkaz vede před začátek výstupu/.test(e.issues.join(';'))));
-  assert.match(dflt.entries[6].issues.join(';'), /příliš mnoho bloků vzhledem k povolenému výstupu/);
+  assert.ok(dflt.entries.slice(0, 3).every((e) => /Odkaz vede před začátek výstupu/.test(e.issues.join(';'))));
+  assert.match(dflt.entries[3].issues.join(';'), /příliš mnoho bloků vzhledem k povolenému výstupu/);
+});
+
+test('decode: soubor se 64 záznamy, z nichž každý vydá skoro 16 MiB a selže až na konci, se dočte za několik sekund: rozpočet výstupu platí i pro rámce, které selžou', async () => {
+  const ZB = require('./fixtures/zstd_builders.cjs');
+  // jeden rámec má jen asi 1,5 KB a vydá 16 646 190 B ze samých tříbajtových sekvencí; hlavička slibuje o sedm bajtů víc, takže dekodér udělá všechnu práci a selže až na posledním kroku
+  const frame = ZB.seqBombFrame(127);
+  assert.ok(frame.length < 2000, String(frame.length));
+  const resources = Array.from({ length: 64 }, (_, i) => ({ dir: '', name: i === 0 ? TITLE : 'z' + i, ext: i === 0 ? '.tac' : '.img', frame, third: 16 * 1024 * 1024 }));
+  const { file } = buildFmf({ title: TITLE, resources }, 3);
+  assert.ok(file.length < 200000, 'soubor je drobný: ' + file.length);
+  const t0 = Date.now();
+  const r = await C.decode(new Uint8Array(file), makeOwn());
+  const ms = Date.now() - t0;
+  assert.equal(r.ok, false);
+  assert.equal(r.entries.length, 64);
+  assert.ok(r.entries.every((e) => !e.ok && e.content === null));
+  const why = r.entries.map((e) => e.issues.join(';'));
+  // dva rámce se zpracují celé (každý vydá 16,6 MB a selže na nesouladu velikosti), na ostatní už zbývá jen asi 1,3 MB rozpočtu a rámec, který slibuje víc, se odmítne hned po hlavičce
+  for (let i = 0; i < 2; i++) assert.match(why[i], /rozbalení selhalo: Rozbalená velikost nesedí s velikostí uvedenou v rámci/, 'záznam ' + i);
+  for (let i = 2; i < 64; i++) assert.match(why[i], /Rámec slibuje větší obsah, než je povoleno/, 'záznam ' + i);
+  assert.ok(ms < 8000, 'čtení trvalo ' + ms + ' ms (asi 1,5 s; bez rozpočtu výstupu kolem 45 s)');
+  // totéž bez uvedené velikosti obsahu v hlavičce rámce: třetí rámec se zastaví na zbytku rozpočtu (kód limit)
+  const noSize = ZB.zframe([{ raw: Buffer.alloc(300, 0x61) }, ...Array.from({ length: 127 }, () => ({ comp: ZB.rleSeqBlock([], { ll: 0, of: 0, ml: 0 }, new Array(43690).fill({ of: 0, ml: 0, ll: 0 })) })), { comp: ZB.rleSeqBlock([], { ll: 0, of: 25, ml: 0 }, [{ of: 0, ml: 0, ll: 0 }]) }]); // poslední blok odkazuje 2^25 B zpět, dál než všechno, co je vydáno
+  const r2 = await C.decode(new Uint8Array(buildFmf({ title: TITLE, resources: resources.map((x) => ({ ...x, frame: noSize })) }, 3).file), makeOwn());
+  assert.equal(r2.ok, false);
+  const why2 = r2.entries.map((e) => e.issues.join(';'));
+  for (let i = 0; i < 2; i++) assert.match(why2[i], /Odkaz vede před začátek výstupu/, 'záznam ' + i);
+  // na další záznamy zbývá jen zlomek jednoho bloku rozpočtu: každý se zastaví hned na prvním bloku (kód limit) nebo, až se rozpočet vyčerpá, vůbec nezačne
+  for (let i = 2; i < 64; i++) assert.match(why2[i], /Rozbalený obsah přesáhl povolenou velikost|příliš mnoho dat dohromady/, 'záznam ' + i);
 });
 
 test('makeWebAesCtr: WebCrypto dá stejný výsledek jako node:crypto (včetně přetečení čítače) a bez WebCrypto je jasná chyba', async () => {

@@ -29,8 +29,8 @@
 
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
-  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a neviditelné výplně a selektory; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
-  const INVISIBLE = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u034f\\u115f\\u1160\\u3164\\uffa0\\u2800\\ufe00-\\ufe0f\\ufffc\\u{e0100}-\\u{e01ef}]+', 'gu');
+  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a všechny znaky, které se mají při zobrazení ignorovat (Default_Ignorable_Code_Point: výplně, selektory variant, neviditelné samohlásky), plus prázdné braillské písmeno a náhradní znak objektu; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
+  const INVISIBLE = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
   const oneLine = (v, n) => (typeof v === 'string' ? v.replace(INVISIBLE, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
   const r1 = (v) => Math.round(v * 10) / 10;
   const cz = (v) => String(v).replace('.', ','); // české desetinné číslo do textů

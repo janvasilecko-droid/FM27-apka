@@ -1264,7 +1264,9 @@
   const TAC_TEXT = 90;
   const TAC_MAX_INSTRUCTIONS = 24;
   const TAC_MAX_ROLES = 14;
-  const oneLineText = (v, n) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
+  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode, všechny znaky ignorované při zobrazení (Default_Ignorable_Code_Point), prázdné braillské písmeno a náhradní znak objektu; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
+  const HIDDEN_CHARS = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
+  const oneLineText = (v, n) => (typeof v === 'string' ? v.replace(HIDDEN_CHARS, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
 
   /** normalizeTacticExtraction(raw) → {ok, read: {name, formation (id šablony|null), formationRaw, mentality, instructions: [text], roles: [{pos, role, duty, player}], notes}, issues}.
       Cokoli podezřelého se zahodí a řekne se to v `issues`. `ok` je true, jen když je přečtené aspoň něco. */

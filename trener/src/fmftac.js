@@ -252,8 +252,8 @@
     return Object.assign({ ok: true, size }, summary(result.tree));
   }
 
-  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a neviditelné výplně a selektory; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
-  const INVISIBLE = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u034f\\u115f\\u1160\\u3164\\uffa0\\u2800\\ufe00-\\ufe0f\\ufffc\\u{e0100}-\\u{e01ef}]+', 'gu');
+  // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode (nulová šířka, řízení směru písma včetně izolátů, měkký spojovník, značky) a všechny znaky, které se mají při zobrazení ignorovat (Default_Ignorable_Code_Point: výplně, selektory variant, neviditelné samohlásky), plus prázdné braillské písmeno a náhradní znak objektu; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
+  const INVISIBLE = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
   /** Text ze souboru bezpečný k zobrazení: bez řídicích a neviditelných znaků, zkrácený. */
   function displayText(text, max) {
     const clean = String(text === undefined || text === null ? '' : text).replace(INVISIBLE, ' ').replace(/\s+/g, ' ').trim();

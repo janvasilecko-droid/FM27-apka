@@ -538,8 +538,18 @@
 
   /** decompressFrame(bytes, opts) → {data, length, blocks}: rozbalí PRÁVĚ JEDEN rámec od začátku. opts: {maxOutput (výchozí 16 MiB), exact (true = za rámcem nesmí být žádné bajty),
       maxBlocks (nejvýš tolik bloků; platí menší z tohoto čísla a odvozeného stropu 1 blok na každý KiB povoleného výstupu + 16, kód chyby 'blocks')}.
-      Kontrolní součet rámce se jen přeskočí (ověřuje ho volající). */
+      Kontrolní součet rámce se jen přeskočí (ověřuje ho volající). Chyba je vždy ZstdError (cizí výjimka se zabalí s kódem 'internal') a jakmile se začalo rozbalovat, nese e.blocks (kolik bloků se zpracovalo)
+      a e.produced (kolik bajtů výstupu vzniklo), aby volající mohl započítat práci i za rámec, který nakonec selhal. */
   function decompressFrame(input, opts) {
+    try {
+      return decodeFrame(input, opts);
+    } catch (e) {
+      if (e instanceof ZstdError) throw e;
+      throw new ZstdError('Rámec zstd se nepodařilo rozbalit: ' + (e && e.message ? e.message : e), 'internal');
+    }
+  }
+
+  function decodeFrame(input, opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const max = Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput : DEFAULT_MAX_OUTPUT;
     const b = toBytes(input);
@@ -594,20 +604,17 @@
       if (o.exact === true && p !== b.length) fail('Za rámcem jsou bajty navíc.');
       return { data: out.buf.slice(0, out.len), length: p, blocks };
     } catch (e) {
-      // počet zpracovaných bloků se přidá ke každé chybě dekodéru: volající (fmfglue.js) si tak účtuje i práci, která nakonec nic nevydala
-      if (e instanceof ZstdError) e.blocks = blocks;
-      throw e;
+      // počet zpracovaných bloků a vydaných bajtů se přidá ke každé chybě dekodéru (viz decompressFrame)
+      const z = e instanceof ZstdError ? e : new ZstdError('Rámec zstd se nepodařilo rozbalit: ' + (e && e.message ? e.message : e), 'internal');
+      z.blocks = blocks;
+      z.produced = out.len;
+      throw z;
     }
   }
 
   /** decompress(bytes, opts) → Uint8Array. Chyba je vždy ZstdError. */
   function decompress(input, opts) {
-    try {
-      return decompressFrame(input, opts).data;
-    } catch (e) {
-      if (e instanceof ZstdError) throw e;
-      throw new ZstdError('Rámec zstd se nepodařilo rozbalit: ' + (e && e.message ? e.message : e), 'internal');
-    }
+    return decompressFrame(input, opts).data;
   }
 
   /** Interní funkce zveřejněné jen pro zkoušky (kruhová zkouška popisu tabulky FSE); aplikace je nepoužívá. */

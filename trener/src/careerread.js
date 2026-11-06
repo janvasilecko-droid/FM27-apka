@@ -36,10 +36,10 @@ Odpověz POUZE JSON objektem:
 
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const fold = (s) => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  // Řídicí a neviditelné znaky (zalomení, nulová šířka, přepínače směru): v názvu nemají co dělat a slouží ke skrytému textu.
-  const CONTROL_SRC = '[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\ufeff]';
-  const CONTROL = new RegExp(CONTROL_SRC);
-  const CONTROL_ALL = new RegExp(CONTROL_SRC, 'g');
+  // Řídicí a neviditelné znaky (zalomení, nulová šířka, přepínače směru, značky, výplně, selektory variant): v názvu nemají co dělat a slouží ke skrytému textu.
+  const CONTROL_SRC = '[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]';
+  const CONTROL = new RegExp(CONTROL_SRC, 'u');
+  const CONTROL_ALL = new RegExp(CONTROL_SRC, 'gu');
   const oneLine = (v, n) => (typeof v === 'string' ? v.replace(CONTROL_ALL, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
   // Písmena a číslice, mezera a běžná interpunkce názvů („St. Johnstone“, „Brighton & Hove Albion“, „1. FC Köln“, „Hapoel Be'er Sheva“).
   const NAME_OK = /^[\p{L}\p{N}][\p{L}\p{N} .,'’&/()+:–\-]*$/u;

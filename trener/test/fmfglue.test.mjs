@@ -64,8 +64,8 @@ test('rozpočet bloků: každý rozbalovač má svůj rozpočet pro všechny rá
   y(three, 1 << 20);
   y(three, 1 << 20); // zbývají 2
   assert.throws(() => y(three, 1 << 20), (e) => e.code === 'blocks');
-  // výchozí rozpočet je 40 000 bloků: dva rámce po 16 400 projdou (v součtu 32 800), třetí už ne
-  const big = B.emptyBlocksFrame(16400);
+  // výchozí rozpočet je 20 000 bloků: dva rámce po 9 000 projdou (v součtu 18 000), třetí už ne
+  const big = B.emptyBlocksFrame(9000);
   const d = G.makeFrameDecompressor(Z);
   d(big, 1 << 24);
   d(big, 1 << 24);
@@ -125,6 +125,35 @@ test('strop výstupu: bez maxBytes (nebo s vadným) platí výchozí strop 16 Mi
   assert.throws(() => G.makeFrameDecompressor(Z)(small, 999), (e) => e.code === 'limit');
   assert.equal(G.makeFrameDecompressor(Z)(small, 1000.9).length, 1000, 'necelý strop se zaokrouhlí dolů');
   assert.throws(() => G.makeFrameDecompressor(Z)(small, 999.9), (e) => e.code === 'limit');
+});
+
+test('rozpočet výstupu: výstup všech rámců jednoho souboru dohromady je omezený, i s rámci, které selžou; zbytek rozpočtu je strop pro další rámec', () => {
+  const kib = B.zframe([{ rle: [0x41, 1024] }]); // vydá 1024 B
+  const z = G.makeFrameDecompressor(Z, { maxTotalOutput: 2048 });
+  assert.equal(z(kib, 1 << 20).length, 1024);
+  assert.equal(z(kib, 1 << 20).length, 1024);
+  assert.throws(() => z(kib, 1 << 20), /příliš mnoho dat dohromady/);
+  assert.throws(() => z(kib, 1 << 20), /příliš mnoho dat dohromady/, 'a zůstane to tak');
+  assert.equal(G.makeFrameDecompressor(Z, { maxTotalOutput: 2048 })(kib, 1 << 20).length, 1024, 'jiný rozbalovač má vlastní rozpočet');
+  // selhaný rámec se účtuje: vydá 1000 B a selže na odkazu před začátek výstupu
+  const bad = B.zframe([{ rle: [0x41, 1000] }, { comp: B.rleSeqBlock([], { ll: 0, of: 20, ml: 0 }, [{ of: 0, ml: 0, ll: 0 }]) }]);
+  const y = G.makeFrameDecompressor(Z, { maxTotalOutput: 2000 });
+  assert.throws(() => y(bad, 1 << 20), (e) => /před začátek výstupu/.test(e.message) && e.produced === 1000);
+  assert.throws(() => y(bad, 1 << 20), (e) => e.code === 'limit' && e.produced === 1000); // zbývalo přesně 1000 B: vydají se a další blok už se nevejde
+  assert.throws(() => y(bad, 1 << 20), /příliš mnoho dat dohromady/, 'rozpočet je vyčerpaný selhanými rámci');
+  // zbytek rozpočtu je strop pro další rámec: rámec, který by vydal víc, narazí na zbytek (kód limit) a tím se rozpočet vyčerpá
+  const x = G.makeFrameDecompressor(Z, { maxTotalOutput: 1500 });
+  assert.equal(x(kib, 1 << 20).length, 1024);
+  assert.throws(() => x(B.zframe([{ rle: [0x42, 512] }, { rle: [0x42, 512] }]), 1 << 20), (e) => e.code === 'limit' && e.produced === 0); // zbývá 476 B a první blok má 512
+  // vadné hodnoty volby se ignorují (výchozí 33 MiB)
+  for (const badValue of [0, -1, 2.5, 'x', null, NaN]) assert.equal(G.makeFrameDecompressor(Z, { maxTotalOutput: badValue })(kib, 1 << 20).length, 1024, String(badValue));
+  // výchozí rozpočet: dva rámce po 16 MiB projdou, třetí dostane jen zbytek (1 MiB) a po něm je rozpočet vyčerpaný
+  const sixteen = B.zframe(Array.from({ length: 128 }, () => ({ rle: [0x41, 131072] })));
+  const w = G.makeFrameDecompressor(Z);
+  assert.equal(w(sixteen, 1 << 24).length, 16 * 1024 * 1024);
+  assert.equal(w(sixteen, 1 << 24).length, 16 * 1024 * 1024);
+  assert.throws(() => w(sixteen, 1 << 24), (e) => e.code === 'limit' && e.produced === 1024 * 1024);
+  assert.throws(() => w(sixteen, 1 << 24), /příliš mnoho dat dohromady/);
 });
 
 test('první rámec: starší kontrola má nízký strop počtu bloků (64), takže kandidát z drobných nebo drahých bloků ji nezdrží; jiné chyby než limit dají null', () => {

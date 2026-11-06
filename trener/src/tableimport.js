@@ -17,6 +17,8 @@
   const MAX_ROWS = 400;
   const MAX_COLS = 80;
   const MAX_CELL = 200;
+  // řídicí znaky, oddělovače řádků, formátovací znaky, znaky ignorované při zobrazení (Default_Ignorable_Code_Point), prázdné braillské písmeno a náhradní znak objektu; zapsáno přes RegExp, aby ve zdroji nebyly doslovné znaky
+  const HIDDEN_CHARS = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
   const ROLES = Object.freeze(['ignore', 'name', 'positions', 'age', 'role', 'duty', 'injured', 'attribute']);
   const ROLE_LABEL = Object.freeze({ ignore: 'Ignorovat', name: 'Jméno', positions: 'Pozice', age: 'Věk', role: 'Role', duty: 'Povinnost', injured: 'Zraněný', attribute: 'Atribut (1 až 20)' });
 
@@ -62,7 +64,7 @@
       }
       return ENTITY[e.toLowerCase()] !== undefined ? ENTITY[e.toLowerCase()] : m;
     });
-    t = t.replace(/[<>]/g, ' ').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+    t = t.replace(/[<>]/g, ' ').replace(HIDDEN_CHARS, ' ').replace(/\s+/g, ' ').trim();
     return t.length > MAX_CELL ? t.slice(0, MAX_CELL) : t;
   }
 

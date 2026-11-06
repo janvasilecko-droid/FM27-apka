@@ -37,7 +37,7 @@
   // Řídicí znaky a oddělovače řádků Unicode se změní na mezeru. Neviditelné znaky (nulové šířky, řízení směru písma: U+202E
   // by obrátilo pořadí písmen a dalo se tím zakrýt, co v názvu stojí) se odstraní. Zapsáno přes RegExp, aby ve zdroji nebyly doslovné znaky.
   const CONTROL_CHARS = new RegExp('[\\u0000-\\u001f\\u007f\\u2028\\u2029]+', 'g');
-  const INVISIBLE_CHARS = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\u034f\\u115f\\u1160\\u3164\\uffa0\\u2800\\ufe00-\\ufe0f\\ufffc\\u{e0100}-\\u{e01ef}]+', 'gu');
+  const INVISIBLE_CHARS = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
 
   const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'", '&nbsp;': ' ' };
 

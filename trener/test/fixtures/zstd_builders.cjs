@@ -188,6 +188,17 @@ function heavyFrameBadEnd(n) {
   return Buffer.concat(parts);
 }
 
+/** Rámec, který vydá skoro 16 MiB ze samých tříbajtových sekvencí a selže až na konci: surový blok s historií (300 B) a `blocks` komprimovaných bloků, každý s 43 690 sekvencemi (tabulky RLE, délka shody 3,
+    žádné bity navíc) a výstupem 131 070 B; hlavička slibuje o `extra` bajtů víc, než rámec vydá (výchozí 7), takže dekodér udělá všechnu práci a teprve na konci hlásí nesoulad velikosti.
+    Rámec má jen asi 12 B na blok. Pro 127 bloků vydá 16 646 190 B (pod 16 MiB). Okno 1 MiB, velikost obsahu ve čtyřech bajtech. */
+function seqBombFrame(blocks, extra) {
+  const comp = rleSeqBlock([], { ll: 0, of: 0, ml: 0 }, new Array(43690).fill({ of: 0, ml: 0, ll: 0 }));
+  const total = 300 + blocks * 131070;
+  const fcs = total + (extra === undefined ? 7 : extra);
+  const head = [0x80, 0x50, fcs & 255, (fcs >>> 8) & 255, (fcs >>> 16) & 255, (fcs >>> 24) & 255];
+  return zframe([{ raw: Buffer.alloc(300, 0x61) }, ...Array.from({ length: blocks }, () => ({ comp }))], { head });
+}
+
 /** Rámec z n prázdných surových bloků (nulová velikost, bez výstupu): nejlevnější způsob, jak napočítat bloky. */
 function emptyBlocksFrame(n) {
   const parts = [Buffer.from(MAGIC_BYTES), Buffer.from([0x00, 0x50])];
@@ -197,5 +208,5 @@ function emptyBlocksFrame(n) {
 
 module.exports = {
   u16, u24, MAGIC_BYTES, directTree, huffCodes, huffStreamBytes, bitStream, literalsFrame, splitFour, bin, blockHeader, zframe, rawLits, nSeqBytes,
-  LL_BASE_T, LL_EXTRA, ML_BASE_T, ML_EXTRA, rleSeqBlock, bigLiterals, writeNCount, singleTable, heavyBlock, heavyFrame, heavyFrameBadEnd, emptyBlocksFrame,
+  LL_BASE_T, LL_EXTRA, ML_BASE_T, ML_EXTRA, rleSeqBlock, bigLiterals, writeNCount, singleTable, heavyBlock, heavyFrame, heavyFrameBadEnd, seqBombFrame, emptyBlocksFrame,
 };

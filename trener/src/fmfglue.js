@@ -11,8 +11,11 @@
   const DEFAULT_MAX_OUT = 16 * 1024 * 1024;
   /** Rámec, který starší kontrola zkouší jako manifest, má mít bloků jen pár (v prozkoumaných exportech jeden); víc kandidátů nesmí zdržet stránku. */
   const FIRST_FRAME_MAX_BLOCKS = 64;
-  /** Všechny rámce jednoho souboru dohromady: v prozkoumaných exportech jsou čtyři bloky, takže 40 000 je štědrá mez, která ale zdrží nejvýš o jednotky sekund. */
-  const DEFAULT_TOTAL_BLOCKS = 40000;
+  /** Všechny rámce jednoho souboru dohromady, včetně těch, které selžou: v prozkoumaných exportech jsou čtyři bloky, takže 20 000 je štědrá mez (stavba tabulek v bloku stojí kolem 45 µs, tedy kolem 0,9 s). */
+  const DEFAULT_TOTAL_BLOCKS = 20000;
+  /** Výstup všech rámců jednoho souboru dohromady, včetně pokusů, které selžou: manifest do 1 MiB a záznamy do 32 MiB (strop kontejneru). Bez toho by 64 záznamů, z nichž každý vydá 16 MiB a selže až na
+      konci, zdrželo čtení o desítky sekund (výstup stojí kolem 43 ns na bajt, tedy kolem 1,4 s na celý rozpočet). */
+  const DEFAULT_TOTAL_OUTPUT = 33 * 1024 * 1024;
   const okZstd = (zstd) => !!zstd && typeof zstd.decompressFrame === 'function';
   const limitOf = (maxOut) => (Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT);
 
@@ -32,22 +35,29 @@
   }
 
   /** Rozbalí PŘESNĚ jeden zstd rámec (za rámcem nesmí být žádné bajty) a hlídá velikost výstupu a počet bloků:
-      funkce (bytes, maxOut) → Uint8Array nebo vyhodí chybu (neplatný nebo useknutý rámec, bajty navíc, výstup větší než maxOut, příliš mnoho bloků). zstd: modul TrenerZstd.
-      Každá vytvořená funkce má svůj rozpočet bloků (opts.maxTotalBlocks, výchozí 40 000) pro všechny rámce, které zkusí rozbalit (včetně těch, které selžou), aby soubor s mnoha záznamy z drobných bloků nezdržel stránku. */
+      funkce (bytes, maxOut) → Uint8Array nebo vyhodí chybu (neplatný nebo useknutý rámec, bajty navíc, výstup větší než maxOut, příliš mnoho bloků nebo dat dohromady). zstd: modul TrenerZstd.
+      Každá vytvořená funkce má svůj rozpočet pro všechny rámce, které zkusí rozbalit, včetně těch, které selžou: bloky (opts.maxTotalBlocks, výchozí 20 000) a vydané bajty (opts.maxTotalOutput, výchozí 33 MiB).
+      Právě práce za rámce, které selžou až na konci, je to, čím by jinak soubor s mnoha záznamy zdržel stránku. Zbytek rozpočtu výstupu se dekodéru předává jako strop, takže poslední rámec se zastaví na zbytku. */
   function makeFrameDecompressor(zstd, opts) {
-    let budget = opts && Number.isInteger(opts.maxTotalBlocks) && opts.maxTotalBlocks > 0 ? opts.maxTotalBlocks : DEFAULT_TOTAL_BLOCKS;
+    const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);
+    let blockBudget = num(opts && opts.maxTotalBlocks, DEFAULT_TOTAL_BLOCKS);
+    let outputBudget = num(opts && opts.maxTotalOutput, DEFAULT_TOTAL_OUTPUT);
+    const count = (n, fallback) => (Number.isInteger(n) && n > 0 ? n : fallback);
     return function zstdOne(bytes, maxOut) {
       if (!okZstd(zstd)) throw new Error('Rozbalení zstd není k dispozici.');
-      if (budget <= 0) throw new Error('Soubor má příliš mnoho bloků dohromady; další rámce se nerozbalují.');
+      if (blockBudget <= 0) throw new Error('Soubor má příliš mnoho bloků dohromady; další rámce se nerozbalují.');
+      if (outputBudget <= 0) throw new Error('Soubor vydal při rozbalování příliš mnoho dat dohromady; další rámce se nerozbalují.');
       let r;
       try {
-        r = zstd.decompressFrame(bytes, { maxOutput: limitOf(maxOut), exact: true, maxBlocks: budget });
+        r = zstd.decompressFrame(bytes, { maxOutput: Math.min(limitOf(maxOut), outputBudget), exact: true, maxBlocks: blockBudget });
       } catch (e) {
-        // i rámec, který nakonec selže, stál práci: účtuje se, kolik bloků dekodér stihl zpracovat (aspoň jeden), jinak by rozpočet obešel soubor se spoustou rámců vadných až na konci
-        budget -= e && Number.isInteger(e.blocks) && e.blocks > 0 ? e.blocks : 1;
+        // i rámec, který nakonec selže, stál práci: účtuje se, kolik bloků dekodér stihl zpracovat (aspoň jeden) a kolik bajtů vydal; jinak by rozpočet obešel soubor se spoustou rámců vadných až na konci
+        blockBudget -= count(e && e.blocks, 1);
+        outputBudget -= count(e && e.produced, 0);
         throw e;
       }
-      budget -= Number.isInteger(r.blocks) ? r.blocks : 1;
+      blockBudget -= count(r.blocks, 1);
+      outputBudget -= r.data ? r.data.length : 0;
       return r.data;
     };
   }

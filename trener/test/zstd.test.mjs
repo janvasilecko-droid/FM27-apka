@@ -816,6 +816,42 @@ test('výbuch ze sekvencí: blok s největším možným počtem sekvencí (98 0
   if (want) judge([f, fits, big], want);
 });
 
+test('chyby nesou počet zpracovaných bloků a vydaných bajtů; cizí výjimka je ZstdError s kódem internal v decompress i v decompressFrame; exact platí jen pro true', () => {
+  // vydáno 1000 B a pak chyba: produced = 1000, blocks = 2
+  const bad = zframe([{ rle: [0x41, 1000] }, { comp: rleSeqBlock([], { ll: 0, of: 20, ml: 0 }, [{ of: 0, ml: 0, ll: 0 }]) }]);
+  for (const fn of [Z.decompress, Z.decompressFrame]) {
+    assert.throws(() => fn(bad), (e) => e instanceof Z.ZstdError && /před začátek výstupu/.test(e.message) && e.produced === 1000 && e.blocks === 2);
+  }
+  // chyba hlavičky: ještě se nic nerozbalovalo, takže ani bloky, ani výstup se neuvádějí
+  assert.throws(() => Z.decompress(Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8])), (e) => e.code === 'magic' && e.produced === undefined && e.blocks === undefined);
+  // chyba po vydání celého obsahu (bajty navíc): produced je celý výstup
+  assert.throws(() => Z.decompress(Buffer.concat([zframe([{ rle: [0x41, 500] }]), Buffer.from([0])]), { exact: true }), (e) => /bajty navíc/.test(e.message) && e.produced === 500 && e.blocks === 1);
+  // cizí výjimka (hostilní getter ve volbách) se zabalí, ať se volá cokoli z toho
+  const hostile = { get maxOutput() { throw new RangeError('hostilní getter'); } };
+  for (const fn of [Z.decompress, Z.decompressFrame]) {
+    assert.throws(() => fn(zframe([{ raw: Buffer.from('ahoj') }]), hostile), (e) => e instanceof Z.ZstdError && e.code === 'internal' && /hostilní getter/.test(e.message));
+  }
+  // exact: jen pravdivá hodnota true vyžaduje přesný konec; jiné pravdivé hodnoty se neberou jako true
+  const framed = Buffer.concat([zframe([{ raw: Buffer.from('ahoj') }]), Buffer.from([1, 2])]);
+  assert.throws(() => Z.decompress(framed, { exact: true }), /bajty navíc/);
+  for (const notTrue of [1, 'true', {}, 'ano']) assert.equal(Buffer.from(Z.decompress(framed, { exact: notTrue })).toString(), 'ahoj', String(notTrue));
+});
+
+test('paměť: rámec, který slibuje obří obsah, nepřidělí hned obří vyrovnávací paměť (začíná se nejvýš 1 MiB a roste se podle skutečného výstupu)', () => {
+  // nejednosegmentový rámec s velikostí obsahu 2^29 (čtyři bajty, little endian) a jediným malým surovým blokem: dekodér selže na nesouladu velikosti, ale nesmí si předem vzít 512 MiB
+  const promise = zframe([{ raw: Buffer.from('ahoj') }], { head: [0x80, 0x50, 0, 0, 0, 0x20] });
+  const before = process.memoryUsage().arrayBuffers;
+  assert.throws(() => Z.decompress(promise, { maxOutput: 2 ** 30 }), /nesedí s velikostí uvedenou v rámci/);
+  const grew = process.memoryUsage().arrayBuffers - before;
+  assert.ok(grew < 64 * 1024 * 1024, 'přidělilo se ' + (grew / 1048576).toFixed(1) + ' MiB');
+  // růst podle skutečného výstupu: 3 MiB z RLE bloků bez uvedené velikosti a se stropem 1 GiB přidělí řádově jednotky MiB, ne strop
+  const grow = zframe(Array.from({ length: 24 }, () => ({ rle: [0x41, 131072] })));
+  const before2 = process.memoryUsage().arrayBuffers;
+  assert.equal(Z.decompress(grow, { maxOutput: 2 ** 30 }).length, 3 * 1024 * 1024);
+  const grew2 = process.memoryUsage().arrayBuffers - before2;
+  assert.ok(grew2 < 64 * 1024 * 1024, 'přidělilo se ' + (grew2 / 1048576).toFixed(1) + ' MiB');
+});
+
 test('rámce s obřím oknem nebo obří slíbenou velikostí: okno nad 128 MiB se odmítne hned (jako v libzstd), na hranici projde; slíbená velikost nad strop se odmítne před rozbalením', () => {
   const raw = (txt) => [...u24((txt.length << 3) | 1), ...Buffer.from(txt)];
   const withWindow = (wd) => Uint8Array.from([0x28, 0xb5, 0x2f, 0xfd, 0x00, wd, ...raw('ahoj')]);
