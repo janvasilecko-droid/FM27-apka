@@ -57,15 +57,15 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/zstd.js` | vlastní dekodér zstd (RFC 8878) bez závislostí: strop výstupu, bloku, okna a počtu bloků, přísné odmítání vadných rámců; zkoušený proti libzstd (`test/zstd.test.mjs`) |
 | `src/fmfcontainer.js`, `fmfglue.js`, `fmftac.js` | čtečka kontejneru `.fmf` z FM27 (rozšifrování AES-128-CTR a rozbalení zstd v zařízení, kontrolní součty, limity; `fmfglue.js` hlídá rozpočet bloků na soubor) a přísná čtečka **stavby** payloadu taktiky (bloky, položky, seznamy; popis v `docs/FORMAT_FMF.md`); **význam čísel** (formace, role, instrukce) zatím nečte |
 | `src/screens/weights.js`, `playeranalysis.js` | správa vah DWRS v Nastavení (přednastavení, vlastní profily, porovnání); rozbor hráče v Můj tým (nejlepší a nejhorší role, silné stránky a mezery, pořadí v týmu) |
-| `test/*.test.mjs` | 884 testů čistých modulů, úložiště a barev vzhledu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 902 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
+| `test/*.test.mjs` | 897 testů čistých modulů, úložiště a barev vzhledu |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 904 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
 ```bash
 node trener/build.mjs                                  # běžné sestavení
 STRICT=1 node trener/build.mjs                         # všechny moduly povinné (to běží i v nasazení)
-node --test trener/test/*.test.mjs                     # 884 testů bez prohlížeče
+node --test trener/test/*.test.mjs                     # 897 testů bez prohlížeče
 python3 -m unittest discover -s ai_gateway/tests -t .  # shoda validátoru s Pythonem a hlídání klíčů v repu
 ```
 
@@ -86,7 +86,11 @@ Vlastní dekodér zstd se zkouší i proti libzstd. Bez Pythonu a balíčku `zst
 python3 -m venv /tmp/zv && /tmp/zv/bin/pip install zstandard
 ZSTD_ORACLE_PYTHON=/tmp/zv/bin/python node --test trener/test/zstd.test.mjs   # ZSTD_SEED=n zkusí jiné náhodné vstupy
 ZSTD_ORACLE_REQUIRED=1 ZSTD_ORACLE_PYTHON=/tmp/zv/bin/python node --test trener/test/zstd.test.mjs   # bez věštírny zkouška selže místo přeskočení
+# delší běh proti libzstd: každé semínko je 12 000 nově poškozených rámců (6. 11. 2026 prošla semínka 1 až 200)
+for s in $(seq 1 200); do ZSTD_SEED=$s ZSTD_ORACLE_REQUIRED=1 ZSTD_ORACLE_PYTHON=/tmp/zv/bin/python node --test --test-name-pattern='poškozené rámce' trener/test/zstd.test.mjs > /dev/null || echo "semínko $s selhalo"; done
 ```
+
+Mutační zkoušky (kontrola, že zkoušky skutečně chytí chybu vložená do kódu) jsou v `trener/test/mutation/` včetně návodu; do běžných testů nepatří, jeden běh trvá minuty.
 
 Totéž s povinnou věštírnou (balíček `zstandard` 0.25.0) běží na GitHubu jako samostatná kontrola `.github/workflows/zstd-oracle.yml` po každé změně dekodéru; nasazení stránky (`pages.yml`) Python nepotřebuje a na ní nezávisí.
 
@@ -145,7 +149,7 @@ skutečná odpověď konektoru Parallel Search (tvar je odhad, čtení je tolera
 Ověřeno jen se zkušebními náhražkami: že se výsledky čtou, řadí a označují poctivě (druh zdroje podle domény, starší verze FM „NENÍ FM27“,
 jen https, text z webu je jen text a v promptu jen jeden řádek dat, nic z webu není `verified`) a že chyby konektoru mají srozumitelné hlášky.
 
-**Ověřeno proti referenci:** vlastní dekodér zstd (`src/zstd.js`) se zkoušel proti libzstd (Python `zstandard`): platné rámce všech úrovní a strategií, více než milion náhodně poškozených rámců, ručně sestavené Huffmanovy stromy a sekvence, popis tabulek FSE a tři skutečné exporty z FM27. Libzstd (zkoušeno verze 1.5.7) je ve třech případech vstřícnější než specifikace: u čtyřproudých literálů nekontroluje konec proudu bitů, přijme odkaz dál než okno rámce a přijme blok větší než okno, když rámec uvádí velikost obsahu; dekodér je v těchto případech přísnější a každý má vlastní kód chyby (`litend`, `window`, `blocksize`). U sekvencí se s libzstd shoduje (odmítá nepřečtené bity i čtení za začátek proudu, kódy `inexact` a `overread`, i nulový opakovaný posun). Dekodér navíc hlídá práci: strop výstupu, největší blok, okno do 128 MiB a počet bloků úměrný povolenému výstupu (kód `blocks`). Obsahový kontrolní součet zstd dekodér neověřuje (ověřuje ho čtečka kontejneru). Bez Pythonu se porovnání s libzstd přeskočí, ostatní zkoušky běží vždy.
+**Ověřeno proti referenci:** vlastní dekodér zstd (`src/zstd.js`) se zkoušel proti libzstd 1.5.7 (Python `zstandard` 0.25.0): platné rámce úrovní 1, 3, 9, 19 a 22 a strategií 1 až 9, náhodně poškozené rámce (12 000 na jedno semínko `ZSTD_SEED`; semínka 1 až 200, tedy 2 400 000 rámců, prošla všechna), ručně sestavené Huffmanovy stromy a sekvence a tři skutečné exporty z FM27. **Popis tabulek FSE** se proti libzstd zkouší jen nepřímo (rámce, které libzstd sama napsala, a ruční případy); samostatná zkouška popisu je kruhová (vlastní zapisovač a vlastní čtečka), takže o shodě s libzstd sama nic nedokazuje. Rozdíly proti libzstd, které jsem našel a změřil (každý má zkoušku): libzstd je vstřícnější než specifikace u (1) odkazu dál než okno rámce (u nás kód `window`), (2) bloku většího než okno u rámce s uvedenou velikostí obsahu (`blocksize`), (3) konce čtyřproudých literálů, když má každý ze čtyř proudů aspoň 8 bajtů (`litend`; jinak konec kontroluje, podle zdrojového kódu na procesoru bez BMI2 vždy) a (4) velikosti obsahu 2^64−1, kterou bere jako „neuvedeno“ (u nás `corrupt`); dekodér je v těchto případech přísnější. Naopak (5) váhy Huffmanova stromu přes FSE libzstd odmítne, když tabulka uvádí symbol 12 a víc při přesnosti 6 (92 a víc při přesnosti 5), protože se jí nevejdou do pracovní paměti, a dekodér je přijme; kód Huffmana dlouhý 12 bitů přijímají oba, i když RFC 8878 mluví o 11. U sekvencí se s libzstd shoduje (odmítá nepřečtené bity i čtení za začátek proudu, kódy `inexact` a `overread`, i nulový opakovaný posun). Dekodér navíc hlídá práci: strop výstupu, největší blok, okno do 128 MiB a počet bloků úměrný povolenému výstupu (kód `blocks`; známé omezení: platný rámec z proudového zapisovače s bloky pod 1 KiB se odmítne). Obsahový kontrolní součet zstd dekodér neověřuje (ověřuje ho čtečka kontejneru). Bez Pythonu se porovnání s libzstd přeskočí, ostatní zkoušky běží vždy. Podrobnosti a čísla: [`docs/REVIZE_FMF_2026-11-05.md`](../docs/REVIZE_FMF_2026-11-05.md).
 
 Když něco z toho selže, aplikace to řekne: Nastavení má stav schopností a zkoušky spojení, kniha hlášení o čtení.
 

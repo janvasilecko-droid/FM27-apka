@@ -191,6 +191,9 @@ Odpověz POUZE JSON objektem:
   /** note: věta, kterou volající chce ukázat v rámečku (např. proč se soubor nepřečetl celý). */
   async function inspectFile(app, file, box, note) {
     const Tc = T();
+    // podle velikosti souboru, ještě než se celý načte do paměti
+    const tooBig = FC() ? FC().sizeProblemText(file.size, Tc.FMF.MAX_INPUT_BYTES) : null;
+    if (tooBig) return setNote(box, h('div', { class: 'banner bad', id: 'fmfTooBig' }, h('b', { text: 'Soubor je příliš velký' }), h('span', { text: tooBig })));
     setNote(box, h('p', { class: 'hint', text: 'Kontroluji soubor…' }));
     let report;
     let zstdNote = note || '';
@@ -227,7 +230,7 @@ Odpověz POUZE JSON objektem:
         { class: report.ok ? 'banner warn' : 'banner bad' },
         h('b', { text: report.ok ? 'Soubor vypadá jako export, ale taktiku z něj zatím číst neumím' : 'Soubor se nepodařilo interpretovat' }),
         report.ok
-          ? h('p', { text: note ? 'Z tohoto souboru se tady taktika přečíst nedá (důvod je níže). Doplň ji ručně (Nová taktika níže) nebo ji nahraj jako ruční plán (.json). Zprávu o souboru si můžeš uložit.' : 'Aplikace zná stavbu jen tří zkoumaných exportů FM27; tenhle soubor jí neodpovídá a jeho vnitřek se nehádá. Doplň taktiku ručně (Nová taktika níže) nebo ji nahraj jako ruční plán (.json). Zprávu o souboru si můžeš uložit.' })
+          ? h('p', { text: FC() ? FC().inspectText(note) : '' })
           : h('p', { text: report.reason }),
         zstdNote ? h('p', { class: 'hint', text: zstdNote }) : null
       ),
@@ -244,13 +247,7 @@ Odpověz POUZE JSON objektem:
   /** Text ze souboru do zobrazení: bez řídicích, neviditelných a přepínajících znaků a zkrácený (soubor je cizí vstup). */
   const clean = (x, n) => (TAC() ? TAC().displayText(x, n) : String(x === undefined || x === null ? '' : x).replace(/[^\x20-\x7e\u00a0-\u024f]+/g, ' ').trim().slice(0, n || 80));
   const srcLabel = (ext, path) => (Object.prototype.hasOwnProperty.call(SRC_LABEL, ext) ? SRC_LABEL[ext] : clean(path, 60) || 'zdroj');
-  /** Jedna věta o jednom zdroji: co se rozbalilo a co se přitom ověřilo (kontrolní součet je jen tam, kde ho soubor uvádí). */
-  function entryText(e) {
-    const size = `záznam ${e.size} B (s klíčem a IV) → ${e.content ? e.content.length : '?'} B rozbaleno`;
-    if (!e.ok) return `${size}, NEOVĚŘENO: ${clean((e.issues || []).join('; ') || 'neznámý důvod', 160)}`;
-    const sum = e.checks && e.checks.checksum === 'ok' ? 'velikost sedí s manifestem a kontrolní součet obsahu sedí' : 'velikost sedí s manifestem, kontrolní součet soubor u tohoto zdroje neuvádí (neověřeno)';
-    return `${size}, ${sum}`;
-  }
+  const entryText = (e) => FC().entryText(e, clean);
 
   /** Větou: jak dopadlo čtení stavby payloadu taktiky (jen stavba, ne význam čísel). */
   function structureText(s) {
@@ -289,8 +286,8 @@ Odpověz POUZE JSON objektem:
         'div',
         { class: 'banner ok', id: 'fmfReadBanner' },
         h('b', { text: `Soubor „${clean(file.name, 80)}“ je přečtený` }),
-        h('p', { text: 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI). ' + (bad.length === 0 ? 'U všech zdrojů sedí velikosti s manifestem a kontrolní součty obsahu sedí tam, kde je soubor uvádí. ' : 'U zdrojů, které se podařilo ověřit, sedí velikosti s manifestem a kontrolní součty obsahu tam, kde je soubor uvádí; ostatní jsou níže označené jako neověřené. ') + 'Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.' }),
-        bad.length ? h('p', { class: 'hint', text: `Pozor: ${bad.length === 1 ? 'jeden zdroj' : bad.length + ' zdroje'} se nepodařilo ověřit (${bad.map((e) => clean(e.path, 60)).join(', ')}).` }) : null
+        h('p', { text: Fc.readBannerText(read.entries) }),
+        bad.length ? h('p', { class: 'hint', text: Fc.badSourcesText(read.entries, clean) }) : null
       ),
       logo,
       h('div', { class: 'diag', id: 'fmfReadRows' }, rows.map(([k, v]) => h('div', null, h('span', { text: k }), h('span', { text: v })))),
@@ -312,7 +309,10 @@ Odpověz POUZE JSON objektem:
     if (!Fc || !window.TrenerZstd) return inspectFile(app, file, box);
     const subtle = window.crypto && window.crypto.subtle;
     // bez WebCrypto (stránka mimo https) se zašifrované části nejdou přečíst: řekne se to přímo a zkontroluje se aspoň stavba souboru
-    if (!subtle) return inspectFile(app, file, box, 'Tenhle prohlížeč nebo tahle stránka nemá WebCrypto (dešifrování AES), a proto se zašifrované části souboru nepřečetly. Jde to jen na stránce se zabezpečeným spojením (https). Níže je jen kontrola stavby souboru.');
+    if (!subtle) return inspectFile(app, file, box, Fc.NO_WEBCRYPTO_TEXT);
+    // podle velikosti souboru, ještě než se celý načte do paměti
+    const tooBig = Fc.sizeProblemText(file.size, Fc.LIMITS.maxInput);
+    if (tooBig) return setNote(box, h('div', { class: 'banner bad', id: 'fmfTooBig' }, h('b', { text: 'Soubor je příliš velký' }), h('span', { text: tooBig })));
     setNote(box, h('p', { class: 'hint', id: 'fmfReading', text: 'Čtu soubor…' }));
     let bytes;
     try {

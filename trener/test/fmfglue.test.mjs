@@ -70,6 +70,11 @@ test('rozpočet bloků: každý rozbalovač má svůj rozpočet pro všechny rá
   d(big, 1 << 24);
   d(big, 1 << 24);
   assert.throws(() => d(big, 1 << 24), (e) => e.code === 'blocks');
+  // výchozí rozpočet na blok přesně: jediný rámec s 20 000 bloky projde (strop bloků z výstupu 32 MiB je 32 784, rozhoduje rozpočet), s 20 001 už ne; po vyčerpání se další rámec ani nezačne
+  const exactly = G.makeFrameDecompressor(Z);
+  assert.equal(exactly(B.emptyBlocksFrame(20000), 1 << 25).length, 0);
+  assert.throws(() => exactly(B.emptyBlocksFrame(1), 100), /příliš mnoho bloků dohromady/);
+  assert.throws(() => G.makeFrameDecompressor(Z)(B.emptyBlocksFrame(20001), 1 << 25), (e) => e.code === 'blocks' && e.blocks === 20001);
   // vadné hodnoty volby se ignorují (výchozí rozpočet)
   for (const bad of [0, -3, 2.5, 'x', null, NaN]) {
     const w = G.makeFrameDecompressor(Z, { maxTotalBlocks: bad });
@@ -145,6 +150,11 @@ test('rozpočet výstupu: výstup všech rámců jednoho souboru dohromady je om
   const x = G.makeFrameDecompressor(Z, { maxTotalOutput: 1500 });
   assert.equal(x(kib, 1 << 20).length, 1024);
   assert.throws(() => x(B.zframe([{ rle: [0x42, 512] }, { rle: [0x42, 512] }]), 1 << 20), (e) => e.code === 'limit' && e.produced === 0); // zbývá 476 B a první blok má 512
+  // chyba, která dekodér zastaví dřív, než cokoli vydá (hlavička), výstup neúčtuje: řada vadných hlaviček rozpočet výstupu nespotřebuje
+  const h = G.makeFrameDecompressor(Z, { maxTotalOutput: 2048 });
+  for (let i = 0; i < 5; i++) assert.throws(() => h(Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]), 100), (e) => e.code === 'magic' && e.produced === undefined);
+  assert.equal(h(kib, 1 << 20).length, 1024);
+  assert.equal(h(kib, 1 << 20).length, 1024);
   // vadné hodnoty volby se ignorují (výchozí 33 MiB)
   for (const badValue of [0, -1, 2.5, 'x', null, NaN]) assert.equal(G.makeFrameDecompressor(Z, { maxTotalOutput: badValue })(kib, 1 << 20).length, 1024, String(badValue));
   // výchozí rozpočet: dva rámce po 16 MiB projdou, třetí dostane jen zbytek (1 MiB) a po něm je rozpočet vyčerpaný
@@ -183,16 +193,19 @@ test('inspectFmf: šestnáct kandidátů čtoucích týž drahý ocas se nezmno�
   const tail = [];
   for (let i = 0; i < nTail; i++) tail.push(Buffer.from(B.blockHeader(blk.length, 2, i === nTail - 1)), blk);
   const file = Buffer.concat([Buffer.from([0x02, 0x01, 0x61, 0x66, 0x65, 0x2e]), ...heads, Buffer.from('abcdefghijklmnop'), ...tail]);
-  // dekodér, který si pamatuje, čím každé volání skončilo
+  // dekodér, který si pamatuje, čím každé volání skončilo a kolik bloků do té doby zpracoval
   const outcomes = [];
+  const blockCounts = [];
   const spy = {
     decompressFrame(bytes, opts) {
       try {
         const r = Z.decompressFrame(bytes, opts);
         outcomes.push('ok');
+        blockCounts.push(r.blocks);
         return r;
       } catch (e) {
         outcomes.push(e.code);
+        blockCounts.push(e.blocks);
         throw e;
       }
     },
@@ -204,6 +217,8 @@ test('inspectFmf: šestnáct kandidátů čtoucích týž drahý ocas se nezmno�
   assert.equal(rep.candidates.tried, nCand);
   assert.equal(rep.ok, false);
   assert.deepEqual(outcomes, new Array(nCand).fill('blocks'), 'každý kandidát se má zastavit na stropu bloků');
+  // počet zpracovaných bloků je přesný, ne jen „něco se odmítlo": první surový blok a 63 drahých projdou, 65. blok (64. drahý) strop zastaví
+  assert.deepEqual(blockCounts, new Array(nCand).fill(65), 'každý kandidát má vykonat nejvýš strop + 1 bloků: ' + JSON.stringify(blockCounts));
   assert.ok(rep.frames.every((f) => f.reason === 'nejde rozbalit'), JSON.stringify(rep.frames.map((f) => f.reason)));
   assert.ok(ms < 3000, 'kontrola trvala ' + ms + ' ms');
 });

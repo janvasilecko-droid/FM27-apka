@@ -1,0 +1,1057 @@
+[
+[
+"strop okna 2^28",
+"const MAX_WINDOW = 2 ** 27;",
+"const MAX_WINDOW = 2 ** 28;"
+],
+[
+"strop okna: hranice se odmítne",
+"if (windowSize > MAX_WINDOW) fail",
+"if (windowSize >= MAX_WINDOW) fail"
+],
+[
+"strop okna se nekontroluje",
+"if (windowSize > MAX_WINDOW) fail(",
+"if (false) fail("
+],
+[
+"hlavička: rezervovaný bit se toleruje",
+"if (fhd & 0x08) fail(",
+"if (false) fail("
+],
+[
+"hlavička: příznak jednosegmentového rámce",
+"const single = (fhd >> 5) & 1;",
+"const single = (fhd >> 4) & 1;"
+],
+[
+"hlavička: příznak kontrolního součtu",
+"const hasChecksum = !!((fhd >> 2) & 1);",
+"const hasChecksum = !!((fhd >> 3) & 1);"
+],
+[
+"hlavička: velikosti slovníku",
+"const dictSize = [0, 1, 2, 4][fhd & 3];",
+"const dictSize = [0, 1, 2, 3][fhd & 3];"
+],
+[
+"hlavička: exponent okna",
+"const log = 10 + (wd >> 3);",
+"const log = 11 + (wd >> 3);"
+],
+[
+"hlavička: mantisa okna",
+"windowSize = base + (base / 8) * (wd & 7);",
+"windowSize = base + (base / 4) * (wd & 7);"
+],
+[
+"hlavička: nenulový slovník se přijme",
+"if (dictId !== 0) fail('Rámec vyžaduje slovník, který nemáme.', 'dictionary');",
+""
+],
+[
+"hlavička: velikosti obsahu",
+"const fcsSize = fcsFlag === 0 ? (single ? 1 : 0) : [0, 2, 4, 8][fcsFlag];",
+"const fcsSize = fcsFlag === 0 ? (single ? 1 : 0) : [0, 2, 4, 4][fcsFlag];"
+],
+[
+"hlavička: dvoubajtová velikost bez +256",
+"if (fcsFlag === 1) contentSize += 256;",
+""
+],
+[
+"hlavička: bezpečné celé číslo",
+"if (!Number.isSafeInteger(contentSize)) fail('Neplatná velikost obsahu v rámci.');",
+""
+],
+[
+"hlavička: okno jednosegmentového rámce",
+"if (single) windowSize = contentSize;",
+""
+],
+[
+"rámec: velikost obsahu nad strop",
+"if (h.contentSize !== null && h.contentSize > max) fail('Rámec slibuje větší obsah, než je povoleno.', 'limit');",
+""
+],
+[
+"rámec: největší blok z okna",
+"const blockMax = Math.min(h.windowSize, BLOCK_MAX);",
+"const blockMax = BLOCK_MAX;"
+],
+[
+"rámec: rezervovaný typ bloku",
+"if (type === 3) fail('Neplatný typ bloku zstd.');",
+""
+],
+[
+"rámec: RLE blok větší než největší",
+"if (type === 1) {\n          if (size > blockMax) fail('Blok je větší než největší blok.', 'blocksize');",
+"if (type === 1) {"
+],
+[
+"rámec: surový/komprimovaný blok větší než největší",
+"} else {\n          if (size > blockMax) fail('Blok je větší než největší blok.', 'blocksize');",
+"} else {"
+],
+[
+"rámec: poslední blok",
+"last = !!(hdr & 1);",
+"last = !!(hdr & 2);"
+],
+[
+"rámec: velikost bloku",
+"const size = hdr >> 3;",
+"const size = hdr >> 2;"
+],
+[
+"rámec: kontrolní součet se nepřeskočí",
+"if (p + 4 > b.length) fail('Rámec je useknutý (kontrolní součet).');\n        p += 4;",
+"if (p + 4 > b.length) fail('Rámec je useknutý (kontrolní součet).');"
+],
+[
+"rámec: nesoulad velikosti obsahu",
+"if (h.contentSize !== null && h.contentSize !== out.len) fail('Rozbalená velikost nesedí s velikostí uvedenou v rámci.');",
+""
+],
+[
+"rámec: bajty navíc při exact",
+"if (o.exact === true && p !== b.length) fail('Za rámcem jsou bajty navíc.');",
+""
+],
+[
+"rámec: strop výstupu je o jedna volnější",
+"if (need > out.max) fail(",
+"if (need > out.max + 1) fail("
+],
+[
+"rámec: strop výstupu je přísnější",
+"if (need > out.max) fail(",
+"if (need >= out.max) fail("
+],
+[
+"rámec: výchozí strop výstupu",
+"const DEFAULT_MAX_OUTPUT = 16 * 1024 * 1024;",
+"const DEFAULT_MAX_OUTPUT = 64 * 1024 * 1024;"
+],
+[
+"bity: prázdný proud",
+"if (!(end > start)) fail('Proud bitů je prázdný.');",
+""
+],
+[
+"bity: chybějící značka",
+"if (last === 0) fail('Proud bitů nemá koncovou značku.', markCode);",
+""
+],
+[
+"bity: počet datových bitů",
+"pos: (end - 1 - start) * 8 + highbit(last),",
+"pos: (end - 1 - start) * 8 + highbit(last) + 1,"
+],
+[
+"bity: čtení nad 24 bitů",
+"return hi * 65536 + r.read(16);",
+"return hi * 65535 + r.read(16);"
+],
+[
+"FSE: přesnost +5",
+"const accLog = take(4) + 5;",
+"const accLog = take(4) + 4;"
+],
+[
+"FSE: horní mez přesnosti",
+"if (accLog > maxAccLog) fail(",
+"if (accLog >= maxAccLog) fail("
+],
+[
+"FSE: horní mez přesnosti se nekontroluje",
+"if (accLog > maxAccLog) fail(",
+"if (false) fail("
+],
+[
+"FSE: počáteční zbytek",
+"let remaining = (1 << accLog) + 1;",
+"let remaining = (1 << accLog);"
+],
+[
+"FSE: mez počtu symbolů ve smyčce",
+"while (remaining > 1 && counts.length <= maxSymbol) {",
+"while (remaining > 1 && counts.length < maxSymbol) {"
+],
+[
+"FSE: série nul končí jinou hodnotou",
+"} while (r === 3);",
+"} while (r === 2);"
+],
+[
+"FSE: mez pro krátký kód",
+"const max = 2 * threshold - 1 - remaining;",
+"const max = 2 * threshold - 2 - remaining;"
+],
+[
+"FSE: porovnání krátkého kódu",
+"if (low < max) {",
+"if (low <= max) {"
+],
+[
+"FSE: odečtení jedné",
+"count -= 1;",
+"count -= 0;"
+],
+[
+"FSE: záporný počet ubírá zbytek",
+"remaining -= count < 0 ? -count : count;",
+"remaining -= count;"
+],
+[
+"FSE: zmenšení počtu bitů",
+"while (remaining < threshold) {",
+"while (remaining <= threshold) {"
+],
+[
+"FSE: konečný součet",
+"if (remaining !== 1) fail('Tabulka FSE nemá součet pravděpodobností 1.');",
+""
+],
+[
+"FSE: bajty popisu",
+"return { counts, accLog, bytes: (bit + 7) >> 3 };",
+"return { counts, accLog, bytes: (bit + 8) >> 3 };"
+],
+[
+"FSE: useknutý popis",
+"if (bit + nbBits - 1 > endBit) fail('Popis tabulky FSE je useknutý.');",
+""
+],
+[
+"tabulka FSE: počáteční čítač -1",
+"next[s] = 1;\n        total += 1;",
+"next[s] = 0;\n        total += 1;"
+],
+[
+"tabulka FSE: krok",
+"const step = (size >> 1) + (size >> 3) + 3;",
+"const step = (size >> 1) + (size >> 3) + 2;"
+],
+[
+"tabulka FSE: přeskočení horní části",
+"while (pos > high);",
+"while (pos >= high);"
+],
+[
+"tabulka FSE: počet bitů",
+"const bits = accLog - highbit(n);",
+"const bits = accLog - highbit(n) + 1;"
+],
+[
+"tabulka FSE: základ",
+"base[u] = (n << bits) - size;",
+"base[u] = (n << bits) - size + 1;"
+],
+[
+"tabulka FSE: highbit",
+"const highbit = (x) => 31 - Math.clz32(x);",
+"const highbit = (x) => 30 - Math.clz32(x);"
+],
+[
+"předdefinované: přesnost OF",
+"kind === 'of' ? 5 : 6",
+"kind === 'of' ? 6 : 6"
+],
+[
+"předdefinované: tabulka LL",
+"kind === 'll' ? LL_DEFAULT : kind === 'ml' ? ML_DEFAULT : OF_DEFAULT",
+"kind === 'll' ? ML_DEFAULT : kind === 'ml' ? ML_DEFAULT : OF_DEFAULT"
+],
+[
+"LL_BASE první",
+"const LL_BASE = [0, 1, 2,",
+"const LL_BASE = [1, 1, 2,"
+],
+[
+"LL_BASE prostřední",
+"14, 15, 16, 18, 20, 22, 24, 28,",
+"14, 15, 16, 18, 20, 22, 24, 29,"
+],
+[
+"LL_BASE poslední",
+"32768, 65536];",
+"32768, 65537];"
+],
+[
+"LL_BITS poslední",
+"13, 14, 15, 16];\n  const ML_BASE",
+"13, 14, 15, 15];\n  const ML_BASE"
+],
+[
+"ML_BASE první",
+"const ML_BASE = [3, 4,",
+"const ML_BASE = [4, 4,"
+],
+[
+"ML_BASE prostřední",
+"33, 34, 35, 37, 39, 41,",
+"33, 34, 35, 37, 39, 42,"
+],
+[
+"ML_BASE poslední",
+"32771, 65539];",
+"32771, 65540];"
+],
+[
+"ML_BITS poslední",
+"14, 15, 16];\n  const LL_DEFAULT",
+"14, 15, 15];\n  const LL_DEFAULT"
+],
+[
+"LL_DEFAULT první",
+"const LL_DEFAULT = [4, 3,",
+"const LL_DEFAULT = [3, 3,"
+],
+[
+"OF_DEFAULT poslední",
+"-1, -1, -1, -1, -1];\n  const MAX_SYMBOL",
+"-1, -1, -1, -1, 0];\n  const MAX_SYMBOL"
+],
+[
+"MAX_SYMBOL ml",
+"ml: 52 }",
+"ml: 53 }"
+],
+[
+"MAX_ACC_LOG of",
+"of: 8,",
+"of: 9,"
+],
+[
+"Huffman: přímý zápis od 128",
+"if (hdr >= 128) {",
+"if (hdr > 128) {"
+],
+[
+"Huffman: počet vah",
+"const n = hdr - 127;",
+"const n = hdr - 126;"
+],
+[
+"Huffman: bajty přímého zápisu",
+"bytes = 1 + ((n + 1) >> 1);",
+"bytes = 1 + (n >> 1);"
+],
+[
+"Huffman: pořadí půlbajtů",
+"weights.push(i & 1 ? byte & 15 : byte >> 4);",
+"weights.push(i & 1 ? byte >> 4 : byte & 15);"
+],
+[
+"Huffman: komprimované váhy, mez přesnosti",
+"readFseDescription(b, p + 1, p + 1 + hdr, 6, 255)",
+"readFseDescription(b, p + 1, p + 1 + hdr, 7, 255)"
+],
+[
+"Huffman: komprimované váhy, useknutí",
+"if (hdr === 0 || p + 1 + hdr > end) fail(",
+"if (hdr === 0) fail("
+],
+[
+"Huffman: proud vah začíná za popisem",
+"backReader(b, p + 1 + d.bytes, p + 1 + hdr)",
+"backReader(b, p + 1 + d.bytes - 1, p + 1 + hdr)"
+],
+[
+"Huffman: příliš mnoho vah",
+"if (weights.length > 253) fail('Huffmanův strom má příliš mnoho vah.');",
+""
+],
+[
+"Huffman: konec vah první stav",
+"if (r.pos < 0) {\n          weights.push(t.sym[s2]);",
+"if (r.pos <= 0) {\n          weights.push(t.sym[s2]);"
+],
+[
+"Huffman: konec vah druhý stav",
+"if (r.pos < 0) {\n          weights.push(t.sym[s1]);",
+"if (r.pos <= 0) {\n          weights.push(t.sym[s1]);"
+],
+[
+"Huffman: váha nad 12",
+"if (w > MAX_HUF_BITS) fail(",
+"if (w > MAX_HUF_BITS + 1) fail("
+],
+[
+"Huffman: součet vah",
+"if (w > 0) sum += 1 << (w - 1);",
+"if (w > 0) sum += 1 << w;"
+],
+[
+"Huffman: prázdný strom",
+"if (sum === 0) fail('Huffmanův strom nemá žádný symbol.');",
+""
+],
+[
+"Huffman: nejdelší kód",
+"const maxBits = highbit(sum) + 1;",
+"const maxBits = highbit(sum);"
+],
+[
+"Huffman: délka kódu nad 12",
+"if (maxBits > MAX_HUF_BITS) fail('Huffmanův kód je delší, než dovoluje formát.');",
+""
+],
+[
+"Huffman: poslední váha musí být mocnina dvou",
+"if ((rest & (rest - 1)) !== 0) fail('Poslední váha v Huffmanově stromu nejde odvodit.');",
+""
+],
+[
+"Huffman: dopočtená váha",
+"weights.push(highbit(rest) + 1);",
+"weights.push(highbit(rest));"
+],
+[
+"Huffman: délka kódu v tabulce",
+"nb.fill(maxBits + 1 - w, at, at + len);",
+"nb.fill(maxBits - w, at, at + len);"
+],
+[
+"Huffman: pořadí v tabulce",
+"for (let w = 1; w <= maxBits; w++) {\n      const c = rankStart[w];",
+"for (let w = maxBits; w >= 1; w--) {\n      const c = rankStart[w];"
+],
+[
+"literály: zbývající bity doplněné nulami zprava",
+"bitsAt(b, start * 8, r.pos) << (maxBits - r.pos)",
+"bitsAt(b, start * 8, r.pos)"
+],
+[
+"literály: zbývající bity bez čtení",
+"else idx = r.pos > 0 ? bitsAt(b, start * 8, r.pos) << (maxBits - r.pos) : 0;",
+"else idx = 0;"
+],
+[
+"literály: odečtení délky kódu",
+"r.pos -= nb[idx];",
+"r.pos -= nb[idx] + 0 * idx;\n      if (r.pos === -1) r.pos = 0;"
+],
+[
+"literály: konec proudu se nekontroluje",
+"if (r.pos !== 0) fail(r.pos > 0 ?",
+"if (false) fail(r.pos > 0 ?"
+],
+[
+"literály: nespotřebované bity se přijmou",
+"if (r.pos !== 0) fail(r.pos > 0 ?",
+"if (r.pos < 0) fail(r.pos > 0 ?"
+],
+[
+"literály: čtení za začátek se přijme",
+"if (r.pos !== 0) fail(r.pos > 0 ?",
+"if (r.pos > 0) fail(r.pos > 0 ?"
+],
+[
+"literály: typ",
+"const type = b0 & 3;",
+"const type = b0 & 1;"
+],
+[
+"literály: formát velikosti",
+"const sf = (b0 >> 2) & 3;",
+"const sf = (b0 >> 3) & 3;"
+],
+[
+"literály: velikost jednobajtová",
+"hdr = 1;\n        regen = b0 >> 3;",
+"hdr = 1;\n        regen = b0 >> 2;"
+],
+[
+"literály: velikost dvoubajtová",
+"regen = (b0 >> 4) + (b[p + 1] << 4);",
+"regen = (b0 >> 3) + (b[p + 1] << 4);"
+],
+[
+"literály: velikost tříbajtová",
+"regen = (b0 >> 4) + (b[p + 1] << 4) + (b[p + 2] << 12);",
+"regen = (b0 >> 4) + (b[p + 1] << 4) + (b[p + 2] << 11);"
+],
+[
+"literály: počet proudů podle formátu",
+"streams = sf === 0 ? 1 : 4;",
+"streams = sf === 0 ? 4 : 1;"
+],
+[
+"literály: desetibitová velikost",
+"regen = (v >> 4) & 0x3ff;\n      comp = (v >> 14) & 0x3ff;",
+"regen = (v >> 4) & 0x1ff;\n      comp = (v >> 14) & 0x3ff;"
+],
+[
+"literály: desetibitová komprimovaná",
+"comp = (v >> 14) & 0x3ff;",
+"comp = (v >> 13) & 0x3ff;"
+],
+[
+"literály: čtrnáctibitová velikost",
+"regen = (v >>> 4) & 0x3fff;",
+"regen = (v >>> 4) & 0x1fff;"
+],
+[
+"literály: čtrnáctibitová komprimovaná",
+"comp = v >>> 18;",
+"comp = v >>> 17;"
+],
+[
+"literály: osmnáctibitová velikost",
+"regen = (lo >>> 4) & 0x3ffff;",
+"regen = (lo >>> 4) & 0x1ffff;"
+],
+[
+"literály: osmnáctibitová komprimovaná",
+"comp = ((lo >>> 22) + hi * 1024) & 0x3ffff;",
+"comp = ((lo >>> 22) + hi * 512) & 0x3ffff;"
+],
+[
+"literály: větší než blok",
+"if (regen > blockMax) fail('Literály jsou větší než největší blok.');",
+""
+],
+[
+"literály: surové useknuté",
+"if (q + regen > end) fail('Surové literály jsou useknuté.');",
+""
+],
+[
+"literály: RLE",
+"lits: new Uint8Array(regen).fill(b[q]), next: q + 1",
+"lits: new Uint8Array(regen).fill(b[q]), next: q"
+],
+[
+"literály: komprimované useknuté",
+"if (litEnd > end) fail('Komprimované literály jsou useknuté.');",
+""
+],
+[
+"literály: strom zabere bajty",
+"s += t.bytes;",
+""
+],
+[
+"literály: bez stromu",
+"} else if (!state.huf) fail('Literály bez stromu se odvolávají na neexistující předchozí strom.');",
+"}"
+],
+[
+"literály: strom se pamatuje",
+"state.huf = t.table;",
+""
+],
+[
+"literály: čtyři proudy pod šest",
+"if (regen < 6) fail('Čtyři proudy literálů smí mít nejméně šest znaků.');",
+""
+],
+[
+"literály: skok useknutý",
+"if (litEnd - s < 6) fail('Skok mezi proudy literálů je useknutý.');",
+""
+],
+[
+"literály: velikost prvního proudu",
+"const s1 = b[s] + (b[s + 1] << 8);",
+"const s1 = b[s] + (b[s + 1] << 7);"
+],
+[
+"literály: velikost druhého proudu",
+"const s2 = b[s + 2] + (b[s + 3] << 8);",
+"const s2 = b[s + 2];"
+],
+[
+"literály: velikost třetího proudu",
+"const s3 = b[s + 4] + (b[s + 5] << 8);",
+"const s3 = b[s + 4];"
+],
+[
+"literály: čtvrtý proud musí mít bajt",
+"if (s4 < 1) fail('Proudy literálů se nevejdou do sekce.');",
+""
+],
+[
+"literály: dělení na proudy",
+"const seg = (regen + 3) >> 2;",
+"const seg = regen >> 2;"
+],
+[
+"tabulky: RLE tabulka mimo rozsah",
+"if (b[q] > MAX_SYMBOL[kind]) fail('Symbol tabulky RLE je mimo rozsah.');",
+""
+],
+[
+"tabulky: RLE přeskočí bajt",
+"return { table: rleTable(b[q]), q: q + 1 };",
+"return { table: rleTable(b[q]), q };"
+],
+[
+"tabulky: opakování bez předchozí",
+"if (!state.tables[kind]) fail('Tabulka se odvolává na předchozí tabulku, která neexistuje.');",
+""
+],
+[
+"sekvence: počet nad 127",
+"if (nSeq > 127) {",
+"if (nSeq > 128) {"
+],
+[
+"sekvence: dvoubajtový počet",
+"nSeq = ((nSeq - 128) << 8) + b[q++];",
+"nSeq = ((nSeq - 127) << 8) + b[q++];"
+],
+[
+"sekvence: tříbajtový počet",
+"nSeq = b[q] + (b[q + 1] << 8) + 0x7f00;",
+"nSeq = b[q] + (b[q + 1] << 8) + 0x7e00;"
+],
+[
+"sekvence: nula sekvencí s bajty navíc",
+"if (q !== end) fail('Za prázdnou sekcí sekvencí jsou bajty navíc.');",
+""
+],
+[
+"sekvence: rezervované bity režimů",
+"if (modes & 3) fail('Rezervované bity v režimech tabulek jsou nastavené.');",
+""
+],
+[
+"sekvence: režim LL",
+"readTable('ll', modes >> 6,",
+"readTable('ll', (modes >> 4) & 3,"
+],
+[
+"sekvence: režim OF",
+"readTable('of', (modes >> 4) & 3,",
+"readTable('of', (modes >> 2) & 3,"
+],
+[
+"sekvence: režim ML",
+"readTable('ml', (modes >> 2) & 3,",
+"readTable('ml', modes >> 6,"
+],
+[
+"sekvence: tabulky se pamatují",
+"state.tables.ll = ll.table;",
+""
+],
+[
+"sekvence: pořadí počátečních stavů",
+"let sLL = r.read(T_LL.accLog);\n    let sOF = r.read(T_OF.accLog);",
+"let sOF = r.read(T_OF.accLog);\n    let sLL = r.read(T_LL.accLog);"
+],
+[
+"sekvence: bity posunu",
+"const ofValue = ofCode === 0 ? 1 : 2 ** ofCode + r.read(ofCode);",
+"const ofValue = ofCode === 0 ? 1 : 2 ** ofCode + r.read(ofCode - 1);"
+],
+[
+"sekvence: pořadí čtení délky shody a literálů",
+"const matchLen = ML_BASE[mlCode] + r.read(ML_BITS[mlCode]);\n      const litLen = LL_BASE[llCode] + r.read(LL_BITS[llCode]);",
+"const litLen = LL_BASE[llCode] + r.read(LL_BITS[llCode]);\n      const matchLen = ML_BASE[mlCode] + r.read(ML_BITS[mlCode]);"
+],
+[
+"sekvence: posun větší než 3",
+"if (ofValue > 3) {",
+"if (ofValue > 2) {"
+],
+[
+"sekvence: nový posun",
+"offset = ofValue - 3;",
+"offset = ofValue - 2;"
+],
+[
+"sekvence: posuny se posouvají",
+"rep2 = rep1;\n        rep1 = rep0;\n        rep0 = offset;\n      } else {",
+"rep1 = rep0;\n        rep0 = offset;\n      } else {"
+],
+[
+"sekvence: opakovaný posun při nulových literálech",
+"const idx = ofValue - 1 + (litLen === 0 ? 1 : 0);",
+"const idx = ofValue - 1;"
+],
+[
+"sekvence: první opakovaný posun",
+"if (idx === 0) offset = rep0;",
+"if (idx === 0) offset = rep1;"
+],
+[
+"sekvence: třetí opakovaný posun",
+"offset = idx === 1 ? rep1 : idx === 2 ? rep2 : rep0 - 1;",
+"offset = idx === 1 ? rep1 : idx === 2 ? rep2 : rep0;"
+],
+[
+"sekvence: nulový opakovaný posun",
+"if (offset < 1) fail('Opakovaný odkaz vede na nulový posun.');",
+""
+],
+[
+"sekvence: posun druhého při výběru třetího",
+"if (idx !== 1) rep2 = rep1;",
+"rep2 = rep1;"
+],
+[
+"sekvence: čte víc literálů",
+"if (litPos + litLen > lits.length) fail('Sekvence čte víc literálů, než blok má.');",
+""
+],
+[
+"sekvence: výstup bloku",
+"if (out.len - blockStart + litLen + matchLen > blockMax) fail('Sekvence by přesáhla největší blok (128 KiB výstupu).');",
+""
+],
+[
+"sekvence: překrývající se kopie vždy najednou",
+"if (offset >= matchLen) out.buf.copyWithin(out.len, from, from + matchLen);\n      else for",
+"out.buf.copyWithin(out.len, from, from + matchLen);\n      if (false) for"
+],
+[
+"sekvence: pořadí stavů po sekvenci",
+"sLL = T_LL.base[sLL] + r.read(T_LL.nb[sLL]);\n        sML = T_ML.base[sML] + r.read(T_ML.nb[sML]);\n        sOF = T_OF.base[sOF] + r.read(T_OF.nb[sOF]);",
+"sLL = T_LL.base[sLL] + r.read(T_LL.nb[sLL]);\n        sOF = T_OF.base[sOF] + r.read(T_OF.nb[sOF]);\n        sML = T_ML.base[sML] + r.read(T_ML.nb[sML]);"
+],
+[
+"sekvence: poslední sekvence mění stavy",
+"if (i < nSeq - 1) {",
+"if (i < nSeq) {"
+],
+[
+"sekvence: nespotřebované bity",
+"if (r.pos > 0) fail('Proud sekvencí není celý spotřebovaný.', 'inexact');",
+""
+],
+[
+"sekvence: čtení za začátek",
+"if (r.pos < 0) fail('Proud sekvencí je přečtený za svůj začátek.', 'overread');",
+""
+],
+[
+"sekvence: opakované posuny pro další blok",
+"state.rep = [rep0, rep1, rep2];",
+""
+],
+[
+"sekvence: zbylé literály",
+"out.buf.set(lits.subarray(litPos), out.len);",
+""
+],
+[
+"sekvence: zbylé literály nad blok",
+"if (out.len - blockStart + left > blockMax) fail('Blok by se po doplnění zbylých literálů zvětšil nad největší blok.');",
+""
+],
+[
+"sekvence: počáteční opakované posuny",
+"rep: [1, 4, 8]",
+"rep: [1, 4, 7]"
+],
+[
+"Huffman: strom bez nejdelších kódů",
+"if (!weights.includes(1)) fail(",
+"if (false) fail("
+],
+[
+"sekvence: odkaz před začátek výstupu",
+"if (offset > out.len) fail('Odkaz vede před začátek výstupu.');",
+""
+],
+[
+"sekvence: odkaz za okno se přijme",
+"if (offset > windowSize) fail('Odkaz vede dál, než dovoluje okno rámce.', 'window');",
+""
+],
+[
+"sekvence: odkaz na hranici okna se odmítne",
+"if (offset > windowSize) fail(",
+"if (offset >= windowSize) fail("
+],
+[
+"tabulka FSE: součet nesedí (přímé volání)",
+"if (total !== size) fail('Součet pravděpodobností v tabulce FSE nesedí s velikostí tabulky.');",
+""
+],
+[
+"okno: kód bigwindow",
+"fail('Rámec chce okno větší než povolených 128 MiB.', 'bigwindow')",
+"fail('Rámec chce okno větší než povolených 128 MiB.')"
+],
+[
+"literály: kód litend",
+"'litend');\n  }",
+"'x');\n  }"
+],
+[
+"FSE: řada nul se hlídá až po řadě",
+"          if (counts.length > maxSymbol) fail('Tabulka FSE má víc symbolů, než dovoluje formát.');\n",
+""
+],
+[
+"FSE: mez řady nul o jedna volnější",
+"if (counts.length > maxSymbol) fail('Tabulka FSE má víc symbolů",
+"if (counts.length > maxSymbol + 1) fail('Tabulka FSE má víc symbolů"
+],
+[
+"FSE: smyčka počtů končí o symbol dřív",
+"while (remaining > 1 && counts.length <= maxSymbol) {",
+"while (remaining > 1 && counts.length < maxSymbol) {"
+],
+[
+"bloky: bajtů na blok 2048",
+"const BYTES_PER_BLOCK = 1024;",
+"const BYTES_PER_BLOCK = 2048;"
+],
+[
+"bloky: bajtů na blok 512",
+"const BYTES_PER_BLOCK = 1024;",
+"const BYTES_PER_BLOCK = 512;"
+],
+[
+"bloky: rezerva 17",
+"const BLOCK_SLACK = 16;",
+"const BLOCK_SLACK = 17;"
+],
+[
+"bloky: rezerva 15",
+"const BLOCK_SLACK = 16;",
+"const BLOCK_SLACK = 15;"
+],
+[
+"bloky: odvození ignoruje velikost obsahu",
+"Math.ceil((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK) + BLOCK_SLACK",
+"Math.ceil(max / BYTES_PER_BLOCK) + BLOCK_SLACK"
+],
+[
+"bloky: odvození vždy z velikosti obsahu",
+"Math.ceil((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK) + BLOCK_SLACK",
+"Math.ceil((h.contentSize !== null ? h.contentSize : 0) / BYTES_PER_BLOCK) + BLOCK_SLACK"
+],
+[
+"bloky: odvození zaokrouhluje dolů",
+"Math.ceil((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK) + BLOCK_SLACK",
+"Math.floor((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK) + BLOCK_SLACK"
+],
+[
+"bloky: odvození bez rezervy",
+"Math.ceil((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK) + BLOCK_SLACK",
+"Math.ceil((h.contentSize !== null ? h.contentSize : max) / BYTES_PER_BLOCK)"
+],
+[
+"bloky: maxBlocks rozšiřuje",
+"Math.min(derivedBlocks, o.maxBlocks)",
+"Math.max(derivedBlocks, o.maxBlocks)"
+],
+[
+"bloky: maxBlocks nahrazuje odvozený strop",
+"Math.min(derivedBlocks, o.maxBlocks)",
+"o.maxBlocks"
+],
+[
+"bloky: maxBlocks se ignoruje",
+"Number.isInteger(o.maxBlocks) && o.maxBlocks > 0 ? Math.min(derivedBlocks, o.maxBlocks) : derivedBlocks",
+"derivedBlocks"
+],
+[
+"bloky: maxBlocks nula se přijme",
+"Number.isInteger(o.maxBlocks) && o.maxBlocks > 0",
+"Number.isInteger(o.maxBlocks) && o.maxBlocks >= 0"
+],
+[
+"bloky: maxBlocks záporné se přijme",
+"Number.isInteger(o.maxBlocks) && o.maxBlocks > 0",
+"Number.isInteger(o.maxBlocks)"
+],
+[
+"bloky: maxBlocks necelé se přijme",
+"Number.isInteger(o.maxBlocks) && o.maxBlocks > 0",
+"o.maxBlocks > 0"
+],
+[
+"bloky: strop o jedna přísnější",
+"if (++blocks > maxBlocks) fail(",
+"if (++blocks >= maxBlocks) fail("
+],
+[
+"bloky: strop o jedna volnější",
+"if (++blocks > maxBlocks) fail(",
+"if (++blocks > maxBlocks + 1) fail("
+],
+[
+"bloky: strop se nekontroluje",
+"if (++blocks > maxBlocks) fail('Rámec má příliš mnoho bloků vzhledem k povolenému výstupu.', 'blocks');",
+"blocks++;"
+],
+[
+"bloky: strop se kontroluje až po typu bloku",
+"if (++blocks > maxBlocks) fail('Rámec má příliš mnoho bloků vzhledem k povolenému výstupu.', 'blocks');\n        if (type === 3) fail('Neplatný typ bloku zstd.');",
+"if (type === 3) fail('Neplatný typ bloku zstd.');\n        if (++blocks > maxBlocks) fail('Rámec má příliš mnoho bloků vzhledem k povolenému výstupu.', 'blocks');"
+],
+[
+"bloky: počítá se jen každý druhý blok",
+"if (++blocks > maxBlocks) fail(",
+"if ((blocks += 0.5) > maxBlocks) fail("
+],
+[
+"bloky: počet se nehlásí",
+"return { data: out.buf.slice(0, out.len), length: p, blocks };",
+"return { data: out.buf.slice(0, out.len), length: p, blocks: 0 };"
+],
+[
+"bloky: kód blocks",
+"fail('Rámec má příliš mnoho bloků vzhledem k povolenému výstupu.', 'blocks')",
+"fail('Rámec má příliš mnoho bloků vzhledem k povolenému výstupu.')"
+],
+[
+"bloky: LIMITS bytesPerBlock",
+"bytesPerBlock: BYTES_PER_BLOCK,",
+"bytesPerBlock: BYTES_PER_BLOCK * 2,"
+],
+[
+"kód blocksize (RLE) se ztratí",
+"if (type === 1) {\n          if (size > blockMax) fail('Blok je větší než největší blok.', 'blocksize');",
+"if (type === 1) {\n          if (size > blockMax) fail('Blok je větší než největší blok.');"
+],
+[
+"kód blocksize (surový) se ztratí",
+"} else {\n          if (size > blockMax) fail('Blok je větší než největší blok.', 'blocksize');",
+"} else {\n          if (size > blockMax) fail('Blok je větší než největší blok.');"
+],
+[
+"kód window se ztratí",
+"fail('Odkaz vede dál, než dovoluje okno rámce.', 'window')",
+"fail('Odkaz vede dál, než dovoluje okno rámce.')"
+],
+[
+"kód inexact se ztratí",
+"fail('Proud sekvencí není celý spotřebovaný.', 'inexact')",
+"fail('Proud sekvencí není celý spotřebovaný.')"
+],
+[
+"kód overread se ztratí",
+"fail('Proud sekvencí je přečtený za svůj začátek.', 'overread')",
+"fail('Proud sekvencí je přečtený za svůj začátek.')"
+],
+[
+"kód limit v ensure se ztratí",
+"fail('Rozbalený obsah přesáhl povolenou velikost.', 'limit')",
+"fail('Rozbalený obsah přesáhl povolenou velikost.')"
+],
+[
+"kód litend u značky se ztratí",
+"fail('Proud bitů nemá koncovou značku.', markCode)",
+"fail('Proud bitů nemá koncovou značku.')"
+],
+[
+"kód litend: přečtení za začátek se přejmenuje",
+"'Proud literálů je přečtený za svůj začátek.', 'litend'",
+"'Proud literálů je přečtený za svůj začátek.', 'overread'"
+],
+[
+"kód magic se ztratí",
+"fail('Chybí zstd magic.', 'magic')",
+"fail('Chybí zstd magic.')"
+],
+[
+"kód dictionary se ztratí",
+"'dictionary')",
+"'corrupt')"
+],
+[
+"kód input se ztratí",
+"fail('Vstup není binární.', 'input')",
+"fail('Vstup není binární.')"
+],
+[
+"kód litend: zprávy prohozené",
+"fail(r.pos > 0 ? 'Proud literálů není celý spotřebovaný.' : 'Proud literálů je přečtený za svůj začátek.', ",
+"fail(r.pos > 0 ? 'Proud literálů je přečtený za svůj začátek.' : 'Proud literálů není celý spotřebovaný.', "
+],
+[
+"sekvence: zprávy inexact a overread prohozené",
+"fail('Proud sekvencí není celý spotřebovaný.', 'inexact')",
+"fail('Proud sekvencí je přečtený za svůj začátek.', 'inexact')"
+],
+[
+"chyby: počet bloků se nepřipojí",
+"z.blocks = blocks;",
+""
+],
+[
+"chyby: počet bloků o jedna menší",
+"z.blocks = blocks;",
+"z.blocks = blocks - 1;"
+],
+[
+"chyby: počet bloků nulový",
+"z.blocks = blocks;",
+"z.blocks = 0;"
+],
+[
+"chyby: vydané bajty se nepřipojí",
+"z.produced = out.len;",
+""
+],
+[
+"chyby: vydané bajty nulové",
+"z.produced = out.len;",
+"z.produced = 0;"
+],
+[
+"chyby: vydané bajty o jedna menší",
+"z.produced = out.len;",
+"z.produced = out.len - 1;"
+],
+[
+"chyby: cizí výjimka uvnitř rámce se nezabalí",
+"const z = e instanceof ZstdError ? e : new ZstdError('Rámec zstd se nepodařilo rozbalit: ' + (e && e.message ? e.message : e), 'internal');",
+"const z = e;"
+],
+[
+"chyby: cizí výjimka uvnitř rámce má jiný kód",
+"'internal');\n      z.blocks = blocks;",
+"'corrupt');\n      z.blocks = blocks;"
+],
+[
+"chyby: vnější obal propouští ZstdError jen někdy",
+"if (e instanceof ZstdError) throw e;",
+""
+],
+[
+"chyby: vnější obal chybí",
+"throw new ZstdError('Rámec zstd se nepodařilo rozbalit: ' + (e && e.message ? e.message : e), 'internal');\n    }\n  }",
+"throw e;\n    }\n  }"
+],
+[
+"chyby: vnější obal má jiný kód",
+"(e && e.message ? e.message : e), 'internal');\n    }\n  }",
+"(e && e.message ? e.message : e), 'corrupt');\n    }\n  }"
+],
+[
+"rámec: exact stačí pravdivá hodnota",
+"if (o.exact === true && p !== b.length)",
+"if (o.exact && p !== b.length)"
+],
+[
+"paměť: počáteční vyrovnávací paměť není omezená na 1 MiB",
+"h.contentSize : 4096, 1 << 20))",
+"h.contentSize : 4096))"
+],
+[
+"rámec: maxOutput nula se přijme",
+"Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput",
+"Number.isInteger(o.maxOutput) && o.maxOutput >= 0 ? o.maxOutput"
+],
+[
+"rámec: maxOutput necelé se přijme",
+"Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput",
+"Number.isFinite(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput"
+],
+[
+"rámec: maxOutput záporné se přijme",
+"Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput",
+"Number.isInteger(o.maxOutput) ? o.maxOutput"
+]
+]

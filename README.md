@@ -6,7 +6,7 @@ Zadání (doslova): [`docs/ZADANI_MASTER_PROMPT.md`](./docs/ZADANI_MASTER_PROMPT
 
 ## Stav k 5. 11. 2026
 
-Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (884 testů jádra, 143 + 11 v Pythonu, 902 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md). **Z cloudu nejde ověřit
+Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (897 testů jádra, 143 + 11 v Pythonu, 904 kontrol v prohlížeči; několik se bez doplňkových knihoven přeskočí). Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md); čtečka `.fmf` a vlastní dekodér zstd prošly ještě dvěma koly revize (5. a 6. 11. 2026; revizoři i ověřovatelé jsou modely, ne lidé): [`docs/REVIZE_FMF_2026-11-05.md`](./docs/REVIZE_FMF_2026-11-05.md). **Z cloudu nejde ověřit
 skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu zadání zvlášť napsáno, co je ověřené a co čeká na tebe:
 [`docs/AKCEPTACNI_MATICE.md`](./docs/AKCEPTACNI_MATICE.md).
 
@@ -28,7 +28,7 @@ skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu z
 | `fmf_research/` | opravený inspektor souborů `.fmf` (11 testů); originál zůstává beze změny v `reference/` |
 | `docs/` | zadání, architektura, akceptační matice, revize souborů z Cursoru, popis `ai_gateway` |
 | `reference/` | starší soubory z původní složky, jen pro srovnání |
-| `HANDOFF_CLAUDE.md`, `PROMPT_CLAUDE_CONTINUE.md` | předání z Cursoru, beze změn |
+| `HANDOFF_CLAUDE.md`, `PROMPT_CLAUDE_CONTINUE.md` | předání z Cursoru; jediná úprava (5. 11. 2026): zkratky názvů tří ukázkových taktik jsou zamaskované jako „sample tactic 1/2/3“ |
 
 **Kód z Cursoru (Wave 76) v repozitáři nikdy nebyl**, takže aplikace v `trener/` je nová implementace podle původního zadání, ne
 pokračování toho kódu. Kdyby se kód z Cursoru našel, porovná se s ní, nepřepíše se.
@@ -36,12 +36,12 @@ pokračování toho kódu. Kdyby se kód z Cursoru našel, porovná se s ní, ne
 ## Zkoušky
 
 ```bash
-node --test trener/test/*.test.mjs                     # 884 testů jádra, úložiště a barev vzhledu
+node --test trener/test/*.test.mjs                     # 897 testů jádra, úložiště a barev vzhledu
 python3 -m unittest discover -s ai_gateway/tests -t .  # 143 testů (16 se bez doplňkových knihoven přeskočí) a hlídání klíčů v repu
 python3 -m unittest discover -s fmf_research/tests -t . # 11 testů, potřebují `pip install zstandard`
 ```
 
-Zkoušky celé aplikace v Chromiu (902 kontrol, 22 scénářů) a jejich spuštění: `trener/README.md`.
+Zkoušky celé aplikace v Chromiu (904 kontrol, 22 scénářů) a jejich spuštění: `trener/README.md`.
 Zkoušky volají jen zkušební náhražky a zachycený přenos, žádné placené API.
 
 ## Pravidla

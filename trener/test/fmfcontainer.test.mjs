@@ -619,7 +619,7 @@ test('decode: soubor se 64 záznamy, z nichž každý vydá skoro 16 MiB a selž
   // dva rámce se zpracují celé (každý vydá 16,6 MB a selže na nesouladu velikosti), na ostatní už zbývá jen asi 1,3 MB rozpočtu a rámec, který slibuje víc, se odmítne hned po hlavičce
   for (let i = 0; i < 2; i++) assert.match(why[i], /rozbalení selhalo: Rozbalená velikost nesedí s velikostí uvedenou v rámci/, 'záznam ' + i);
   for (let i = 2; i < 64; i++) assert.match(why[i], /Rámec slibuje větší obsah, než je povoleno/, 'záznam ' + i);
-  assert.ok(ms < 8000, 'čtení trvalo ' + ms + ' ms (asi 1,5 s; bez rozpočtu výstupu kolem 45 s)');
+  assert.ok(ms < 15000, 'čtení trvalo ' + ms + ' ms (asi 1,3 s; bez rozpočtu výstupu kolem 45 s; mez je štědrá kvůli pomalejším strojům, rozhodují kódy chyb výše)');
   // totéž bez uvedené velikosti obsahu v hlavičce rámce: třetí rámec se zastaví na zbytku rozpočtu (kód limit)
   const noSize = ZB.zframe([{ raw: Buffer.alloc(300, 0x61) }, ...Array.from({ length: 127 }, () => ({ comp: ZB.rleSeqBlock([], { ll: 0, of: 0, ml: 0 }, new Array(43690).fill({ of: 0, ml: 0, ll: 0 })) })), { comp: ZB.rleSeqBlock([], { ll: 0, of: 25, ml: 0 }, [{ of: 0, ml: 0, ll: 0 }]) }]); // poslední blok odkazuje 2^25 B zpět, dál než všechno, co je vydáno
   const r2 = await C.decode(new Uint8Array(buildFmf({ title: TITLE, resources: resources.map((x) => ({ ...x, frame: noSize })) }, 3).file), makeOwn());
@@ -725,6 +725,46 @@ test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): všechny zdroje se rozšifruj
     assert.equal(r.details.tagOk, true, f);
     if (r.image && r.image.png) assert.ok(r.image.width > 0 && r.image.height > 0, f);
   }
+});
+
+// ---------------------------------------------------------------- věty pro obrazovku
+test('věty pro obrazovku: skloňování počtu, věta o zdroji (s klíčem a IV, neověřený zdroj), věta v rámečku (všechny zdroje jen když se ověřily všechny), upozornění na neověřené a velikost souboru', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 11, 22, 64].map((n) => C.plural(n, 'zdroj', 'zdroje', 'zdrojů')), ['zdrojů', 'zdroj', 'zdroje', 'zdroje', 'zdroje', 'zdrojů', 'zdrojů', 'zdrojů', 'zdrojů']);
+  const ok = { ok: true, size: 168, content: new Uint8Array(275), checks: { checksum: 'ok' }, path: 'a.tac' };
+  const noSum = { ok: true, size: 23, content: new Uint8Array(10), checks: { checksum: 'absent' }, path: 'b.img' };
+  const bad = { ok: false, size: 99, issues: ['kontrolní součet nesedí', 'druhý důvod'], path: 'c<x>.aom' };
+  assert.equal(C.entryText(ok), 'záznam 168 B (s klíčem a IV) → 275 B rozbaleno, velikost sedí s manifestem a kontrolní součet obsahu sedí');
+  assert.match(C.entryText(noSum), /^záznam 23 B \(s klíčem a IV\) → 10 B rozbaleno, velikost sedí s manifestem, kontrolní součet soubor u tohoto zdroje neuvádí \(neověřeno\)$/);
+  assert.equal(C.entryText(bad), 'záznam 99 B (s klíčem a IV) → ? B rozbaleno, NEOVĚŘENO: kontrolní součet nesedí; druhý důvod');
+  assert.match(C.entryText({ ok: false, size: 5 }), /NEOVĚŘENO: neznámý důvod$/);
+  assert.match(C.entryText(bad, (x, n) => `<${String(x).slice(0, 5)}:${n}>`), /NEOVĚŘENO: <kontr:160>$/, 'text ze souboru prochází čištěním s mezí 160 znaků');
+  // rámeček: „u všech zdrojů“ jen bez neověřeného zdroje
+  const all = C.readBannerText([ok, noSum]);
+  assert.match(all, /^Soubor se rozšifroval a rozbalil v tomhle zařízení \(nic se neposílá na internet ani do AI\)\. U všech zdrojů sedí velikosti s manifestem a kontrolní součty obsahu sedí tam, kde je soubor uvádí\. Jak je uvnitř uložená taktika/);
+  const some = C.readBannerText([ok, bad]);
+  assert.doesNotMatch(some, /U všech zdrojů/);
+  assert.match(some, /U zdrojů, které se podařilo ověřit, sedí velikosti s manifestem a kontrolní součty obsahu tam, kde je soubor uvádí; ostatní jsou níže označené jako neověřené\./);
+  // upozornění na neověřené zdroje
+  assert.equal(C.badSourcesText([ok, noSum]), null);
+  assert.equal(C.badSourcesText([ok, bad]), 'Pozor: jeden zdroj se nepodařilo ověřit (c<x>.aom).');
+  const many = (n) => Array.from({ length: n }, (_, i) => ({ ok: false, path: 'z' + i }));
+  assert.equal(C.badSourcesText(many(2)), 'Pozor: 2 zdroje se nepodařilo ověřit (z0, z1).');
+  assert.match(C.badSourcesText(many(4)), /^Pozor: 4 zdroje se nepodařilo ověřit/);
+  assert.match(C.badSourcesText(many(5)), /^Pozor: 5 zdrojů se nepodařilo ověřit/);
+  assert.equal(C.badSourcesText([bad], (x, n) => `[${x}|${n}]`), 'Pozor: jeden zdroj se nepodařilo ověřit ([c<x>.aom|60]).');
+  // starší kontrola: s důvodem od volajícího a bez něj
+  assert.match(C.inspectText('důvod'), /^Z tohoto souboru se tady taktika přečíst nedá \(důvod je níže\)\. Doplň taktiku ručně/);
+  assert.match(C.inspectText(''), /^Aplikace zná stavbu jen tří zkoumaných exportů FM27; tenhle soubor jí neodpovídá a jeho vnitřek se nehádá\. Doplň taktiku ručně/);
+  assert.match(C.inspectText(undefined), /nehádá\./);
+  assert.match(C.NO_WEBCRYPTO_TEXT, /nemá WebCrypto \(dešifrování AES\).*https.*jen kontrola stavby souboru\.$/);
+  // velikost souboru vůči stropu: přesně na stropu se čte, o bajt víc ne; věta nese přesná čísla
+  const limit = C.LIMITS.maxInput;
+  assert.equal(C.sizeProblemText(limit, limit), null);
+  assert.equal(C.sizeProblemText(0, limit), null);
+  assert.equal(C.sizeProblemText(limit + 1, limit), `Soubor má 25165825 B (asi 24 MiB), víc než 25165824 B (24 MiB), které tahle část aplikace čte, a proto se nenačítá. Taktiku můžeš doplnit ručně.`);
+  assert.match(C.sizeProblemText(6 * 1024 * 1024 + 512 * 1024, 5 * 1024 * 1024), /^Soubor má 6815744 B \(asi 6,5 MiB\), víc než 5242880 B \(5 MiB\)/);
+  for (const nonsense of [undefined, null, NaN, Infinity, '99999999999', -5]) assert.equal(C.sizeProblemText(nonsense, limit), null, String(nonsense));
+  assert.equal(C.sizeProblemText(100, NaN), null);
 });
 
 // ---------------------------------------------------------------- zdroj

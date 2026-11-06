@@ -20,7 +20,8 @@ a po ní doplněn o to, co přibylo (moduly, typy dokumentů, samostatná verze)
 Čisté moduly (bez DOM, UMD, testované v Node): `core.js` (text, hledání, kontrola poctivosti, prompty), `websources.js` (zdroje z webu:
 druh zdroje podle domény, verze FM, čtení výsledků hledání, plány hledání), `providers.js`, `tactics.js`,
 `analysis.js`, `school.js`, `alerts.js` (pravidla hlasových upozornění), `opponent.js`, `report.js` (rozbor zápasu), `labexplain.js`
-(vysvětlení rozestavení), `fmfglue.js` (rozbalení prvního rámce zstd).
+(vysvětlení rozestavení), `zstd.js` (vlastní dekodér zstd s omezenou prací), `fmfglue.js` (lepidlo mezi čtečkami a dekodérem: přesně jeden rámec, rozpočty bloků a výstupu na jedno čtení souboru),
+`fmfcontainer.js` (čtečka kontejneru `.fmf`: AES-CTR, zstd, kontrolní součty) a `fmftac.js` (stavba payloadu taktiky; význam čísel se nečte); další čisté moduly (přestupy, sestava, tabulky, klub) vyjmenovává `PURE` v `trener/build.mjs`.
 Rozhraní a data (prohlížeč): `ui.js`, `store.js` (UMD, testovaný v Node), `library.js` (knihy, pdf.js), `ai.js` (poskytovatel, spotřeba,
 „zeptej se, zkontroluj, jednou oprav“), `web.js` (hledání na webu: konektor Parallel Search nebo web search přes klíč Anthropic, paměť,
 limity, hlášky, karta zdroje), `context.js` (kontext kariéry a paměť pro AI), `voice.js` (hlasový výstup a vstup, systémová
@@ -222,7 +223,7 @@ chyby poskytovatele se vyhazují (`errorText` je převede na českou větu; u vl
 | 7 Vzdělávání | škola, cvičení, hodnocení, osobní rozvoj | – |
 | průřezově | historie zápasů | 13 |
 
-Co z cloudu **nelze** ověřit (živé volání Claude, sdílení okna FM27 na Windows, skutečný `.fmf`, skutečná synchronizace mezi zařízeními)
+Co z cloudu **nelze** ověřit (živé volání Claude, sdílení okna FM27 na Windows, `.fmf` z jiné verze hry než ze tří dodaných exportů, skutečná synchronizace mezi zařízeními)
 je v akceptační matici označeno výslovně i s kroky pro majitele.
 
 ## 7. Samostatná verze (PWA)

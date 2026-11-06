@@ -122,7 +122,19 @@ module.exports = async function run(env) {
   await until(async () => /nemá WebCrypto/.test(await note()));
   const noCrypto = await note();
   check('21 bez WebCrypto: soubor se nepřečte, řekne se důvod (WebCrypto, stránka přes https) a taktika se z něj nepřebírá; věta o souboru, který neodpovídá známé stavbě, se nepoužije', /nemá WebCrypto/.test(noCrypto) && /https/.test(noCrypto) && /Z tohoto souboru se tady taktika přečíst nedá/.test(noCrypto) && !/zná stavbu jen tří zkoumaných exportů/.test(noCrypto) && (await page.locator('#fmfReadBanner.ok').count()) === 0, noCrypto);
+  // starší kontrola (ta, na kterou se přejde bez WebCrypto) odmítne soubor nad 5 MiB podle jeho velikosti, ještě než ho načte do paměti
+  await upload('velky_bez_webcrypto.fmf', Buffer.alloc(5 * 1024 * 1024 + 1));
+  await until(async () => /5242881 B/.test(await text(page, '#fmfTooBig').catch(() => '')), 15000);
+  const tooBigInspect = await text(page, '#fmfTooBig').catch(() => '');
+  check('21 starší kontrola: soubor o bajt větší než 5 MiB se odmítne podle velikosti (přesná čísla ve větě), ještě než se načte', /Soubor je příliš velký/.test(tooBigInspect) && /Soubor má 5242881 B \(asi 5 MiB\), víc než 5242880 B \(5 MiB\)/.test(tooBigInspect), tooBigInspect);
   await page.evaluate(() => { delete window.crypto.subtle; });
+
+  // ====================================================== C7) příliš velký soubor: odmítne se podle velikosti, ještě než se načte do paměti
+  const t7 = Date.now();
+  await upload('obri.fmf', Buffer.alloc(24 * 1024 * 1024 + 1));
+  await until(async () => /25165825 B/.test(await text(page, '#fmfTooBig').catch(() => '')), 20000);
+  const tooBig = await text(page, '#fmfTooBig').catch(() => '');
+  check('21 soubor o bajt větší než 24 MiB se odmítne podle velikosti (přesná čísla ve větě), nic se nečte a nic se nepřevezme', /Soubor je příliš velký/.test(tooBig) && /Soubor má 25165825 B \(asi 24 MiB\), víc než 25165824 B \(24 MiB\)/.test(tooBig) && (await page.locator('#fmfReadBanner').count()) === 0 && Date.now() - t7 < 20000, tooBig);
 
   // ====================================================== C2) payload, který nemá popsanou stavbu
   await upload('jina_stavba.fmf', B.standardFmf(9).file); // obsah .tac je vymyšlená změť bajtů: kontejner se přečte, stavba taktiky ne

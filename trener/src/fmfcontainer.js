@@ -507,5 +507,51 @@
     };
   }
 
-  return { PREAMBLE, FOOTER, BASE, LIMITS, scan, parseManifest, zstdFrameInfo, xxh64, parseImage, parseDetails, parseTacHeader, decode, safeReport };
+  // ---------------------------------------------------------------- věty pro obrazovku (čisté funkce, aby šly zkoušet bez prohlížeče; `clean` čistí text ze souboru, výchozí je beze změny)
+  /** České skloňování počtu: 1 → one, 2 až 4 → few, jinak many (0 a 5 a víc). */
+  const plural = (n, one, few, many) => (n === 1 ? one : n >= 2 && n <= 4 ? few : many);
+  const identity = (x) => String(x === undefined || x === null ? '' : x);
+
+  /** Jedna věta o jednom zdroji: co se rozbalilo a co se přitom ověřilo (kontrolní součet je jen tam, kde ho soubor uvádí). Velikost záznamu zahrnuje klíč a IV. */
+  function entryText(e, clean) {
+    const c = typeof clean === 'function' ? clean : identity;
+    const size = `záznam ${e.size} B (s klíčem a IV) → ${e.content ? e.content.length : '?'} B rozbaleno`;
+    if (!e.ok) return `${size}, NEOVĚŘENO: ${c((e.issues || []).join('; ') || 'neznámý důvod', 160)}`;
+    const sum = e.checks && e.checks.checksum === 'ok' ? 'velikost sedí s manifestem a kontrolní součet obsahu sedí' : 'velikost sedí s manifestem, kontrolní součet soubor u tohoto zdroje neuvádí (neověřeno)';
+    return `${size}, ${sum}`;
+  }
+
+  /** Věta v rámečku o přečteném souboru: tvrdí „u všech zdrojů“ jen tehdy, když se ověřily všechny; jinak výslovně mluví o ověřených. */
+  function readBannerText(entries) {
+    const bad = (entries || []).filter((e) => !e.ok);
+    const checked = bad.length === 0 ? 'U všech zdrojů sedí velikosti s manifestem a kontrolní součty obsahu sedí tam, kde je soubor uvádí. ' : 'U zdrojů, které se podařilo ověřit, sedí velikosti s manifestem a kontrolní součty obsahu tam, kde je soubor uvádí; ostatní jsou níže označené jako neověřené. ';
+    return 'Soubor se rozšifroval a rozbalil v tomhle zařízení (nic se neposílá na internet ani do AI). ' + checked + 'Jak je uvnitř uložená taktika (formace, role, instrukce), se teprve rozebírá, takže z ní zatím nic nepřebírám.';
+  }
+
+  /** Upozornění na zdroje, které se nepodařilo ověřit (null, když takové nejsou). */
+  function badSourcesText(entries, clean) {
+    const c = typeof clean === 'function' ? clean : identity;
+    const bad = (entries || []).filter((e) => !e.ok);
+    if (!bad.length) return null;
+    const count = bad.length === 1 ? 'jeden zdroj' : `${bad.length} ${plural(bad.length, 'zdroj', 'zdroje', 'zdrojů')}`;
+    return `Pozor: ${count} se nepodařilo ověřit (${bad.map((e) => c(e.path, 60)).join(', ')}).`;
+  }
+
+  /** Věta pro rámeček starší kontroly: když volající přidal důvod (note), řekne se, že z tohoto souboru se taktika číst nedá; bez důvodu se řekne, že stavba souboru neodpovídá zkoumaným exportům. */
+  function inspectText(note) {
+    const tail = ' Doplň taktiku ručně (Nová taktika níže) nebo ji nahraj jako ruční plán (.json). Zprávu o souboru si můžeš uložit.';
+    return note ? 'Z tohoto souboru se tady taktika přečíst nedá (důvod je níže).' + tail : 'Aplikace zná stavbu jen tří zkoumaných exportů FM27; tenhle soubor jí neodpovídá a jeho vnitřek se nehádá.' + tail;
+  }
+
+  /** Věta, proč se soubor vůbec nezačne číst (null, když se vejde): kontroluje se podle velikosti souboru ještě před načtením do paměti. */
+  function sizeProblemText(size, limit) {
+    if (!(Number.isFinite(size) && Number.isFinite(limit) && size > limit)) return null;
+    const mib = (n) => String(Math.round((n / 1048576) * 10) / 10).replace('.', ',');
+    return `Soubor má ${size} B (asi ${mib(size)} MiB), víc než ${limit} B (${mib(limit)} MiB), které tahle část aplikace čte, a proto se nenačítá. Taktiku můžeš doplnit ručně.`;
+  }
+
+  /** Věta, když prohlížeč nemá WebCrypto (stránka mimo https): zašifrované části se nepřečtou, zkontroluje se jen stavba souboru. */
+  const NO_WEBCRYPTO_TEXT = 'Tenhle prohlížeč nebo tahle stránka nemá WebCrypto (dešifrování AES), a proto se zašifrované části souboru nepřečetly. Jde to jen na stránce se zabezpečeným spojením (https). Níže je jen kontrola stavby souboru.';
+
+  return { PREAMBLE, FOOTER, BASE, LIMITS, scan, parseManifest, zstdFrameInfo, xxh64, parseImage, parseDetails, parseTacHeader, decode, safeReport, plural, entryText, readBannerText, badSourcesText, inspectText, sizeProblemText, NO_WEBCRYPTO_TEXT };
 });

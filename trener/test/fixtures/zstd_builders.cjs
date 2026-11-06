@@ -199,6 +199,120 @@ function seqBombFrame(blocks, extra) {
   return zframe([{ raw: Buffer.alloc(300, 0x61) }, ...Array.from({ length: blocks }, () => ({ comp }))], { head });
 }
 
+// ---------------------------------------------------------------- Huffmanův strom s vahami zapsanými přes FSE (RFC 8878 4.2.1.2)
+/** Dekódovací tabulka FSE (RFC 8878 4.1.1) z normalizovaných počtů (−1 = „méně než jedna“): sym, nb, base. */
+function fseTable(counts, accLog) {
+  const size = 1 << accLog;
+  const sym = new Array(size).fill(0);
+  const nb = new Array(size).fill(0);
+  const base = new Array(size).fill(0);
+  const next = counts.map((c) => (c === -1 ? 1 : c));
+  let high = size - 1;
+  counts.forEach((c, s) => {
+    if (c === -1) sym[high--] = s;
+  });
+  const step = (size >> 1) + (size >> 3) + 3;
+  const mask = size - 1;
+  let pos = 0;
+  counts.forEach((c, s) => {
+    for (let i = 0; i < c; i++) {
+      sym[pos] = s;
+      do pos = (pos + step) & mask;
+      while (pos > high);
+    }
+  });
+  if (pos !== 0) throw new Error('tabulka FSE nejde sestavit');
+  for (let u = 0; u < size; u++) {
+    const n = next[sym[u]]++;
+    nb[u] = accLog - (31 - Math.clz32(n));
+    base[u] = (n << nb[u]) - size;
+  }
+  return { sym, nb, base, size };
+}
+
+/** Cesta stavy tabulky pro posloupnost symbolů jednoho ze dvou prokládaných řetězců; poslední stav musí číst aspoň minNbLast bitů. */
+function fsePath(tab, syms, minNbLast) {
+  const last = syms.length - 1;
+  const st = new Array(syms.length);
+  const candidates = [];
+  for (let u = 0; u < tab.size; u++) if (tab.sym[u] === syms[last] && tab.nb[u] >= minNbLast) candidates.push(u);
+  if (!candidates.length) throw new Error('žádný vhodný poslední stav');
+  st[last] = candidates[0];
+  for (let j = last - 1; j >= 0; j--) {
+    let found = -1;
+    for (let u = 0; u < tab.size; u++) {
+      if (tab.sym[u] === syms[j] && tab.base[u] <= st[j + 1] && st[j + 1] < tab.base[u] + (1 << tab.nb[u])) {
+        found = u;
+        break;
+      }
+    }
+    if (found < 0) throw new Error('cesta nenalezena');
+    st[j] = found;
+  }
+  return st;
+}
+
+/** Popis stromu s explicitními vahami komprimovanými FSE se dvěma prokládanými stavy (hlavičkový bajt = délka popisu, pak popis tabulky a proud bitů). counts jsou normalizované počty o součtu 2^accLog;
+    smí v nich být i symboly, které váhy nepoužijí (libzstd je pak počítá do pracovní paměti). */
+function fseCompressedTree(explicit, counts, accLog) {
+  const n = explicit.length;
+  if (n < 3) throw new Error('málo vah');
+  const tab = fseTable(counts, accLog);
+  const chains = [[], []];
+  explicit.forEach((w, i) => chains[i % 2].push(w));
+  const overflowChain = (n - 2) % 2;
+  const st = [fsePath(tab, chains[0], overflowChain === 0 ? 1 : 0), fsePath(tab, chains[1], overflowChain === 1 ? 1 : 0)];
+  let bits = bin(st[0][0], accLog) + bin(st[1][0], accLog);
+  const idx = [0, 0];
+  for (let i = 0; i <= n - 3; i++) {
+    const c = i % 2;
+    const j = idx[c]++;
+    const u = st[c][j];
+    bits += bin(st[c][j + 1] - tab.base[u], tab.nb[u]);
+  }
+  const body = [...writeNCount(counts, accLog).bytes, ...bitStream(bits)];
+  if (body.length >= 128) throw new Error('komprimované váhy mají ' + body.length + ' bajtů (musí být méně než 128)');
+  return [body.length, ...body];
+}
+
+/** Úplný „řetězový“ strom s délkami kódů 1, 2, …, maxBits − 1, maxBits, maxBits: explicitní váhy (bez dopočtené poslední) a všechny váhy. */
+function chainWeights(maxBits) {
+  const lens = [];
+  for (let l = 1; l < maxBits; l++) lens.push(l);
+  lens.push(maxBits, maxBits);
+  const all = lens.map((l) => maxBits + 1 - l);
+  return { explicit: all.slice(0, -1), all };
+}
+
+/** Normalizované počty o součtu 2^accLog: používaným váhám dá (skoro) stejný díl, váhy z `listedUnused` dostanou po jedničce (v tabulce jsou, ale cesta je nepoužije), ostatní 0. */
+function fseCounts(accLog, used, listedUnused) {
+  const unused = listedUnused || [];
+  const counts = new Array(Math.max(...used, ...unused) + 1).fill(0);
+  unused.forEach((s) => {
+    counts[s] = 1;
+  });
+  const rest = (1 << accLog) - unused.length;
+  const per = Math.floor(rest / used.length);
+  used.forEach((s) => {
+    counts[s] = per;
+  });
+  for (let extra = rest - per * used.length, i = used.length - 1; extra > 0; i = (i + used.length - 1) % used.length) {
+    counts[used[i]]++;
+    extra--;
+  }
+  return counts;
+}
+
+/** Rámec s jedním blokem, jehož literály (typ 2, jeden proud) kóduje řetězový strom s nejdelším kódem maxBits; váhy se zapíšou „přímo“ nebo přes FSE (přesnost accLog, tabulka smí uvádět i nepoužité symboly `unused`).
+    Výstup je posloupnost symbolů 0, 1, 2, … dokola (60 znaků). Vrací {frame, message}. */
+function chainTreeFrame(maxBits, how, accLog, unused) {
+  const { explicit, all } = chainWeights(maxBits);
+  const used = [...new Set(explicit)].sort((a, b) => a - b);
+  const tree = how === 'direct' ? directTree(explicit) : fseCompressedTree(explicit, fseCounts(accLog, used, unused), accLog);
+  const message = Array.from({ length: 60 }, (_, i) => i % all.length);
+  return { frame: literalsFrame(tree, [huffStreamBytes(huffCodes(all), message)], message.length), message: Buffer.from(message) };
+}
+
 /** Rámec z n prázdných surových bloků (nulová velikost, bez výstupu): nejlevnější způsob, jak napočítat bloky. */
 function emptyBlocksFrame(n) {
   const parts = [Buffer.from(MAGIC_BYTES), Buffer.from([0x00, 0x50])];
@@ -209,4 +323,5 @@ function emptyBlocksFrame(n) {
 module.exports = {
   u16, u24, MAGIC_BYTES, directTree, huffCodes, huffStreamBytes, bitStream, literalsFrame, splitFour, bin, blockHeader, zframe, rawLits, nSeqBytes,
   LL_BASE_T, LL_EXTRA, ML_BASE_T, ML_EXTRA, rleSeqBlock, bigLiterals, writeNCount, singleTable, heavyBlock, heavyFrame, heavyFrameBadEnd, seqBombFrame, emptyBlocksFrame,
+  fseTable, fseCompressedTree, chainWeights, fseCounts, chainTreeFrame,
 };

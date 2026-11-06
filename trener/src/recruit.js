@@ -5,7 +5,7 @@
    spočítat dopad odchodu vlastního hráče a vytvořit doporučení, u kterého se později zapíše skutečný výsledek.
 
    POCTIVOST (platí pro každé číslo odsud):
-   - Vhodnost a dopad jsou DWRS nebo jednoduchý vážený průměr (ESTIMATED, heuristika této aplikace), ne pravidlo FM27. Vždy se píše podle jakého modelu vznikly.
+   - Vhodnost a dopad jsou DWRS (ESTIMATED: tabulky kategorií jsou odhad autora) nebo jednoduchý vážený průměr (CUSTOM MODEL: heuristika této aplikace), ne pravidlo FM27. Vždy se píše podle jakého modelu vznikly.
    - Cena a mzda jsou JEN to, co zadal uživatel nebo co stálo v souboru. Chybí-li, je to „neznámé“ (null, UNKNOWN), nikdy se neodhadují a nikdy se nepočítají jako nula. Měna se nepřepočítává.
    - Chybí-li kandidátovi atribut, který role potřebuje, vhodnost je „nedostupná“ s důvodem; nikdy se nedopočítává. Skryté údaje hry (CA, PA, potenciál, osobnost, skryté atributy) se nikdy nečtou:
      modul nic netvrdí o budoucím růstu hráče.

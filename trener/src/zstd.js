@@ -5,11 +5,14 @@
    - nepřipouští víc výstupu, než je zadaný strop (kontroluje se před každým zápisem, ne až po bloku),
    - drží každý blok v mezích specifikace (nejvýš 128 KiB výstupu na blok), takže práce na jeden blok je omezená, a počet bloků v rámci je omezený podle stropu výstupu (aspoň 1 KiB na blok, kód 'blocks'):
      tabulky Huffmana a FSE se staví v každém bloku znovu, takže bez toho by rámec z drobných bloků zdržel stránku, i když by vydal jen pár bajtů; celková práce je tak úměrná stropu výstupu,
-   - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz před začátek výstupu, okno nad 128 MiB, slovník, který nemáme). Od libzstd 1.5.7 se liší jen ve třech případech
-     (pozorováno zkouškou test/zstd.test.mjs proti referenčnímu dekodéru), v nichž je libzstd shovívavější než specifikace a my ne; každý z nich má vlastní kód chyby: 'litend' (proud literálů bez koncové značky nebo
-     nepřesně spotřebovaný; libzstd to u čtyřproudých literálů na své rychlé cestě nekontroluje), 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti) a 'blocksize'
-     (blok větší než okno, když rámec uvádí velikost obsahu). U sekvencí se s libzstd shodujeme: odmítá nepřečtené bity (u nás 'inexact'), čtení za začátek proudu ('overread') i nulový opakovaný posun.
-     Platný rámec z libzstd tyhle podmínky vždy splní,
+   - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz před začátek výstupu, okno nad 128 MiB, slovník, který nemáme). Na platných rámcích i u sekvencí se shoduje
+     s libzstd 1.5.7 (nepřečtené bity, čtení za začátek proudu i nulový opakovaný posun odmítá libzstd stejně jako my). Rozdíly proti libzstd 1.5.7 (Python balíček zstandard 0.25.0, jeden stroj s BMI2), každý má zkoušku
+     v test/zstd.test.mjs (je jich pět):
+       libzstd je shovívavější než specifikace a my ne (první tři mají u nás vlastní kód chyby): 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti), 'blocksize' (blok větší než okno
+       u rámce s uvedenou velikostí obsahu), 'litend' (pokažený konec čtyřproudých literálů, když má každý ze čtyř proudů aspoň 8 bajtů) a velikost obsahu 2^64−1, kterou libzstd bere jako „neuvedeno“ (u nás kód 'corrupt');
+       libzstd je přísnější a my ne: váhy Huffmanova stromu zapsané přes FSE odmítá, když tabulka uvádí symbol 12 a víc při přesnosti 6 (92 a víc při přesnosti 5), protože se mu nevejdou do pracovní paměti;
+       kód Huffmanova stromu dlouhý 12 bitů přijímáme stejně jako libzstd, ačkoli RFC 8878 mluví o nejvýš 11 bitech.
+     Rámce, které libzstd sám napíše, podmínky z první skupiny neporušují (zkoušeno na úrovních 1 až 22, všech devíti strategiích a oknech od 1 KiB do 8 MiB),
    - nestahuje nic z internetu a funguje i bez připojení.
    Nepodporuje: slovníky, přeskočitelné rámce, více rámců za sebou (volající si hlídá délku rámce sám) a kontrolní součet rámce (ten ověřuje volající: fmfcontainer.js, XXH64).
    Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba je vždy ZstdError (nikdy jiná výjimka z tohoto modulu). */
@@ -25,7 +28,8 @@
   /** Největší okno, které přijmeme: 128 MiB, tedy stejný strop jako výchozí nastavení libzstd (RFC 8878 doporučuje podporu aspoň 8 MiB a dovoluje strop volit). Okno samo paměť nestojí (výstup se skládá do jednoho pole a je omezený zvlášť), jde o shodu s referenčním dekodérem. */
   const MAX_WINDOW = 2 ** 27;
   /** Počet bloků v rámci je omezený podle povoleného výstupu: v průměru musí blok vydat aspoň 1 KiB (+ rezerva 16 bloků). Tabulky Huffmana a FSE se staví v každém bloku znovu, a tak by rámec z milionů drobných
-      bloků zdržel stránku řádově sekundy až minuty, i když by vydal jen pár bajtů (platné rámce z libzstd mají bloky po 128 KiB, kromě posledního). */
+      bloků zdržel stránku řádově sekundy až minuty, i když by vydal jen pár bajtů. Cena: platný rámec s průměrným blokem pod 1 KiB (například z proudového zapisovače, který po každých pár bajtech vyprázdní vyrovnávací
+      paměť) se odmítne s kódem 'blocks'. Obyčejné jednorázové stlačení takové bloky nedělá; ve třech skutečných exportech z FM27 má každý ze čtyř rámců jediný blok. */
   const BYTES_PER_BLOCK = 1024;
   const BLOCK_SLACK = 16;
   const MAX_HUF_BITS = 12;
@@ -268,8 +272,11 @@
     return { table: { sym, nb, maxBits }, bytes };
   }
 
-  /** Rozbalí jeden proud literálů. Proud musí mít koncovou značku a být spotřebovaný přesně do konce, jinak je to chyba s kódem 'litend'. Pozorování na libzstd 1.5.7 (procesor s BMI2): u čtyřproudých literálů
-      konec proudu nekontroluje vůbec (ani značku) a po přečtení za konec vrací jiné bity než nuly (pravděpodobně z přetočeného kontejneru; příčina se neověřovala); tohle chování se nedá a nemá napodobovat. */
+  /** Rozbalí jeden proud literálů. Proud musí mít koncovou značku a být spotřebovaný přesně do konce, jinak je to chyba s kódem 'litend'. Pozorování na libzstd 1.5.7 (Python balíček zstandard 0.25.0, procesor
+      s BMI2; test/zstd.test.mjs): u čtyřproudých literálů, jejichž každý ze čtyř proudů má aspoň 8 bajtů, konec proudu nekontroluje (ani koncovou značku) a po přečtení za konec vrací jiné bity než nuly (příčina se
+      neověřovala); u kratších proudů a u jednoho proudu ho kontroluje stejně jako my (123 měřených případů bez jediné výjimky z pravidla „nejkratší proud aspoň 8 B“). Tohle chování nenapodobujeme. Příčina podle zdrojového kódu
+      libzstd 1.5.7 (lib/decompress/huf_decompress.c): rychlá cesta potřebuje všechny čtyři proudy aspoň po 8 bajtech (jinak jede pomalá s kontrolou konce) a v sestavení s dynamickým BMI2 se používá jen na procesoru
+      s BMI2; na procesoru bez BMI2 by se tedy konec kontroloval vždy (tohle se neměřilo, zkouška s tím počítá). */
   function huffStream(b, start, end, count, table, out, at) {
     const r = backReader(b, start, end, 'litend');
     const { sym, nb, maxBits } = table;
@@ -478,7 +485,7 @@
       }
     }
     if (r.pos > 0) fail('Proud sekvencí není celý spotřebovaný.', 'inexact');
-    // přečtení za začátek proudu libzstd 1.5.7 u sekvencí přijme (pozorováno; výstup pak závisí na bitech, které nejsou nuly); platný rámec to nikdy neudělá
+    // čtení za začátek proudu odmítá i libzstd 1.5.7 (ověřeno proti němu v test/zstd.test.mjs); platný rámec to nikdy neudělá
     if (r.pos < 0) fail('Proud sekvencí je přečtený za svůj začátek.', 'overread');
     state.rep = [rep0, rep1, rep2];
     const left = lits.length - litPos;
