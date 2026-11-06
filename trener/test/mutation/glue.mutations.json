@@ -1,202 +1,42 @@
 [
-[
-"první rámec: strop 65",
-"const FIRST_FRAME_MAX_BLOCKS = 64;",
-"const FIRST_FRAME_MAX_BLOCKS = 65;"
-],
-[
-"první rámec: strop 63",
-"const FIRST_FRAME_MAX_BLOCKS = 64;",
-"const FIRST_FRAME_MAX_BLOCKS = 63;"
-],
-[
-"první rámec: strop se nepředá",
-"maxOutput: limitOf(maxBytes), maxBlocks: FIRST_FRAME_MAX_BLOCKS }",
-"maxOutput: limitOf(maxBytes) }"
-],
-[
-"první rámec: limit se nehlásí",
-"if (e && e.code === 'limit') throw e;",
-""
-],
-[
-"první rámec: každá chyba se hlásí",
-"if (e && e.code === 'limit') throw e;",
-"throw e;"
-],
-[
-"první rámec: bez dekodéru vyhodí",
-"if (!okZstd(zstd)) return null;",
-"if (!okZstd(zstd)) throw new Error('x');"
-],
-[
-"strop výstupu: výchozí 64 MiB",
-"const DEFAULT_MAX_OUT = 16 * 1024 * 1024;",
-"const DEFAULT_MAX_OUT = 64 * 1024 * 1024;"
-],
-[
-"bloky: výchozí 40 000",
-"const DEFAULT_TOTAL_BLOCKS = 20000;",
-"const DEFAULT_TOTAL_BLOCKS = 40000;"
-],
-[
-"bloky: výchozí 10 000",
-"const DEFAULT_TOTAL_BLOCKS = 20000;",
-"const DEFAULT_TOTAL_BLOCKS = 10000;"
-],
-[
-"bloky: výchozí 20 001",
-"const DEFAULT_TOTAL_BLOCKS = 20000;",
-"const DEFAULT_TOTAL_BLOCKS = 20001;"
-],
-[
-"bloky: výchozí 19 999",
-"const DEFAULT_TOTAL_BLOCKS = 20000;",
-"const DEFAULT_TOTAL_BLOCKS = 19999;"
-],
-[
-"rozpočty: nula z volby se přijme",
-"const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);",
-"const num = (v, dflt) => (Number.isInteger(v) && v >= 0 ? v : dflt);"
-],
-[
-"rozpočty: záporná hodnota z volby se přijme",
-"const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);",
-"const num = (v, dflt) => (Number.isInteger(v) ? v : dflt);"
-],
-[
-"rozpočty: desetinná hodnota z volby se přijme",
-"const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);",
-"const num = (v, dflt) => (Number.isFinite(v) && v > 0 ? v : dflt);"
-],
-[
-"bloky: volba se ignoruje",
-"let blockBudget = num(opts && opts.maxTotalBlocks, DEFAULT_TOTAL_BLOCKS);",
-"let blockBudget = DEFAULT_TOTAL_BLOCKS;"
-],
-[
-"bloky: vyčerpání o jedna později",
-"if (blockBudget <= 0) throw",
-"if (blockBudget < 0) throw"
-],
-[
-"bloky: vyčerpání se nehlídá",
-"if (blockBudget <= 0) throw new Error('Soubor má příliš mnoho bloků dohromady; další rámce se nerozbalují.');",
-""
-],
-[
-"bloky: zbytek se nepředá dekodéru",
-"exact: true, maxBlocks: blockBudget }",
-"exact: true }"
-],
-[
-"bloky: po úspěchu se neúčtuje",
-"blockBudget -= count(r.blocks, 1);",
-""
-],
-[
-"bloky: po úspěchu se účtuje jeden blok",
-"blockBudget -= count(r.blocks, 1);",
-"blockBudget -= 1;"
-],
-[
-"bloky: po chybě se neúčtuje",
-"blockBudget -= count(e && e.blocks, 1);",
-""
-],
-[
-"bloky: po chybě se účtuje jeden blok",
-"blockBudget -= count(e && e.blocks, 1);",
-"blockBudget -= 1;"
-],
-[
-"bloky: po chybě bez počtu se neúčtuje nic",
-"blockBudget -= count(e && e.blocks, 1);",
-"blockBudget -= count(e && e.blocks, 0);"
-],
-[
-"bloky: chyba se spolkne",
-"outputBudget -= count(e && e.produced, 0);\n        throw e;",
-"outputBudget -= count(e && e.produced, 0);"
-],
-[
-"výstup: výchozí 32 MiB",
-"const DEFAULT_TOTAL_OUTPUT = 33 * 1024 * 1024;",
-"const DEFAULT_TOTAL_OUTPUT = 32 * 1024 * 1024;"
-],
-[
-"výstup: výchozí 34 MiB",
-"const DEFAULT_TOTAL_OUTPUT = 33 * 1024 * 1024;",
-"const DEFAULT_TOTAL_OUTPUT = 34 * 1024 * 1024;"
-],
-[
-"výstup: volba se ignoruje",
-"let outputBudget = num(opts && opts.maxTotalOutput, DEFAULT_TOTAL_OUTPUT);",
-"let outputBudget = DEFAULT_TOTAL_OUTPUT;"
-],
-[
-"výstup: vyčerpání o jedna později",
-"if (outputBudget <= 0) throw",
-"if (outputBudget < 0) throw"
-],
-[
-"výstup: vyčerpání se nehlídá",
-"if (outputBudget <= 0) throw new Error('Soubor vydal při rozbalování příliš mnoho dat dohromady; další rámce se nerozbalují.');",
-""
-],
-[
-"výstup: strop se nezužuje podle rozpočtu",
-"maxOutput: Math.min(limitOf(maxOut), outputBudget)",
-"maxOutput: limitOf(maxOut)"
-],
-[
-"výstup: strop je jen rozpočet",
-"maxOutput: Math.min(limitOf(maxOut), outputBudget)",
-"maxOutput: outputBudget"
-],
-[
-"výstup: po úspěchu se neúčtuje",
-"outputBudget -= r.data ? r.data.length : 0;",
-""
-],
-[
-"výstup: po úspěchu se účtuje jeden bajt",
-"outputBudget -= r.data ? r.data.length : 0;",
-"outputBudget -= 1;"
-],
-[
-"výstup: po chybě se neúčtuje",
-"outputBudget -= count(e && e.produced, 0);",
-""
-],
-[
-"výstup: po chybě bez údaje se účtuje 16 MiB",
-"outputBudget -= count(e && e.produced, 0);",
-"outputBudget -= count(e && e.produced, 16 * 1024 * 1024);"
-],
-[
-"bez dekodéru jiná zpráva",
-"throw new Error('Rozbalení zstd není k dispozici.');",
-"throw new Error('x');"
-],
-[
-"bez dekodéru se rozbaluje dál",
-"if (!okZstd(zstd)) throw new Error('Rozbalení zstd není k dispozici.');",
-""
-],
-[
-"za rámcem smí být bajty",
-"exact: true, maxBlocks: blockBudget }",
-"exact: false, maxBlocks: blockBudget }"
-],
-[
-"limitOf: neplatný strop se přijme",
-"Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT",
-"maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"
-],
-[
-"limitOf: desetinný strop se nezaokrouhlí",
-"Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT",
-"Number.isFinite(maxOut) && maxOut > 0 ? maxOut : DEFAULT_MAX_OUT"
-]
+["první rámec: strop 65", "const FIRST_FRAME_MAX_BLOCKS = 64;", "const FIRST_FRAME_MAX_BLOCKS = 65;"],
+["první rámec: strop 63", "const FIRST_FRAME_MAX_BLOCKS = 64;", "const FIRST_FRAME_MAX_BLOCKS = 63;"],
+["první rámec: strop se nepředá", "maxOutput: limitOf(maxBytes), maxBlocks: FIRST_FRAME_MAX_BLOCKS }", "maxOutput: limitOf(maxBytes) }"],
+["první rámec: limit se nehlásí", "if (e && e.code === 'limit') throw e;", ""],
+["první rámec: každá chyba se hlásí", "if (e && e.code === 'limit') throw e;", "throw e;"],
+["první rámec: bez dekodéru vyhodí", "if (!okZstd(zstd)) return null;", "if (!okZstd(zstd)) throw new Error('x');"],
+["strop výstupu: výchozí 64 MiB", "const DEFAULT_MAX_OUT = 16 * 1024 * 1024;", "const DEFAULT_MAX_OUT = 64 * 1024 * 1024;"],
+["bloky: výchozí 40 000", "const DEFAULT_TOTAL_BLOCKS = 20000;", "const DEFAULT_TOTAL_BLOCKS = 40000;"],
+["bloky: výchozí 10 000", "const DEFAULT_TOTAL_BLOCKS = 20000;", "const DEFAULT_TOTAL_BLOCKS = 10000;"],
+["bloky: výchozí 20 001", "const DEFAULT_TOTAL_BLOCKS = 20000;", "const DEFAULT_TOTAL_BLOCKS = 20001;"],
+["bloky: výchozí 19 999", "const DEFAULT_TOTAL_BLOCKS = 20000;", "const DEFAULT_TOTAL_BLOCKS = 19999;"],
+["rozpočty: nula z volby se přijme", "const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);", "const num = (v, dflt) => (Number.isInteger(v) && v >= 0 ? v : dflt);"],
+["rozpočty: záporná hodnota z volby se přijme", "const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);", "const num = (v, dflt) => (Number.isInteger(v) ? v : dflt);"],
+["rozpočty: desetinná hodnota z volby se přijme", "const num = (v, dflt) => (Number.isInteger(v) && v > 0 ? v : dflt);", "const num = (v, dflt) => (Number.isFinite(v) && v > 0 ? v : dflt);"],
+["bloky: volba se ignoruje", "let blockBudget = num(opts && opts.maxTotalBlocks, DEFAULT_TOTAL_BLOCKS);", "let blockBudget = DEFAULT_TOTAL_BLOCKS;"],
+["bloky: vyčerpání o jedna později", "if (blockBudget <= 0) throw", "if (blockBudget < 0) throw"],
+["bloky: vyčerpání se nehlídá", "if (blockBudget <= 0) throw new Error('Soubor má příliš mnoho bloků dohromady; další rámce se nerozbalují.');", ""],
+["bloky: zbytek se nepředá dekodéru", "exact: true, maxBlocks: blockBudget }", "exact: true }"],
+["bloky: po úspěchu se neúčtuje", "blockBudget -= count(r.blocks, 1);", ""],
+["bloky: po úspěchu se účtuje jeden blok", "blockBudget -= count(r.blocks, 1);", "blockBudget -= 1;"],
+["bloky: po chybě se neúčtuje", "blockBudget -= count(e && e.blocks, 1);", ""],
+["bloky: po chybě se účtuje jeden blok", "blockBudget -= count(e && e.blocks, 1);", "blockBudget -= 1;"],
+["bloky: po chybě bez počtu se neúčtuje nic", "blockBudget -= count(e && e.blocks, 1);", "blockBudget -= count(e && e.blocks, 0);"],
+["bloky: chyba se spolkne", "outputBudget -= count(e && e.produced, 0);\n        throw e;", "outputBudget -= count(e && e.produced, 0);"],
+["výstup: výchozí 32 MiB", "const DEFAULT_TOTAL_OUTPUT = 33 * 1024 * 1024;", "const DEFAULT_TOTAL_OUTPUT = 32 * 1024 * 1024;"],
+["výstup: výchozí 34 MiB", "const DEFAULT_TOTAL_OUTPUT = 33 * 1024 * 1024;", "const DEFAULT_TOTAL_OUTPUT = 34 * 1024 * 1024;"],
+["výstup: volba se ignoruje", "let outputBudget = num(opts && opts.maxTotalOutput, DEFAULT_TOTAL_OUTPUT);", "let outputBudget = DEFAULT_TOTAL_OUTPUT;"],
+["výstup: vyčerpání o jedna později", "if (outputBudget <= 0) throw", "if (outputBudget < 0) throw"],
+["výstup: vyčerpání se nehlídá", "if (outputBudget <= 0) throw new Error('Soubor vydal při rozbalování příliš mnoho dat dohromady; další rámce se nerozbalují.');", ""],
+["výstup: strop se nezužuje podle rozpočtu", "maxOutput: Math.min(limitOf(maxOut), outputBudget)", "maxOutput: limitOf(maxOut)"],
+["výstup: strop je jen rozpočet", "maxOutput: Math.min(limitOf(maxOut), outputBudget)", "maxOutput: outputBudget"],
+["výstup: po úspěchu se neúčtuje", "outputBudget -= r.data ? r.data.length : 0;", ""],
+["výstup: po úspěchu se účtuje jeden bajt", "outputBudget -= r.data ? r.data.length : 0;", "outputBudget -= 1;"],
+["výstup: po chybě se neúčtuje", "outputBudget -= count(e && e.produced, 0);", ""],
+["výstup: po chybě bez údaje se účtuje 16 MiB", "outputBudget -= count(e && e.produced, 0);", "outputBudget -= count(e && e.produced, 16 * 1024 * 1024);"],
+["bez dekodéru jiná zpráva", "throw new Error('Rozbalení zstd není k dispozici.');", "throw new Error('x');"],
+["bez dekodéru se rozbaluje dál", "if (!okZstd(zstd)) throw new Error('Rozbalení zstd není k dispozici.');", ""],
+["za rámcem smí být bajty", "exact: true, maxBlocks: blockBudget }", "exact: false, maxBlocks: blockBudget }"],
+["limitOf: neplatný strop se přijme", "Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"],
+["limitOf: desetinný strop se nezaokrouhlí", "Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut > 0 ? maxOut : DEFAULT_MAX_OUT"]
 ]
