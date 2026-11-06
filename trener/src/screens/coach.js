@@ -113,12 +113,20 @@
       return toast(res.message);
     }
     if (res.status === 'error') stepsUi.set('advice', 'fail');
+    let target = $('#result');
     if (res.status === 'ok') {
       await FM27.advice.save(app, { question, advice: res.advice, ctx: res.ctx, verdict: res.verdict, source: 'trener' });
+      // během ukládání mohl uživatel odejít (rada je přitom už uložená) nebo se vrátit na novou kopii obrazovky: cíl se proto hledá znovu
+      target = $('#result');
+      if (!target) {
+        toast('Rada je hotová a uložená v historii rad (Osobní trenér).', 5000);
+        draft.spoken = false;
+        return;
+      }
       if (draft.spoken && FM27.voice.available() && !app.settings().voice.quiet) FM27.voice.say(FM27.advice.spokenSummary(res.advice), app.settings().voice);
     }
     draft.spoken = false;
-    FM27.advice.render(app, $('#result'), res, {
+    FM27.advice.render(app, target, res, {
       onRetry: () => runCoach(app),
       onFollowUp: (given, previousText) => {
         for (const g of given) addObservation('user_entered', null, g, 'dop');

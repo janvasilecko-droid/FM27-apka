@@ -98,8 +98,10 @@ const NO_BMI2 = (() => {
 // ---------------------------------------------------------------- věštírna
 test('věštírna (libzstd přes Python balíček zstandard) je k dispozici; bez ní se porovnání s libzstd přeskočí, s ZSTD_ORACLE_REQUIRED=1 zkouška selže', (t) => {
   if (ORACLE_PROBE) return;
-  if (process.env.ZSTD_ORACLE_REQUIRED === '1') assert.fail('věštírna není k dispozici, a přitom je ZSTD_ORACLE_REQUIRED=1 (ZSTD_ORACLE_PYTHON = ' + (process.env.ZSTD_ORACLE_PYTHON || 'python3') + '; potřebuje balíček zstandard)');
-  t.skip('věštírna libzstd není k dispozici: zkoušky shody s libzstd (poškozené rámce, ruční stromy a sekvence) se přeskočí; pip install zstandard a ZSTD_ORACLE_PYTHON ji zapnou');
+  // příčina se rozliší: chybí skript věštírny (špatná cesta k repozitáři), nebo funguje skript, ale ne Python či jeho balíček zstandard
+  const why = existsSync(ORACLE_SCRIPT) ? 'potřebuje Python s balíčkem zstandard' : 'chybí skript věštírny ' + ORACLE_SCRIPT;
+  if (process.env.ZSTD_ORACLE_REQUIRED === '1') assert.fail('věštírna není k dispozici, a přitom je ZSTD_ORACLE_REQUIRED=1 (ZSTD_ORACLE_PYTHON = ' + (process.env.ZSTD_ORACLE_PYTHON || 'python3') + '; ' + why + ')');
+  t.skip('věštírna libzstd není k dispozici (' + why + '): zkoušky shody s libzstd (poškozené rámce, ruční stromy a sekvence) se přeskočí; pip install zstandard==0.25.0 a ZSTD_ORACLE_PYTHON ji zapnou');
 });
 
 // ---------------------------------------------------------------- shoda s libzstd
@@ -1110,6 +1112,12 @@ test('volby: maxOutput, exact (bajty za rámcem), vstupy Buffer, ArrayBuffer a p
     for (const [fn, label] of [[Z.decompress, 'decompress'], [Z.decompressFrame, 'decompressFrame'], [Z.readFrameHeader, 'readFrameHeader']]) {
       assert.throws(() => fn(bad), (e) => e instanceof Z.ZstdError && e.code === 'input', `${label}(${JSON.stringify(bad)})`);
     }
+  }
+  // vstup, jehož převod na bajty sám vyhodí obyčejnou výjimku (odpojený ArrayBuffer): i tady je chyba ZstdError, s kódem 'internal'
+  const detached = new ArrayBuffer(16);
+  structuredClone(detached, { transfer: [detached] });
+  for (const [fn, label] of [[Z.decompress, 'decompress'], [Z.decompressFrame, 'decompressFrame'], [Z.readFrameHeader, 'readFrameHeader']]) {
+    assert.throws(() => fn(detached), (e) => e instanceof Z.ZstdError && e.code === 'internal', `${label}(odpojený ArrayBuffer)`);
   }
 });
 

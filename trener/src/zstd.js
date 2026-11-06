@@ -17,7 +17,7 @@
      Rámce, které libzstd sám napíše, podmínky z první skupiny neporušují (zkoušeno na úrovních 1 až 22, všech devíti strategiích a oknech od 1 KiB do 8 MiB),
    - nestahuje nic z internetu a funguje i bez připojení.
    Nepodporuje: slovníky, přeskočitelné rámce, více rámců za sebou (volající si hlídá délku rámce sám) a kontrolní součet rámce (ten ověřuje volající: fmfcontainer.js, XXH64).
-   Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba rozbalení (decompress, decompressFrame, readFrameHeader) je vždy ZstdError, nikdy jiná výjimka; export `internals` je jen pro zkoušky a vstup nekontroluje. */
+   Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba rozbalení (decompress, decompressFrame, readFrameHeader) je vždy ZstdError, nikdy jiná výjimka (u nebinárního vstupu s kódem 'input', cizí výjimka, například z odpojeného ArrayBufferu, který nejde převést na bajty, se zabalí s kódem 'internal'); export `internals` je jen pro zkoušky a vstup nekontroluje. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.TrenerZstd = factory();
@@ -510,8 +510,17 @@
     return null;
   }
 
-  /** Hlavička rámce → {windowSize, contentSize|null, hasChecksum, headerLength}; chyba (vždy ZstdError, u nebinárního vstupu s kódem 'input') pro cokoli, co tenhle modul nepodporuje nebo co formát zakazuje. */
+  /** Hlavička rámce → {windowSize, contentSize|null, hasChecksum, headerLength}; chyba je vždy ZstdError: u nebinárního vstupu s kódem 'input', cizí výjimka (například odpojený ArrayBuffer, který nejde převést na bajty)
+      se zabalí s kódem 'internal', jinak pro cokoli, co tenhle modul nepodporuje nebo co formát zakazuje. */
   function readFrameHeader(input) {
+    try {
+      return parseFrameHeader(input);
+    } catch (e) {
+      throw e instanceof ZstdError ? e : new ZstdError(`Hlavičku rámce zstd se nepodařilo přečíst: ${e && e.message ? e.message : e}`, 'internal');
+    }
+  }
+
+  function parseFrameHeader(input) {
     const b = toBytes(input);
     if (!b) fail('Vstup není binární.', 'input');
     if (b.length < 6) fail('Rámec je useknutý (hlavička).');

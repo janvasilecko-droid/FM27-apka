@@ -244,12 +244,12 @@ je v akceptační matici označeno výslovně i s kroky pro majitele.
   jen pro důležité upozornění. Oznámení na zavřený telefon (push) nejsou: potřebovala by server.
 - **Nasazení**: `.github/workflows/pages.yml` se spouští ručně a automaticky po pushi na `main`, když se změní `trener/**`, `reference/codex-2026-11-01/**` (čtou je sestavení a zkoušky jádra), `ai_gateway/costs.py`
   (zkouška ceníku v `trener/test/providers.test.mjs` ho porovnává s ceníkem v JS) nebo samotné workflow. Kroky: testy jádra (`node --test trener/test/*.test.mjs`), `STRICT=1` sestavení, nahrání `trener/dist/standalone`
-  a nasazení na Pages. **Věštírna libzstd se v bráně nasazení nepoužije**: testy jádra tam běží s `ZSTD_ORACLE_PYTHON=/nonexistent/python`, takže se porovnání s libzstd přeskočí. Důvod: systémový `python3` na runneru má
+  a nasazení na Pages. **Věštírna libzstd se v bráně nasazení nepoužije**: testy jádra tam běží s `ZSTD_ORACLE_PYTHON=/nonexistent/python`, takže se přeskočí porovnání s libzstd přes věštírnu; rozbalení rámců napsaných libzstd z Node a srovnání s dekodérem libzstd z Node (`zlib.zstdDecompressSync`) v kontejneru běží dál. Důvod: systémový `python3` na runneru má
   balíček `zstandard` nepřipnuté verze a změna obrazu runneru by mohla zablokovat nasazení bez jakékoli změny v repozitáři.
 - **Porovnání dekodéru zstd s libzstd**: samostatné workflow `.github/workflows/zstd-oracle.yml` se spouští ručně a po pushi na `main`, když se změní `trener/src/zstd.js`, `trener/src/fmfglue.js`, `trener/test/zstd.test.mjs`,
   `trener/test/fixtures/zstd_*` nebo samotné workflow. Nainstaluje Python balíček `zstandard==0.25.0` (libzstd 1.5.7, na které se zkoušky ladily) a pustí `trener/test/zstd.test.mjs` s povinnou věštírnou
   (`ZSTD_ORACLE_REQUIRED=1`): bez balíčku nebo při selhání věštírny zkouška selže, nepřeskočí se. Na nasazení stránky nemá vliv (a nasazení na ní nezávisí).
 - **Co v CI neběží**: Pythonové zkoušky (`ai_gateway`, `fmf_research`, včetně hlídání klíčů v repozitáři) a zkoušky v prohlížeči (Playwright); pouštějí se ručně (`trener/README.md`, `README.md`).
-- **Známé omezení CI (neopraveno)**: GitHub při každém běhu varuje, že akce `actions/checkout@v4`, `actions/setup-node@v4`, `actions/setup-python@v5`, `actions/upload-pages-artifact@v3` a `actions/deploy-pages@v4` míří
+- **Známé omezení CI (neopraveno)**: GitHub při každém běhu varuje, že akce `actions/checkout@v4`, `actions/setup-node@v4`, `actions/setup-python@v5`, `actions/upload-pages-artifact@v3` (varování jmenuje `actions/upload-artifact@v4`, kterou tato akce volá) a `actions/deploy-pages@v4` míří
   na zastaralé Node.js 20 a že je runner nuceně spouští na Node.js 24. Běhy procházejí, ale spoléhají na toto přechodové chování runneru. Verze akcí se zatím nezměnily, protože novější hlavní verze nešlo ověřit.
 

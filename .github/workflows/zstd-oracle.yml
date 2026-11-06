@@ -1,7 +1,8 @@
 # Vlastní dekodér zstd (trener/src/zstd.js) proti referenčnímu libzstd: Python balíček zstandard 0.25.0 (libzstd 1.5.7), na kterém se zkoušky ladily.
-# Je to samostatná kontrola mimo nasazení stránky a jediné místo v CI, kde se dekodér porovnává s libzstd: nasazení (pages.yml) věštírnu výslovně vypíná
-# (ZSTD_ORACLE_PYTHON=/nonexistent/python; systémový python na runneru má nepřipnutou verzi zstandard), takže na výsledku téhle kontroly nezávisí.
-# Bez věštírny (balíčku) se porovnání s libzstd v běžných zkouškách přeskočí; tady jsou povinná (ZSTD_ORACLE_REQUIRED=1), takže bez balíčku zkouška selže.
+# Je to samostatná kontrola mimo nasazení stránky a jediné místo v CI, kde se dekodér porovnává s libzstd přes věštírnu (Python zstandard==0.25.0: rozhodnutí o vadných a ručně sestavených rámcích proti libzstd).
+# Nasazení (pages.yml) věštírnu výslovně vypíná (ZSTD_ORACLE_PYTHON=/nonexistent/python; systémový python na runneru má nepřipnutou verzi zstandard), ale dál rozbaluje rámce, které napsala libzstd z Node
+# (zlib.zstdCompressSync), a v kontejneru srovnává dekodér s dekodérem libzstd z Node (zlib.zstdDecompressSync, fmfcontainer.test.mjs); na výsledku téhle kontroly nezávisí.
+# Bez věštírny (balíčku) se porovnání s libzstd přes věštírnu v běžných zkouškách přeskočí; tady je povinné (ZSTD_ORACLE_REQUIRED=1), takže bez balíčku zkouška selže.
 name: Dekodér zstd proti libzstd
 
 on:

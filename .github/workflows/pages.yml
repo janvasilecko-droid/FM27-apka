@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Známé omezení, zatím neopravené: GitHub při každém běhu varuje, že akce checkout@v4, setup-node@v4, upload-pages-artifact@v3 a deploy-pages@v4 míří na zastaralý Node.js 20
+  # Známé omezení, zatím neopravené: GitHub při každém běhu varuje, že akce checkout@v4, setup-node@v4, upload-artifact@v4 (volá ji upload-pages-artifact@v3) a deploy-pages@v4 míří na zastaralý Node.js 20
   # a runner je nuceně spouští na Node.js 24. Novější hlavní verze akcí se nepodařilo ověřit, proto se verze nemění (viz trener/README.md, část „CI na GitHubu“).
   build:
     runs-on: ubuntu-latest
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: 22
       # Věštírna libzstd (Python balíček zstandard) se tady výslovně vypíná: systémový python3 na runneru má balíček v neznámé, nepřipnuté verzi
-      # a změna obrazu runneru by mohla zablokovat nasazení bez jakékoli změny v repozitáři. Porovnání dekodéru zstd s libzstd dělá samostatné
+      # a změna obrazu runneru by mohla zablokovat nasazení bez jakékoli změny v repozitáři. Porovnání dekodéru zstd s libzstd přes věštírnu dělá samostatné
       # zstd-oracle.yml s připnutým zstandard==0.25.0 (povinná věštírna); tady se tři porovnávací zkoušky viditelně přeskočí.
       - name: Testy jádra (bez věštírny libzstd)
         env:

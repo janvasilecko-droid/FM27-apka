@@ -58,7 +58,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/fmfcontainer.js`, `fmfglue.js`, `fmftac.js` | čtečka kontejneru `.fmf` z FM27 (rozšifrování AES-128-CTR a rozbalení zstd v zařízení, kontrolní součty, limity; `fmfglue.js` hlídá na jedno čtení souboru dva rozpočty, bloků (20 000) a výstupu (33 MiB), a to i za rámce, které selžou) a přísná čtečka **stavby** payloadu taktiky (bloky, položky, seznamy; popis v `docs/FORMAT_FMF.md`); **význam čísel** (formace, role, instrukce) zatím nečte |
 | `src/screens/weights.js`, `playeranalysis.js` | správa vah DWRS v Nastavení (přednastavení, vlastní profily, porovnání); rozbor hráče v Můj tým (nejlepší a nejhorší role, silné stránky a mezery, pořadí v týmu) |
 | `test/*.test.mjs` | 898 testů čistých modulů, úložiště a barev vzhledu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 907 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (22 scénářů, 908 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
@@ -67,10 +67,10 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 - **Node 22.15 nebo novější.** Zkoušky dekodéru zstd, čtečky kontejneru a čtečky stavby taktiky i generátor souborů `.fmf` pro zkoušky v prohlížeči volají `zlib.zstdCompressSync` nebo `zlib.zstdDecompressSync`, které má Node od verze 22.15.0 (podle CHANGELOG Node 22).
   Na Node bez nich zkoušky nepřeskočí, ale selžou (výjimka: jediná zkouška v `tactics.test.mjs` má ochranu a přeskočí se; ověřeno jen odebráním funkcí `zlib.zstd*`, ne na skutečném starším Node). CI používá `node-version: 22`. „Node 18+“ v hlavičce `build.mjs` platí jen pro samotné sestavení (a na skutečném Node 18 se neověřilo).
 - **Python 3**: `reportlab` a písmo DejaVu Sans pro `make_fixtures.py` (skript má cestu `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` napevno; na Debianu a Ubuntu je v balíčku `fonts-dejavu-core`) a `zstandard==0.25.0` pro věštírnu libzstd
-  (verze, na které se zkoušky ladily a kterou připíná CI; bez ní se porovnání s libzstd přeskočí).
+  (verze, na které se zkoušky ladily a kterou připíná CI; bez ní se porovnání s libzstd přes věštírnu přeskočí).
 - **Playwright s Chromiem** a `pdfjs-dist@3.11.174` pro zkoušky v prohlížeči (příkazy níže). Playwright se nedodává s repozitářem a `e2e.cjs` ho bere přes `require('playwright')`, takže musí být vidět přes `NODE_PATH`; ani globální instalace (`npm i -g playwright`) nestačí, Node hledá moduly jen v místních adresářích `node_modules` a v `NODE_PATH`, ne v globálním adresáři npm (u globální instalace: `export NODE_PATH=$(npm root -g)`).
 - **`FMF_SAMPLES_DIR`** (nepovinná proměnná): složka se skutečnými exporty `.fmf` z FM27. Jsou to soukromé soubory majitele, v repozitáři nejsou a nikdy nesmí být. Bez proměnné se zkoušky jádra se skutečnými exporty viditelně přeskočí
-  a ve scénáři 21 se vynechají 4 kontroly (z 907 jich pak běží 903).
+  a ve scénáři 21 se vynechají 4 kontroly (z 908 jich pak běží 904).
 
 ```bash
 node trener/build.mjs                                   # běžné sestavení
@@ -137,8 +137,8 @@ V `.github/workflows/` jsou dvě kontroly:
 
 - Filtr `pages.yml` obsahuje i `reference/codex-2026-11-01/**` a `ai_gateway/costs.py`, protože je čtou sestavení a zkoušky jádra: registr zdrojů (`knowledge.json`, i sestavení), plán taktiky (`takticky-plan.json`) a ceník AI v Pythonu (`costs.py`), se kterým se porovnává ceník v JavaScriptu.
 - **Brána nasazení věštírnu nepoužívá.** Systémový `python3` na runneru má balíček `zstandard` v neznámé, nepřipnuté verzi a změna obrazu runneru by mohla zablokovat nasazení bez jakékoli změny v repozitáři, proto ji `pages.yml` výslovně vypíná.
-  Tři porovnávací zkoušky (dostupnost věštírny, poškozené rámce, náhodné bloky sekvencí) se tam viditelně přeskočí a ostatní zkoušky, které se libzstd ptají, proběhnou jen svými přímými kontrolami dekodéru. Porovnání s libzstd je v CI jen v `zstd-oracle.yml` (připnuté `zstandard==0.25.0`);
-  nasazení na jeho výsledku nezávisí.
+  Tři porovnávací zkoušky (dostupnost věštírny, poškozené rámce, náhodné bloky sekvencí) se tam viditelně přeskočí a ostatní zkoušky, které se libzstd ptají, proběhnou jen svými přímými kontrolami dekodéru. Porovnání rozhodnutí dekodéru s libzstd přes věštírnu je v CI jen v `zstd-oracle.yml` (připnuté `zstandard==0.25.0`); brána nasazení dál rozbaluje rámce, které napsala libzstd z Node (zkoušky „shodné s libzstd“ v `zstd.test.mjs`),
+  a v kontejneru srovnává vlastní dekodér s dekodérem libzstd z Node (`fmfcontainer.test.mjs`); nasazení na výsledku věštírny nezávisí.
 - **Co v CI neběží:** Pythonové zkoušky (`ai_gateway`, včetně hlídání tvarů klíčů, a `fmf_research`), zkoušky v prohlížeči, mutační zkoušky a zkoušky se skutečnými exporty (`FMF_SAMPLES_DIR`). Příkazy jsou v části „Sestavení a zkoušky“.
 - **Známé omezení (neopraveno):** GitHub při každém běhu varuje, že akce `actions/checkout@v4`, `actions/setup-node@v4`, `actions/setup-python@v5`, `actions/upload-pages-artifact@v3` (v logu jmenuje `actions/upload-artifact@v4`, kterou tato akce volá) a `actions/deploy-pages@v4`
   míří na zastaralý Node.js 20 a že je runner nuceně spouští na Node.js 24. Běhy dnes procházejí, ale spoléhají na toto přechodové chování runneru. Novější hlavní verze akcí, které cílí na Node.js 24, se nepodařilo ověřit, a proto se verze nezměnily.

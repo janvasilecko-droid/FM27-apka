@@ -332,6 +332,40 @@ module.exports = async function run(env) {
     });
     check('A18 tlačítka se uvolní až po uložení a vykreslení rady: v prvním okamžiku, kdy je stránka volná, je uložení hotové a rada má 10 částí', firstIdle.idle && firstIdle.saveFinished === true && firstIdle.sections === 10, firstIdle);
 
+    // A19: odchod z obrazovky až během ukládání rady (dřív se vykreslovalo do neexistující obrazovky: TypeError a žádné hlášení, ač se rada uložila)
+    await nav(page, 'trener');
+    const adviceBefore19 = await page.evaluate(() => window.FM27.app.store.list('advice').length);
+    const pageErrorsBefore19 = problems.page.length;
+    await page.evaluate(() => {
+      const save = window.FM27.advice.save;
+      window.__origSave = save;
+      window.__saveStarted = false;
+      window.__saveDone = false;
+      document.querySelector('#toast').textContent = ''; // text hlášení po zmizení zůstává; starý z A17 by tu zkoušku předčasně pustil dál
+      window.FM27.advice.save = async function (...args) {
+        window.__saveStarted = true;
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        const saved = await save.apply(this, args);
+        window.__saveDone = true;
+        return saved;
+      };
+    });
+    await page.fill('#question', 'Zkouška: odejdu během ukládání.');
+    await page.click('#askBtn');
+    await page.waitForFunction(() => window.__saveStarted === true, null, { timeout: 15000 });
+    await nav(page, 'nastaveni');
+    await page.waitForFunction(() => window.__saveDone === true, null, { timeout: 20000 });
+    await page.waitForFunction(() => /uložená v historii rad/.test(document.querySelector('#toast').textContent), null, { timeout: 20000 });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+      window.FM27.advice.save = window.__origSave;
+      delete window.__origSave;
+      delete window.__saveStarted;
+      delete window.__saveDone;
+    });
+    const adviceAfter19 = await page.evaluate(() => window.FM27.app.store.list('advice').length);
+    check('A19 odchod z obrazovky během ukládání rady: rada se uloží do historie, stránka to oznámí a nic nespadne', adviceAfter19 === adviceBefore19 + 1 && problems.page.length === pageErrorsBefore19, { before: adviceBefore19, after: adviceAfter19, toast: await text(page, '#toast'), errors: problems.page.slice(pageErrorsBefore19) });
+
     check('A99 žádná chyba ve skriptu za celou dobu', problems.page.length === 0, problems.page);
     const consoleErrors = problems.console.filter((m) => !/Failed to load resource/.test(m));
     check('A99 žádná chyba v konzoli za celou dobu', consoleErrors.length === 0, consoleErrors);

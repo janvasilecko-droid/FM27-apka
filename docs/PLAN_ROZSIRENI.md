@@ -119,6 +119,6 @@ Každá etapa končí: čisté moduly s jednotkovými zkouškami (včetně hrub�
 | FM Scout Tactic Analyser, AssMan.AI, FM Companion Tactic Lab | vlastnické webové služby | Jen veřejně popsané funkce jako inspirace; žádný kód ani výstupy. |
 
 **Co potřebuji od majitele, aby šlo pokračovat poctivě** (nic z toho nepožaduju vložit do chatu jako klíč či heslo):
-1. Export taktiky FM27 (`.fmf` ze složky `Documents › Sports Interactive › Football Manager 27 › tactics`), nejlépe dvě různé taktiky: bez něj nelze etapu 4 postavit bez hádání.
+1. Export taktiky FM27 (`.fmf`): tři exporty majitel už poslal (5. 11. 2026) a kontejner i stavba taktiky jsou přečtené. Zbývá **snímek obrazovky každé z těch tří taktik ze hry** (formace s rolemi a povinnostmi, instrukce, mentalita): bez něj nelze etapu 4 (význam čísel) postavit bez hádání.
 2. Jeden až dva soubory `.fmlens` ze zápasu s pluginem FMMatchLens a potvrzení, že plugin smí na tvém počítači běžet: bez toho nelze ověřit etapu 5.
 3. Screenshoty popisu několika rolí z FM27 (profil rolí z obrazovky), případně export tabulky kádru z FM View Exporteru: pro ověření DWRS na skutečných datech.

@@ -212,5 +212,7 @@
 ["paměť: počáteční vyrovnávací paměť není omezená na 1 MiB", "h.contentSize : 4096, 1 << 20))", "h.contentSize : 4096))"],
 ["rámec: maxOutput nula se přijme", "Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput", "Number.isInteger(o.maxOutput) && o.maxOutput >= 0 ? o.maxOutput"],
 ["rámec: maxOutput necelé se přijme", "Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput", "Number.isFinite(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput"],
-["rámec: maxOutput záporné se přijme", "Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput", "Number.isInteger(o.maxOutput) ? o.maxOutput"]
+["rámec: maxOutput záporné se přijme", "Number.isInteger(o.maxOutput) && o.maxOutput > 0 ? o.maxOutput", "Number.isInteger(o.maxOutput) ? o.maxOutput"],
+["hlavička: cizí výjimka se nezabalí", "throw e instanceof ZstdError ? e : new ZstdError(`Hlavičku rámce zstd se nepodařilo přečíst: ${e && e.message ? e.message : e}`, 'internal');", "throw e;"],
+["hlavička: cizí výjimka má jiný kód", "nepodařilo přečíst: ${e && e.message ? e.message : e}`, 'internal');", "nepodařilo přečíst: ${e && e.message ? e.message : e}`, 'corrupt');"]
 ]
