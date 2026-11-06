@@ -7,6 +7,7 @@ import vm from 'node:vm';
 const require = createRequire(import.meta.url);
 const T = require('../src/tactics.js');
 const D = require('../src/dwrs.js');
+const PA = require('../src/posattrs.js');
 const RF = require('../src/rolefit.js');
 const S = require('../src/squadcheck.js');
 const source = readFileSync(new URL('../src/squadcheck.js', import.meta.url), 'utf8');
@@ -194,9 +195,9 @@ test('výměny: když má uživatel všech 11 míst obsazeno, aplikace navrhne j
   assert.deepEqual(S.analyze(t, sq).swaps, []);
 });
 
-test('silné stránky: dva nejdůležitější atributy na 15+, dobrá hloubka a průměrný věk 25 až 28', () => {
+test('silné stránky: dva klíčové atributy na 15+, dobrá hloubka a průměrný věk 25 až 28', () => {
   const sq = fullSquad();
-  sq.find((p) => p.name === 'ST1').attributes = outfield(10, { Finishing: 18, Acceleration: 17, Pace: 16 });
+  sq.find((p) => p.name === 'ST1').attributes = outfield(14, { Finishing: 18, Acceleration: 17, Pace: 16 });
   const r = S.analyze(tac(), sq);
   assert.ok(strength(r).includes('S1'));
   assert.ok(r.strengths.find((f) => f.id === 'S1').ev.length >= 2);
@@ -255,7 +256,7 @@ test('nejlepší jedenáctka je přesné přiřazení: shoduje se s hrubou silou
     const gain = (s, p) => {
       const el = RF.eligibility(s.pos, p.positions, 'strict');
       if (!el.ok) return 0;
-      const v = D.valueOf(D.score(p, null, D.groupOfPosition(s.pos), undefined), true, S.DEFAULTS.minCoverage).value;
+      const v = PA.valueOf(PA.score(D.playerAttributes(p), D.groupOfPosition(s.pos)), true, S.DEFAULTS.minCoverage).value;
       return v === null ? 0 : Math.round(v * 10) + 1;
     };
     let top = 0;
@@ -329,7 +330,7 @@ test('texty: bez neviditelných znaků, bez slibů výsledku a se zachovaným oz
     assert.ok(!/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(text), text);
     assert.ok(!/zabere|vyhraj|zaručen/i.test(text), text);
   }
-  assert.ok(r.model.includes('ESTIMATED'));
+  assert.ok(r.model.includes('klíčové atributy podle pozice') && r.model.includes('odhad'));
   assert.ok(r.findings.every((f) => /odhad|výpočet|komunitní/i.test(f.basisCs + f.agree)));
 });
 

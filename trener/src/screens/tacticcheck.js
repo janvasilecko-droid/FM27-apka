@@ -10,6 +10,7 @@
   const { h } = ui;
   const TA = () => window.TrenerTacticAnalysis;
   const SC = () => window.TrenerSquadCheck;
+  const PA = () => window.TrenerPosAttrs;
   const SEV_CHIP = { error: 'bad', warn: 'warn', note: 'neutral', info: 'neutral', good: 'good' };
   const SEV_RANK = { error: 0, warn: 1, note: 2, info: 3, good: 4 };
   const SEV_CS = { error: 'Vážný nález', warn: 'Upozornění', note: 'Poznámka', info: 'K vědomí', good: 'Silná stránka' };
@@ -48,6 +49,32 @@
     );
   }
 
+  // ---------------------------------------------------------------- podle čeho se vybírá: atributy podle pozice
+  function attrsTable(tactic) {
+    const P = PA();
+    const posByGroup = {};
+    for (const s of tactic.slots || []) {
+      const g = window.TrenerDwrs ? window.TrenerDwrs.groupOfPosition(s.pos) : null;
+      if (g) (posByGroup[g] = posByGroup[g] || []).push(s.pos);
+    }
+    const list = (items) => items.map((e) => e.attribute).join(', ');
+    const rows = P.GROUPS.map((g) => {
+      const d = P.GROUP_DATA[g];
+      return h('tr', { 'data-group': g }, h('td', { text: `${d.cs}${posByGroup[g] ? ' (' + [...new Set(posByGroup[g])].join(', ') + ')' : ''}` }), h('td', { class: 'keys', text: list(d.key) }), h('td', { class: 'keys', text: list(d.pref) }));
+    });
+    const links = Object.entries(P.SOURCES).filter(([, s]) => s.url).map(([id, s]) => h('li', null, h('b', { text: id + ': ' }), h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer', text: s.name })));
+    return h(
+      'details',
+      { id: 'squadAttrs', style: 'margin-top:12px' },
+      h('summary', { text: 'Podle čeho se vybírá: které atributy rozhodují na které pozici' }),
+      h('p', { class: 'hint', text: 'Každé místo se posuzuje podle klíčových atributů své pozice (počítají se třikrát) a žádoucích (jednou); ostatní atributy skóre neovlivní. Obránce tedy rozhoduje hlavně obrana (Heading, Marking, Tackling, Positioning, Strength) a slabší útok mu neškodí, útočníka naopak zakončení a pohyb. Seznamy jsou z komunitních příruček pro FM26 (slovník je shodný s FM27), ne pravidlo hry: spolehlivější je tlačítko Zvýraznit klíčové atributy v profilu hráče ve hře.' }),
+      h('div', { class: 'tblscroll' }, h('table', { class: 'tbl', id: 'squadAttrsTable' }, h('thead', null, h('tr', null, ['Pozice', 'Klíčové atributy (×3)', 'Žádoucí atributy (×1)'].map((t) => h('th', { text: t })))), h('tbody', null, rows))),
+      h('p', { class: 'hint', text: 'Zdroje:' }),
+      h('ul', { class: 'list' }, links),
+      h('p', { class: 'hint', text: 'DW = odhad autora aplikace tam, kde se zdroje k atributu nevyjadřují. Základní minimum pro hráče v poli (Passing, Decisions, Determination, Pace, Acceleration, Strength, Stamina aspoň 11) je z příručky Vortex Gaming.' })
+    );
+  }
+
   // ---------------------------------------------------------------- sestava
   function squadEl(tactic, r) {
     const out = h('div', { id: 'squadSection' }, h('h3', { text: 'Sestava', style: 'margin-top:14px' }));
@@ -71,7 +98,7 @@
       h(
         'table',
         { class: 'tbl', id: 'squadXi' },
-        h('thead', null, h('tr', null, ['Místo', 'Hraje', 'Skóre', 'Nejlepší podle modelu', 'Skóre'].map((t) => h('th', { text: t })))),
+        h('thead', null, h('tr', null, ['Místo', 'Hraje', 'Skóre', 'Jeho klíčové atributy pro místo', 'Nejlepší podle modelu', 'Skóre'].map((t) => h('th', { text: t })))),
         h(
           'tbody',
           null,
@@ -79,12 +106,14 @@
             const st = e.starter;
             const tag = e.source === 'user' ? '' : ' (doplnil model)';
             const partial = (x) => (x && x.partial ? ' (částečné atributy)' : '');
-            return h('tr', { 'data-slot': e.slotKey, 'data-source': e.source }, h('td', { text: e.pos }), h('td', { text: st ? st.name + tag : 'nikdo' }), h('td', { text: st ? cz(st.score) + partial(st) : '–' }), h('td', { text: e.best ? e.best.name : 'nikdo' }), h('td', { text: e.best ? cz(e.best.score) + partial(e.best) : '–' }));
+            const keys = st && st.keys && st.keys.length ? st.keys.slice(0, 5).map((k) => `${k.attribute} ${k.value}`).join(' · ') : '–';
+            return h('tr', { 'data-slot': e.slotKey, 'data-source': e.source }, h('td', { text: e.pos }), h('td', { text: st ? st.name + tag : 'nikdo' }), h('td', { text: st ? cz(st.score) + partial(st) : '–' }), h('td', { class: 'keys', text: keys }), h('td', { text: e.best ? e.best.name : 'nikdo' }), h('td', { text: e.best ? cz(e.best.score) + partial(e.best) : '–' }));
           })
         )
       )
       )
     );
+    out.append(attrsTable(tactic));
     if (r.swaps.length) {
       out.append(h('h4', { text: 'Navržené výměny (podle modelu, odhad)', style: 'margin-top:12px' }));
       out.append(h('ul', { class: 'list', id: 'squadSwaps' }, r.swaps.map((s) => h('li', { 'data-slot': s.slotKey, text: `${s.pos}: ${s.current.name} → ${s.better.name}${s.gain === null ? ' (současného hráče nejde ohodnotit)' : ` (+${cz(s.gain)} bodu)`}` }))));
@@ -185,7 +214,7 @@
 
   function card(app, tactic) {
     const sec = h('section', { class: 'card', id: 'tacCheckCard' }, h('h2', { text: 'Rozbor sestavy a taktiky' }));
-    if (!TA() || !SC()) {
+    if (!TA() || !SC() || !PA()) {
       sec.append(h('div', { class: 'banner bad' }, h('b', { text: 'Chybí modul rozboru sestavy nebo taktiky' })));
       return sec;
     }

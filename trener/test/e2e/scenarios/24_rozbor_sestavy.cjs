@@ -50,8 +50,11 @@ module.exports = async function run(env) {
   const squad = await text(page, '#squadSection');
 
   // ====================================================== A) jedenáctka a porovnání
-  check('24 sestava říká, že se role nepopisují a model je odhad (DWRS)', /Role se tu nepopisují/.test(squad) && /ESTIMATED/.test(squad));
-  check('24 tabulka jedenáctky má 11 míst a u každého hráče skóre', (await page.locator('#squadXi tbody tr').count()) === 11 && (await page.$$eval('#squadXi tbody tr', (rows) => rows.every((r) => /\d/.test(r.children[2].textContent) && /\d/.test(r.children[4].textContent)))));
+  check('24 sestava říká, že se role nepopisují a že se počítá podle klíčových atributů pozice jako odhad podle příruček', /Role se tu nepopisují/.test(squad) && /klíčové atributy podle pozice/.test(squad) && /odhad, ne pravidlo FM27/.test(squad));
+  check('24 tabulka jedenáctky má 11 míst, u každého hráče skóre a jeho klíčové atributy pro místo', (await page.locator('#squadXi tbody tr').count()) === 11 && (await page.$$eval('#squadXi tbody tr', (rows) => rows.every((r) => /\d/.test(r.children[2].textContent) && /\d/.test(r.children[3].textContent) && /\d/.test(r.children[5].textContent)))));
+  const attrRows = await page.$$eval('#squadAttrsTable tbody tr', (rows) => Object.fromEntries(rows.map((r) => [r.getAttribute('data-group'), r.children[1].textContent])));
+  check('24 tabulka „Podle čeho se vybírá“ má osm skupin a u stopera klíčové obranné atributy, u útočníka zakončení a pohyb, u brankáře vzdušnou jistotu', Object.keys(attrRows).length === 8 && /Heading, Marking, Tackling, Positioning, Strength/.test(attrRows.CB) && /Finishing, Off The Ball/.test(attrRows.ST) && /Aerial Reach, Agility/.test(attrRows.GK), JSON.stringify(attrRows).slice(0, 200));
+  check('24 tabulka uvádí zdroje s odkazy', (await page.locator('#squadAttrs a[href^="https://"]').count()) >= 3);
   check('24 tvoje jedenáctka je porovnaná s nejlepší podle modelu (průměr na místo)', /Průměr tvé jedenáctky [\d,]+ bodu na místo, nejlepší podle modelu [\d,]+/.test(await text(page, '#squadAvg')), await text(page, '#squadAvg'));
   const swaps = await page.$$eval('#squadSwaps li', (els) => els.map((e) => e.textContent));
   check('24 navržená výměna: útočník 2 (slabý) → útočník 1 s číslem zisku; je to označené jako odhad', swaps.some((s) => /ST: Útočník 2 → Útočník 1 \(\+[\d,]+ bodu\)/.test(s)) && /odhad/.test(await text(page, '#squadSection')), JSON.stringify(swaps));

@@ -1,7 +1,8 @@
 /* Rozbor sestavy (zadání majitele 6. 11. 2026: „analyzuj sestavu, najdi slabá místa a poraď, koho a jak vylepšit“).
    Čistá logika bez DOM, sítě a AI (test/squadcheck.test.mjs): stejný vstup dá vždy stejný výstup, vstupy se nemění.
 
-   CO TO DĚLÁ: pro místa taktiky spočítá z VIDITELNÝCH atributů hráčů vhodnost na skupinu pozic (DWRS po skupinách, bez ručního popisu rolí),
+   CO TO DĚLÁ: pro místa taktiky spočítá z VIDITELNÝCH atributů hráčů vhodnost na skupinu pozic podle klíčových atributů dané pozice (posattrs.js:
+   příručky Vortex Gaming, FM Dossier, AssMan.AI; klíčové atributy ×3, žádoucí ×1; bez ručního popisu rolí),
    najde nejlepší jedenáctku (přesné přiřazení, maďarský algoritmus), porovná ji s jedenáctkou, kterou uživatel v taktice zadal, a hledá
    slabá místa PODLE PRAVIDEL, ne podle pořadí. Pozice se hlásí jen tehdy, když platí aspoň jedna z podmínek:
      1. málo hráčů na skupinu pozic proti cíli (2 hráči na místo; jeden hráč bez zálohy je „jediná možnost“, žádný je „díra“),
@@ -12,13 +13,13 @@
    dvou hráčů na místo jsou z veřejného popisu nástroje FM Dossier (jen princip, žádný kód ani tabulka); komunitní prahy věku a atributů
    jsou odhady a dají se posunout (`opts`).
 
-   POCTIVOST: vhodnost je ESTIMATED (tabulky DWRS jsou odhad autora, ne pravidlo FM27); u hráče s neúplnými atributy se uvede pokrytí nebo se
+   POCTIVOST: vhodnost je odhad podle komunitních příruček (ne pravidlo FM27; spolehlivější je tlačítko „Zvýraznit klíčové atributy“ ve hře); u hráče s neúplnými atributy se uvede pokrytí nebo se
    hráč neohodnotí (nikdy nula); hráč bez věku se nezapočítá do věkových pravidel a řekne se to; CA, PA, potenciál ani osobnost se nepoužívají.
    Rozbor neřadí hráče podle „kvality“ napříč pozicemi a nepředpovídá výsledek zápasu. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./rolefit.js'), require('./dwrs.js'), require('./fm27know.js'));
-  else root.TrenerSquadCheck = factory(root.TrenerRoleFit, root.TrenerDwrs, root.TrenerFm27Know);
-})(typeof self !== 'undefined' ? self : this, function (RF, D, K) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./rolefit.js'), require('./dwrs.js'), require('./posattrs.js'));
+  else root.TrenerSquadCheck = factory(root.TrenerRoleFit, root.TrenerDwrs, root.TrenerPosAttrs);
+})(typeof self !== 'undefined' ? self : this, function (RF, D, PA) {
   'use strict';
 
   const VERSION = 'squadcheck-1';
@@ -28,7 +29,7 @@
   const cz = (v) => String(r1(v)).replace('.', ',');
   const SEV_RANK = { error: 0, warn: 1, note: 2, info: 3, good: 4 };
   const SEV_CS = { error: 'Vážný nález', warn: 'Upozornění', note: 'Poznámka', info: 'K vědomí', good: 'Silná stránka' };
-  const BASIS_CS = { ODHAD: 'odhad autora aplikace (DWRS tabulky a prahy jsou odhad)', KOMUNITA: 'názor komunitních průvodců', VYPOCET: 'výpočet z tvých dat' };
+  const BASIS_CS = { ODHAD: 'odhad autora aplikace (prahy jsou odhad)', KOMUNITA: 'názor komunitních průvodců a příruček', VYPOCET: 'výpočet z tvých dat' };
 
   const DEFAULTS = Object.freeze({
     perSlot: 2, // cíl hloubky: hráčů na místo
@@ -47,10 +48,10 @@
   // ---------------------------------------------------------------- vstupy
   function prepare(tactic, players, opts) {
     const o = Object.assign({}, DEFAULTS, isObj(opts) ? opts : {});
-    const wp = isObj(o.wp) ? o.wp : undefined;
     const slots = (isObj(tactic) && Array.isArray(tactic.slots) ? tactic.slots : []).filter((s) => isObj(s) && s.pos).map((s) => ({ key: s.key, pos: posOfSlot(s), group: D.groupOfPosition(s.pos), playerId: s.playerId || null }));
     const list = (Array.isArray(players) ? players : []).filter((p) => isObj(p) && p.id);
     const info = list.map((p) => {
+      const attrs = D.playerAttributes(p);
       const injured = !!(p.flags && p.flags.injury) || (Array.isArray(o.unavailable) && o.unavailable.includes(p.id));
       return {
         id: p.id,
@@ -60,7 +61,8 @@
         injured,
         tired: !!(p.flags && p.flags.fatigue),
         player: p,
-        attrsCount: D.playerAttributes(p).size,
+        attrs: attrs,
+        attrsCount: attrs.size,
       };
     });
     const cell = new Map(); // `${slotKey}|${playerId}` → {value, partial, coverage, contributions, eligible, flag}
@@ -72,8 +74,8 @@
         let partial = false;
         let coverage = 1;
         if (s.group) {
-          res = D.score(pl.player, null, s.group, wp);
-          const v = D.valueOf(res, true, o.minCoverage);
+          res = PA.score(pl.attrs, s.group);
+          const v = PA.valueOf(res, true, o.minCoverage);
           value = v.value;
           partial = v.partial;
           if (partial && res.partial) coverage = res.partial.coverage;
@@ -81,7 +83,7 @@
         cell.set(`${s.key}|${pl.id}`, { value, partial, coverage, contributions: res ? res.contributions : [], eligible: el.ok, flag: el.flag, natural: el.ok && !el.flag });
       }
     }
-    return { o, slots, info, cell, wp };
+    return { o, slots, info, cell };
   }
 
   const cellOf = (ctx, slot, pl) => ctx.cell.get(`${slot.key}|${pl.id}`);
@@ -135,7 +137,7 @@
     const res = {
       version: VERSION,
       formation: isObj(tactic) ? tactic.formation || null : null,
-      model: 'DWRS po skupinách pozic (ESTIMATED), bez rolí',
+      model: 'klíčové atributy podle pozice (příručky Vortex Gaming, FM Dossier a AssMan.AI; klíčové ×3, žádoucí ×1; odhad, ne pravidlo FM27)',
       usable: false,
       coverage: { players: info.length, complete: 0, partial: 0, none: 0, withAge: 0, injured: info.filter((p) => p.injured).length },
       xi: [],
@@ -179,7 +181,8 @@
       const entry = (p) => {
         if (!p) return null;
         const c = cellOf(ctx, s, p);
-        return { id: p.id, name: p.name, score: c && c.value !== null ? r1(c.value) : null, partial: !!(c && c.partial), coverage: c && c.partial ? c.coverage : 1, natural: !!(c && c.natural), injured: p.injured, age: p.age };
+        const keys = c ? c.contributions.filter((x) => x.level === 'key').sort((a, b) => b.value - a.value).map((x) => ({ attribute: x.attribute, value: x.value })) : [];
+        return { id: p.id, name: p.name, score: c && c.value !== null ? r1(c.value) : null, partial: !!(c && c.partial), coverage: c && c.partial ? c.coverage : 1, natural: !!(c && c.natural), injured: p.injured, age: p.age, keys };
       };
       const u = userMap.get(s.key);
       const st = xiMap.get(s.key);
@@ -215,7 +218,7 @@
       const free = ctx.info.filter((p) => !p.injured && !d.slots.some((k) => usable(cellOf(ctx, slots.find((s) => s.key === k), p))) && d.slots.some((k) => { const c = cellOf(ctx, slots.find((s) => s.key === k), p); return c && c.value !== null; }));
       const rank = (p) => Math.max(...d.slots.map((k) => { const c = cellOf(ctx, slots.find((s) => s.key === k), p); return c && c.value !== null ? c.value : -1; }));
       const ideas = free.sort((a, b) => rank(b) - rank(a)).slice(0, 2).map((p) => `${p.name} (hraje jinde, podle atributů by se na ${gname(d.group)} hodil na ${cz(rank(p))} bodů, odhad)`);
-      const need = D.DEFAULT_TABLES[d.group] ? D.DEFAULT_TABLES[d.group].extreme.join(', ') : '';
+      const need = PA.keyNames(d.group, 5).join(', ');
       if (d.state === 'gap') {
         F('G1', 'error', 'Hloubka', 'VYPOCET', 'výpočet',
           `${gname(d.group)} (${posText}): chybí hráči i na základ`,
@@ -258,23 +261,24 @@
           [known ? 'Nasaď ho na přirozené místo, nebo si ve hře ověř jeho jistotu na téhle pozici' : 'Doplň pozici hráče v Můj tým'],
           [known ? `pozice hráče: ${p.positions.join(', ')}` : 'pozice neznámá'], { slots: [s.key], players: [p.id] });
       }
-      // viditelná slabina v nejdůležitějších atributech skupiny
-      const weak = (c.contributions || []).filter((x) => (x.tier === 'extreme' || x.tier === 'important') && x.value <= o.weakValue).sort((a, b) => (a.tier === b.tier ? a.value - b.value : a.tier === 'extreme' ? -1 : 1));
+      // viditelná slabina v klíčových (nebo aspoň žádoucích) atributech skupiny
+      const weak = (c.contributions || []).filter((x) => x.value <= o.weakValue).sort((a, b) => (a.level === b.level ? a.value - b.value : a.level === 'key' ? -1 : 1));
+      const weakKey = weak.filter((x) => x.level === 'key');
       if (weak.length) {
-        const ext = weak.some((x) => x.tier === 'extreme');
-        F('Q1', ext ? 'warn' : 'note', 'Kvalita', 'ODHAD', 'odhad (tabulky DWRS)',
+        const ext = weakKey.length > 0;
+        F('Q1', ext ? 'warn' : 'note', 'Kvalita', 'KOMUNITA', 'komunitní příručky (Vortex Gaming, FM Dossier)',
           `${e.pos}: ${p.name} má slabé atributy, na kterých u téhle pozice nejvíc záleží`,
-          `Podle tabulek DWRS (odhad autora; skupina pozic: ${gname(s.group)}) patří tyhle atributy mezi ${ext ? 'nejdůležitější' : 'důležité'}; hráč má v nich nízkou hodnotu. Je to viditelná slabina, ne pravidlo hry.`,
-          [`Zlepšit individuálním tréninkem: ${weak.slice(0, o.topAttrs).map((x) => x.attribute).join(', ')}`, 'Nebo zvážit jiného hráče na toto místo (viz výměny níž a hloubka)', 'Při zápase kryjte slabinu taktikou (jiná role nebo instrukce)'],
-          weak.slice(0, o.topAttrs).map((x) => `${x.attribute}: ${x.value}`), { slots: [s.key], players: [p.id] });
+          `Podle příruček (skupina pozic: ${gname(s.group)}) patří tyhle atributy mezi ${ext ? 'klíčové' : 'žádoucí'}; hráč má v nich nízkou hodnotu (${o.weakValue} a méně). Je to viditelná slabina, ne pravidlo hry; hra sama ukazuje klíčové atributy role tlačítkem Zvýraznit klíčové atributy.`,
+          [`Zlepšit individuálním tréninkem: ${(ext ? weakKey : weak).slice(0, o.topAttrs).map((x) => x.attribute).join(', ')}`, 'Nebo zvážit jiného hráče na toto místo (viz výměny níž a hloubka)', 'Při zápase kryjte slabinu taktikou (jiná role nebo instrukce)'],
+          (ext ? weakKey : weak).slice(0, o.topAttrs).map((x) => `${x.attribute}: ${x.value}`), { slots: [s.key], players: [p.id] });
       }
       // kvalitní útes: záloha je o `cliffGap` bodů pod základem
       const rest = info.filter((x) => x.id !== p.id && !x.injured && ![...xiMap.values()].some((q) => q && q.id === x.id)).map((x) => ({ x, v: usable(cellOf(ctx, s, x)) ? cellOf(ctx, s, x).value : null })).filter((z) => z.v !== null).sort((a, b) => b.v - a.v);
       if (rest.length && e.starter.score !== null && e.starter.score - rest[0].v >= o.cliffGap) {
-        F('Q2', 'note', 'Hloubka', 'ODHAD', 'odhad (rozdíl bodů DWRS)',
+        F('Q2', 'note', 'Hloubka', 'ODHAD', 'odhad (rozdíl bodů modelu)',
           `${e.pos}: velký propad mezi ${p.name} a zálohou`,
           `Základní hráč má podle modelu ${cz(e.starter.score)} bodů, nejlepší záloha ${nameOf(rest[0].x.id)} ${cz(rest[0].v)}. Při výpadku hráče je to propad o ${cz(e.starter.score - rest[0].v)} bodů.`,
-          [`Přivést kvalitnější zálohu na pozici ${e.pos} (hledej: ${D.DEFAULT_TABLES[s.group].extreme.join(', ')})`, 'Nebo hráče střídat dřív a šetřit (únava)'],
+          [`Přivést kvalitnější zálohu na pozici ${e.pos} (hledej: ${PA.keyNames(s.group, 5).join(', ')})`, 'Nebo hráče střídat dřív a šetřit (únava)'],
           [`${p.name}: ${cz(e.starter.score)}`, `${nameOf(rest[0].x.id)}: ${cz(rest[0].v)}`], { slots: [s.key], players: [p.id, rest[0].x.id] });
       }
     }
@@ -289,7 +293,7 @@
         F('A1', 'note', 'Věk', 'KOMUNITA', 'komunitní průvodce (věkové křivky jsou odhad)',
           `${e.pos}: ${e.starter.name} (${e.starter.age}) nemá mladšího nástupce`,
           `Základní hráč je od ${o.veteranAge} let a mezi hráči téhle skupiny pozic (${gname(s.group)}) není nikdo do ${o.successorMaxAge} let. Věk, od kterého výkon klesá, se liší podle pozice; je to komunitní odhad, ne pravidlo hry.`,
-          [`Najít nástupce do ${o.successorMaxAge} let na pozici ${e.pos} (hledej: ${D.DEFAULT_TABLES[s.group].extreme.join(', ')})`, 'Hlídej smlouvu a formu hráče (smlouvy aplikace zatím nezná)'],
+          [`Najít nástupce do ${o.successorMaxAge} let na pozici ${e.pos} (hledej: ${PA.keyNames(s.group, 5).join(', ')})`, 'Hlídej smlouvu a formu hráče (smlouvy aplikace zatím nezná)'],
           [`věk: ${e.starter.age}`], { slots: [s.key], players: [e.starter.id] });
       }
     }
@@ -301,6 +305,22 @@
         res.age = { avgXi: r1(avg), xiKnown: ages.length, buckets: { u21: all.filter((a) => a <= 21).length, mid: all.filter((a) => a >= 22 && a <= 29).length, o30: all.filter((a) => a >= 30).length }, unknownXi: unknownAge };
       }
     }
+    // základní atributy hráčů v poli pod 11 (komunitní minimum z příručky Vortex Gaming)
+    const low = [];
+    for (const e of res.xi) {
+      if (!e.starter || e.group === 'GK') continue;
+      const p = info.find((x) => x.id === e.starter.id);
+      const under = PA.UNIVERSAL_FLOOR.attributes.map((a) => ({ a, v: p.attrs.get(PA.attrKey(a)) })).filter((x) => Number.isInteger(x.v) && x.v < PA.UNIVERSAL_FLOOR.min);
+      if (under.length) low.push({ e, p, under });
+    }
+    if (low.length) {
+      F('U1', 'note', 'Kvalita', 'KOMUNITA', 'komunitní příručka (Vortex Gaming)',
+        `Základní hráči s atributem pod ${PA.UNIVERSAL_FLOOR.min} v tom, co mají mít všichni v poli`,
+        `Podle příručky by hráč v poli neměl mít pod ${PA.UNIVERSAL_FLOOR.min} žádný z atributů ${PA.UNIVERSAL_FLOOR.attributes.join(', ')}. Je to komunitní minimum, ne pravidlo hry; u hráčů, kteří jsou dobří v něčem jiném, nemusí vadit.`,
+        ['Zkontroluj, jestli slabý atribut u daného hráče nevadí jeho roli, jinak zvaž lepšího hráče nebo trénink'],
+        low.slice(0, 6).map((z) => `${z.e.pos} ${z.p.name}: ${z.under.map((x) => `${x.a} ${x.v}`).join(', ')}`), { slots: low.map((z) => z.e.slotKey), players: low.map((z) => z.p.id) });
+    }
+
     // zranění v zadané jedenáctce
     for (const s of slots) {
       const u = userMap.get(s.key);
@@ -317,14 +337,14 @@
     const strong = res.xi.filter((e) => e.starter && e.starter.score !== null).map((e) => {
       const s = slots.find((x) => x.key === e.slotKey);
       const c = cellOf(ctx, s, info.find((x) => x.id === e.starter.id));
-      const top = (c.contributions || []).filter((x) => (x.tier === 'extreme' || x.tier === 'important') && x.value >= 15).sort((a, b) => b.value - a.value);
+      const top = (c.contributions || []).filter((x) => x.level === 'key' && x.value >= 15).sort((a, b) => b.value - a.value);
       return { e, top };
     }).filter((z) => z.top.length >= 2).sort((a, b) => b.top.length - a.top.length || b.e.starter.score - a.e.starter.score).slice(0, 4);
     for (const z of strong) {
       findings.push({
-        id: 'S1', sev: 'good', area: 'Kvalita', basis: 'ODHAD', basisCs: BASIS_CS.ODHAD, agree: 'odhad (tabulky DWRS)',
-        title: `${z.e.pos}: ${z.e.starter.name} je silný v nejdůležitějších atributech pozice`,
-        why: `Má aspoň dva z nejdůležitějších atributů své skupiny pozic (${gname(z.e.group)}) na 15 a víc. Je to viditelná silná stránka podle odhadu DWRS, ne pravidlo hry.`,
+        id: 'S1', sev: 'good', area: 'Kvalita', basis: 'KOMUNITA', basisCs: BASIS_CS.KOMUNITA, agree: 'komunitní příručky (Vortex Gaming, FM Dossier)',
+        title: `${z.e.pos}: ${z.e.starter.name} je silný v klíčových atributech pozice`,
+        why: `Má aspoň dva klíčové atributy své skupiny pozic (${gname(z.e.group)}) na 15 a víc. Je to viditelná silná stránka podle příruček, ne pravidlo hry.`,
         fix: [], ev: z.top.slice(0, 3).map((x) => `${x.attribute}: ${x.value}`), slots: [z.e.slotKey], players: [z.e.starter.id],
       });
     }
