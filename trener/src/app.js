@@ -82,7 +82,9 @@
           }
         }
         if (e.kind === 'change' && e.type === 'career') {
-          if (!app.career() && app.careers().length) {
+          // Kariéru, kterou zakládá tahle stránka, vybere a obrazovku vykreslí createCareer až po zápisu; tady by to byla druhá, zbytečná kresba
+          // těsně před ní (a smazala by, co uživatel mezitím do obrazovky vyplnil).
+          if (!app.career() && app.careers().length && !app.creatingCareer) {
             // Kariéry dorazily ze synchronizace na zařízení, které žádnou nemělo: vybere se první a obrazovka se překreslí.
             app.careerId = app.careers()[0].id;
             ui.lsSet('fm27.career', app.careerId);
@@ -135,7 +137,13 @@
         if (Object.keys(clean).length) doc.prov = clean;
         if (prov.via === 'fmmatchlens') doc.via = 'fmmatchlens';
       }
-      const career = await app.store.put('career', doc);
+      app.creatingCareer = true;
+      let career;
+      try {
+        career = await app.store.put('career', doc);
+      } finally {
+        app.creatingCareer = false;
+      }
       app.setCareer(career.id);
       return career;
     },

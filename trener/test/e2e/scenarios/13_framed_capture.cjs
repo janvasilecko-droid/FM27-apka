@@ -39,8 +39,26 @@ module.exports = async function run(env) {
   await frame.evaluate(() => (location.hash = '#live'));
   await frame.waitForSelector('#careerClub', { timeout: 10000 });
   await frame.fill('#careerClub', 'Chelsea');
+  // kolikrát se od založení první kariéry vykreslí obrazovka Live: nejvýš dvakrát, a to hned po sobě po zápisu do úložiště (setCareer a zpětné volání
+  // formuláře). Třetí, dřívější vykreslení při zápisu (kariéra se objevila v paměti dřív, než se zapsala) by obrazovku zobrazilo a pak ji o chvíli později
+  // znovu vykreslilo a smazalo, co uživatel mezitím vyplnil; kvůli tomu jednou za čas spadl úplný běh (pole soupeře bylo při kliknutí prázdné).
+  await frame.evaluate(() => {
+    const screen = window.FM27.screens.get('live');
+    window.__liveRenders = 0;
+    window.__liveRenderOriginal = screen.render;
+    screen.render = function (...args) {
+      window.__liveRenders++;
+      return window.__liveRenderOriginal.apply(this, args);
+    };
+  });
   await frame.click('#careerCreate');
   await frame.waitForSelector('#liveStart');
+  await frame.waitForTimeout(600); // pozdní vykreslení po zápisu do úložiště by v tuhle chvíli už proběhlo
+  const liveRenders = await frame.evaluate(() => {
+    window.FM27.screens.get('live').render = window.__liveRenderOriginal;
+    return window.__liveRenders;
+  });
+  check('13 první kariéra se založí nejvýš dvěma vykresleními obrazovky hned po sobě (žádné další, které by smazalo rozepsané pole)', liveRenders >= 1 && liveRenders <= 2, liveRenders);
   await frame.fill('#liveOpp', 'Sparta Praha');
   await frame.click('#liveStart');
   // když se tlačítko neukáže, chyba řekne proč (zpráva formuláře, vyplněný soupeř, jestli formulář ještě je): jednou za čas tu spadl úplný běh a samostatný scénář pak desítkykrát prošel
