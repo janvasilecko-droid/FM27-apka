@@ -103,8 +103,10 @@ test('hodnota, která není text, se nepřevezme (číslo, objekt, pole)', () =>
   }
 });
 
-test('mezery a tabulátory se sloučí, okraje se oříznou, název se jinak nemění (velikost písmen ani diakritika)', () => {
+test('mezery, tabulátory a nezlomitelné mezery se sloučí, okraje se oříznou, název se jinak nemění (velikost písmen ani diakritika)', () => {
+  const NBSP = String.fromCodePoint(0xa0); // znak se nikde nepíše doslova (zdrojová zkouška níž by ho nepoznala od mezery)
   assert.equal(CR.normalizeCareerExtraction({ club: '  Real \t Sociedad  ' }).read.club, 'Real Sociedad');
+  assert.equal(CR.normalizeCareerExtraction({ club: NBSP + 'Manchester' + NBSP + NBSP + 'City ' + NBSP }).read.club, 'Manchester City');
   assert.equal(CR.normalizeCareerExtraction({ club: 'ŠK Slovan Bratislava' }).read.club, 'ŠK Slovan Bratislava');
   assert.equal(CR.normalizeCareerExtraction({ club: 'sparta praha' }).read.club, 'sparta praha');
 });

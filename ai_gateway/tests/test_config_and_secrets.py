@@ -69,7 +69,9 @@ SECRET_PATTERNS = {
     "GitHub token": re.compile(r"\b(?:ghp|gho|ghs|github_pat)_[A-Za-z0-9_]{25,}"),
     "AWS klíč": re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
 }
-TEXT_SUFFIXES = {".py", ".md", ".json", ".js", ".mjs", ".html", ".css", ".txt", ".yml", ".yaml", ".toml", ".env", ""}
+# Přípony textových souborů, které se prohledávají (a soubory bez přípony). Netextové soubory (obrázky, PDF) se nečtou.
+# .cjs (scénáře a pomůcky zkoušek v prohlížeči), .svg, .webmanifest a .sh sem patří také: dřív chyběly, takže se v nich klíč nehledal.
+TEXT_SUFFIXES = {".py", ".md", ".json", ".js", ".mjs", ".cjs", ".html", ".css", ".txt", ".yml", ".yaml", ".toml", ".env", ".svg", ".webmanifest", ".sh", ""}
 
 
 class NoSecretsInRepo(unittest.TestCase):

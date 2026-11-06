@@ -299,6 +299,39 @@ module.exports = async function run(env) {
     check('A17 rada dokončená, když uživatel odešel, se uloží do historie rad a nic nespadne', (await page.evaluate(() => window.FM27.app.store.list('advice').length)) === adviceBefore + 1, await text(page, '#toast'));
     await page.evaluate(() => (window.__mock.adviceDelayMs = 0));
 
+    // A18: tlačítka se uvolní až po uložení a vykreslení rady (dřív po uložení: za pomalého ukládání četla zkouška stránku dřív, než se rada vykreslila)
+    await nav(page, 'trener');
+    await page.evaluate(() => {
+      const save = window.FM27.advice.save;
+      window.__origSave = save;
+      window.__saveFinished = false;
+      window.FM27.advice.save = async function (...args) {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        const saved = await save.apply(this, args);
+        window.__saveFinished = true;
+        return saved;
+      };
+    });
+    await page.fill('#question', 'Zkouška: pomalé uložení rady.');
+    await page.click('#askBtn');
+    await page.waitForSelector('#stopBtn:not([hidden])');
+    const firstIdle = await page.evaluate(() => new Promise((resolve) => {
+      const t0 = performance.now();
+      const timer = setInterval(() => {
+        const idle = !document.querySelector('#askBtn').disabled && document.querySelector('#stopBtn').hidden;
+        if (idle || performance.now() - t0 > 15000) {
+          clearInterval(timer);
+          resolve({ idle, saveFinished: window.__saveFinished, sections: document.querySelectorAll('#result .sec').length });
+        }
+      }, 5);
+    }));
+    await page.evaluate(() => {
+      window.FM27.advice.save = window.__origSave;
+      delete window.__origSave;
+      delete window.__saveFinished;
+    });
+    check('A18 tlačítka se uvolní až po uložení a vykreslení rady: v prvním okamžiku, kdy je stránka volná, je uložení hotové a rada má 10 částí', firstIdle.idle && firstIdle.saveFinished === true && firstIdle.sections === 10, firstIdle);
+
     check('A99 žádná chyba ve skriptu za celou dobu', problems.page.length === 0, problems.page);
     const consoleErrors = problems.console.filter((m) => !/Failed to load resource/.test(m));
     check('A99 žádná chyba v konzoli za celou dobu', consoleErrors.length === 0, consoleErrors);

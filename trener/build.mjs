@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Sestaví aplikaci do jednoho souboru ve dvou podobách. Bez závislostí: stačí Node 18+.
+/* Sestaví aplikaci do jednoho souboru ve dvou podobách. Bez závislostí: stačí Node 18+ (platí jen pro sestavení; zkoušky v trener/test potřebují Node 22.15+ kvůli zlib.zstd).
 
    Použití:  node trener/build.mjs            (STRICT=1 vyžaduje všechny moduly)
    Výstup:   trener/dist/trener.fragment.html   stránka v Claude (artefakt); obálku <html> doplní publikace

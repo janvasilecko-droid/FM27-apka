@@ -22,6 +22,10 @@ Thumbs.db
 trener/test/e2e/out/
 
 # Cizí taktiky: exporty z FM27 (.fmf) a jejich rozšifrovaný obsah jsou práce jejich autorů a jsou v nich přezdívky; repozitář je veřejný, takže sem nepatří.
-*.fmf
-*.tac
-*.aom
+# Rozšifrovaný obsah kontejneru má tři druhy zdrojů (.tac = taktika, .aom = podrobnosti, .img = obrázek taktiky) a při rozboru vzniká i surový výřez (.bin).
+# Přípony jsou zapsané s velkými i malými písmeny, aby je zachytily i souborové systémy, které rozlišují velikost písmen (například .FMF).
+*.[Ff][Mm][Ff]
+*.[Tt][Aa][Cc]
+*.[Aa][Oo][Mm]
+*.[Ii][Mm][Gg]
+*.[Bb][Ii][Nn]

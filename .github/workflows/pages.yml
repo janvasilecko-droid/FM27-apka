@@ -10,7 +10,9 @@ on:
     branches: [main]
     paths:
       - 'trener/**'
-      - 'reference/codex-2026-11-01/knowledge.json'
+      # soubory mimo trener/, které čtou sestavení a zkoušky jádra (registr zdrojů, plán taktiky, ceník AI, ke kterému se porovnává ceník v JS)
+      - 'reference/codex-2026-11-01/**'
+      - 'ai_gateway/costs.py'
       - '.github/workflows/pages.yml'
 
 permissions:
@@ -30,7 +32,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Testy jádra
+      # Věštírna libzstd (Python balíček zstandard) se tady výslovně vypíná: systémový python3 na runneru má balíček v neznámé, nepřipnuté verzi
+      # a změna obrazu runneru by mohla zablokovat nasazení bez jakékoli změny v repozitáři. Porovnání dekodéru zstd s libzstd dělá samostatné
+      # zstd-oracle.yml s připnutým zstandard==0.25.0 (povinná věštírna); tady se tři porovnávací zkoušky viditelně přeskočí.
+      - name: Testy jádra (bez věštírny libzstd)
+        env:
+          ZSTD_ORACLE_PYTHON: /nonexistent/python
         run: node --test trener/test/*.test.mjs
       - name: Sestavení (všechny moduly povinné)
         run: STRICT=1 node trener/build.mjs
