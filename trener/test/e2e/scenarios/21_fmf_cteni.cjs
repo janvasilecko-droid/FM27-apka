@@ -116,6 +116,16 @@ module.exports = async function run(env) {
   const overRows = await text(page, '#fmfReadRows');
   check('21 záznam mimo datovou část: soubor se přečte, obrázek je NEOVĚŘENO, banner nehlásí shodu u všech zdrojů a tvrzení „beze zbytku“ chybí', /je přečtený/.test(overBanner) && !/U všech zdrojů/.test(overBanner) && /U zdrojů, které se podařilo ověřit/.test(overBanner) && /Pozor: jeden zdroj se nepodařilo ověřit/.test(overBanner) && /Obrázek \(\.img\)\s+[^\n]*NEOVĚŘENO/.test(overRows) && !/beze zbytku/.test(await text(page, '#fmfVerified')), overBanner + ' | ' + overRows);
 
+  // počítadlo čtení souborů do paměti: každé načtení Blobu (file.arrayBuffer(), FileReader) si zapíše velikost, takže se dá ověřit, že se příliš velký soubor nenačetl vůbec a jiný jen jednou
+  await page.evaluate(() => {
+    window.__reads = [];
+    const arrayBuffer = Blob.prototype.arrayBuffer;
+    Blob.prototype.arrayBuffer = function () { window.__reads.push(this.size); return arrayBuffer.apply(this, arguments); };
+    const readAs = FileReader.prototype.readAsArrayBuffer;
+    FileReader.prototype.readAsArrayBuffer = function (blob) { window.__reads.push(blob && blob.size); return readAs.apply(this, arguments); };
+  });
+  const readsOf = async (size) => (await page.evaluate(() => window.__reads)).filter((x) => x === size).length;
+
   // ====================================================== C6) prohlížeč bez WebCrypto: zašifrované části se nečtou, řekne se to přímo a zbývá jen kontrola stavby souboru
   await page.evaluate(() => Object.defineProperty(window.crypto, 'subtle', { value: undefined, configurable: true }));
   await upload('bez_webcrypto.fmf', B.standardFmf(3).file);
@@ -126,7 +136,7 @@ module.exports = async function run(env) {
   await upload('velky_bez_webcrypto.fmf', Buffer.alloc(5 * 1024 * 1024 + 1));
   await until(async () => /5242881 B/.test(await text(page, '#fmfTooBig').catch(() => '')), 15000);
   const tooBigInspect = await text(page, '#fmfTooBig').catch(() => '');
-  check('21 starší kontrola: soubor o bajt větší než 5 MiB se odmítne podle velikosti (přesná čísla ve větě), ještě než se načte', /Soubor je příliš velký/.test(tooBigInspect) && /Soubor má 5242881 B \(asi 5 MiB\), víc než 5242880 B \(5 MiB\)/.test(tooBigInspect), tooBigInspect);
+  check('21 starší kontrola: soubor o bajt větší než 5 MiB se odmítne podle velikosti (přesná čísla ve větě) a do paměti se nenačte vůbec (počítadlo čtení Blobu je pro tu velikost 0)', /Soubor je příliš velký/.test(tooBigInspect) && /Soubor má 5242881 B \(asi 5 MiB\), víc než 5242880 B \(5 MiB\)/.test(tooBigInspect) && (await readsOf(5 * 1024 * 1024 + 1)) === 0, { tooBigInspect, reads: await readsOf(5 * 1024 * 1024 + 1) });
   await page.evaluate(() => { delete window.crypto.subtle; });
 
   // ====================================================== C7) příliš velký soubor: odmítne se podle velikosti, ještě než se načte do paměti
@@ -134,7 +144,13 @@ module.exports = async function run(env) {
   await upload('obri.fmf', Buffer.alloc(24 * 1024 * 1024 + 1));
   await until(async () => /25165825 B/.test(await text(page, '#fmfTooBig').catch(() => '')), 20000);
   const tooBig = await text(page, '#fmfTooBig').catch(() => '');
-  check('21 soubor o bajt větší než 24 MiB se odmítne podle velikosti (přesná čísla ve větě), nic se nečte a nic se nepřevezme', /Soubor je příliš velký/.test(tooBig) && /Soubor má 25165825 B \(asi 24 MiB\), víc než 25165824 B \(24 MiB\)/.test(tooBig) && (await page.locator('#fmfReadBanner').count()) === 0 && Date.now() - t7 < 20000, tooBig);
+  check('21 soubor o bajt větší než 24 MiB se odmítne podle velikosti (přesná čísla ve větě), nic se nečte a nic se nepřevezme', /Soubor je příliš velký/.test(tooBig) && /Soubor má 25165825 B \(asi 24 MiB\), víc než 25165824 B \(24 MiB\)/.test(tooBig) && (await page.locator('#fmfReadBanner').count()) === 0 && Date.now() - t7 < 20000 && (await readsOf(24 * 1024 * 1024 + 1)) === 0, { tooBig, reads: await readsOf(24 * 1024 * 1024 + 1) });
+
+  // ====================================================== C8) soubor mezi 5 a 24 MiB, který čtečka nepozná: načte se právě jednou a starší kontrola ho odmítne větou o svém limitu (ne větou, že se nenačítá)
+  await upload('sest_mib.fmf', Buffer.alloc(6 * 1024 * 1024));
+  await until(async () => /nepodařilo interpretovat/.test(await note()), 20000);
+  const sixMib = await note();
+  check('21 soubor o 6 MiB, který čtečka nepozná: načte se jednou (ne dvakrát), starší kontrola řekne, že překračuje její limit 5 MiB, a netvrdí, že se nenačítá', /Soubor se nepodařilo interpretovat/.test(sixMib) && /překračuje limit 5 MiB/.test(sixMib) && !/nenačítá/.test(sixMib) && (await readsOf(6 * 1024 * 1024)) === 1, { sixMib, reads: await readsOf(6 * 1024 * 1024) });
 
   // ====================================================== C2) payload, který nemá popsanou stavbu
   await upload('jina_stavba.fmf', B.standardFmf(9).file); // obsah .tac je vymyšlená změť bajtů: kontejner se přečte, stavba taktiky ne

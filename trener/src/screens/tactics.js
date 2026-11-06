@@ -188,17 +188,19 @@ Odpověz POUZE JSON objektem:
   }
 
   // ------------------------------------------------------------------ kontrola .fmf
-  /** note: věta, kterou volající chce ukázat v rámečku (např. proč se soubor nepřečetl celý). */
-  async function inspectFile(app, file, box, note) {
+  /** note: věta, kterou volající chce ukázat v rámečku (např. proč se soubor nepřečetl celý). preread: bajty souboru, které volající už načetl; pak se soubor nečte podruhé a velikost se nehlásí jako důvod
+      (starší kontrola sama odmítne soubor nad svůj limit větou o limitu). Bez nich se podle velikosti souboru rozhodne ještě před načtením do paměti. */
+  async function inspectFile(app, file, box, note, preread) {
     const Tc = T();
-    // podle velikosti souboru, ještě než se celý načte do paměti
-    const tooBig = FC() ? FC().sizeProblemText(file.size, Tc.FMF.MAX_INPUT_BYTES) : null;
-    if (tooBig) return setNote(box, h('div', { class: 'banner bad', id: 'fmfTooBig' }, h('b', { text: 'Soubor je příliš velký' }), h('span', { text: tooBig })));
+    if (!preread) {
+      const tooBig = FC() ? FC().sizeProblemText(file.size, Tc.FMF.MAX_INPUT_BYTES) : null;
+      if (tooBig) return setNote(box, h('div', { class: 'banner bad', id: 'fmfTooBig' }, h('b', { text: 'Soubor je příliš velký' }), h('span', { text: tooBig })));
+    }
     setNote(box, h('p', { class: 'hint', text: 'Kontroluji soubor…' }));
     let report;
     let zstdNote = note || '';
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bytes = preread || new Uint8Array(await file.arrayBuffer());
       const decompress = window.TrenerZstd && window.TrenerFmfGlue ? window.TrenerFmfGlue.makeFirstFrameDecompressor(window.TrenerZstd) : null;
       if (!decompress && !zstdNote) zstdNote = 'V této verzi aplikace chybí rozbalení zstd.';
       report = Tc.inspectFmf(bytes, decompress ? { decompress } : {});
@@ -230,7 +232,7 @@ Odpověz POUZE JSON objektem:
         { class: report.ok ? 'banner warn' : 'banner bad' },
         h('b', { text: report.ok ? 'Soubor vypadá jako export, ale taktiku z něj zatím číst neumím' : 'Soubor se nepodařilo interpretovat' }),
         report.ok
-          ? h('p', { text: FC() ? FC().inspectText(note) : '' })
+          ? h('p', { text: FC() ? FC().inspectText(note) : note || 'Aplikace zná stavbu jen tří zkoumaných exportů FM27; tenhle soubor jí neodpovídá.' })
           : h('p', { text: report.reason }),
         zstdNote ? h('p', { class: 'hint', text: zstdNote }) : null
       ),
@@ -323,7 +325,7 @@ Odpověz POUZE JSON objektem:
     const read = await Fc.decode(bytes, { zstd: window.TrenerFmfGlue.makeFrameDecompressor(window.TrenerZstd), aesCtr: window.TrenerFmfGlue.makeWebAesCtr(subtle) });
     if (read.ok) return showFmfRead(app, file, box, read);
     // jiná hlavička než známý export: starší nebo cizí soubor řekne víc stará kontrola
-    if (!(read.header && read.header.footerOk)) return inspectFile(app, file, box);
+    if (!(read.header && read.header.footerOk)) return inspectFile(app, file, box, undefined, bytes);
     setNote(
       box,
       h('div', { class: 'banner bad', id: 'fmfReadBanner' }, h('b', { text: 'Soubor má hlavičku exportu FM27, ale nepodařilo se ho přečíst' }), h('p', { text: read.reason }), h('p', { class: 'hint', text: 'Soubor může být poškozený nebo z jiné verze hry. Nic z něj se nepřevzalo. Taktiku můžeš doplnit ručně.' })),

@@ -5,17 +5,19 @@
    - nepřipouští víc výstupu, než je zadaný strop (kontroluje se před každým zápisem, ne až po bloku),
    - drží každý blok v mezích specifikace (nejvýš 128 KiB výstupu na blok), takže práce na jeden blok je omezená, a počet bloků v rámci je omezený podle stropu výstupu (aspoň 1 KiB na blok, kód 'blocks'):
      tabulky Huffmana a FSE se staví v každém bloku znovu, takže bez toho by rámec z drobných bloků zdržel stránku, i když by vydal jen pár bajtů; celková práce je tak úměrná stropu výstupu,
-   - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz před začátek výstupu, okno nad 128 MiB, slovník, který nemáme). Na platných rámcích i u sekvencí se shoduje
+   - odmítne vadný rámec místo hádání (rezervované bity, neplatné tabulky, nespotřebovaný proud bitů, odkaz před začátek výstupu, okno nad 2^27 + 1 B, slovník, který nemáme). Na platných rámcích i u sekvencí se shoduje
      s libzstd 1.5.7 (nepřečtené bity, čtení za začátek proudu i nulový opakovaný posun odmítá libzstd stejně jako my). Rozdíly proti libzstd 1.5.7 (Python balíček zstandard 0.25.0, jeden stroj s BMI2), každý má zkoušku
-     v test/zstd.test.mjs (je jich pět):
-       libzstd je shovívavější než specifikace a my ne (první tři mají u nás vlastní kód chyby): 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti), 'blocksize' (blok větší než okno
-       u rámce s uvedenou velikostí obsahu), 'litend' (pokažený konec čtyřproudých literálů, když má každý ze čtyř proudů aspoň 8 bajtů) a velikost obsahu 2^64−1, kterou libzstd bere jako „neuvedeno“ (u nás kód 'corrupt');
+     v test/zstd.test.mjs (je jich šest):
+       libzstd je shovívavější než specifikace a my ne: 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti); 'blocksize' a 'bigwindow' (blok větší než okno a okno nad 2^27 + 1 B: libzstd je
+       nekontroluje u rámce, který uvádí velikost obsahu a vejde se do výstupní paměti volajícího, protože ho rozbalí jednoprůchodovou zkratkou; věštírna má paměť 128 KiB; na proudové cestě okno kontroluje a strop
+       má stejný jako my); 'litend' (pokažený konec čtyřproudých literálů: libzstd ho nekontroluje, když má každý ze čtyř proudů aspoň 8 bajtů a nejdelší kód stromu nejvýš 11 bitů); velikost obsahu 2^64−1, kterou
+       libzstd bere jako „neuvedeno“ (u nás kód 'corrupt');
        libzstd je přísnější a my ne: váhy Huffmanova stromu zapsané přes FSE odmítá, když tabulka uvádí symbol 12 a víc při přesnosti 6 (92 a víc při přesnosti 5), protože se mu nevejdou do pracovní paměti;
        kód Huffmanova stromu dlouhý 12 bitů přijímáme stejně jako libzstd, ačkoli RFC 8878 mluví o nejvýš 11 bitech.
      Rámce, které libzstd sám napíše, podmínky z první skupiny neporušují (zkoušeno na úrovních 1 až 22, všech devíti strategiích a oknech od 1 KiB do 8 MiB),
    - nestahuje nic z internetu a funguje i bez připojení.
    Nepodporuje: slovníky, přeskočitelné rámce, více rámců za sebou (volající si hlídá délku rámce sám) a kontrolní součet rámce (ten ověřuje volající: fmfcontainer.js, XXH64).
-   Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba je vždy ZstdError (nikdy jiná výjimka z tohoto modulu). */
+   Čisté funkce: vstup se nemění, výstup je nová paměť. Chyba rozbalení (decompress, decompressFrame, readFrameHeader) je vždy ZstdError, nikdy jiná výjimka; export `internals` je jen pro zkoušky a vstup nekontroluje. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.TrenerZstd = factory();
@@ -25,11 +27,15 @@
   const MAGIC = 0xfd2fb528;
   const BLOCK_MAX = 128 * 1024;
   const DEFAULT_MAX_OUTPUT = 16 * 1024 * 1024;
-  /** Největší okno, které přijmeme: 128 MiB, tedy stejný strop jako výchozí nastavení libzstd (RFC 8878 doporučuje podporu aspoň 8 MiB a dovoluje strop volit). Okno samo paměť nestojí (výstup se skládá do jednoho pole a je omezený zvlášť), jde o shodu s referenčním dekodérem. */
-  const MAX_WINDOW = 2 ** 27;
-  /** Počet bloků v rámci je omezený podle povoleného výstupu: v průměru musí blok vydat aspoň 1 KiB (+ rezerva 16 bloků). Tabulky Huffmana a FSE se staví v každém bloku znovu, a tak by rámec z milionů drobných
-      bloků zdržel stránku řádově sekundy až minuty, i když by vydal jen pár bajtů. Cena: platný rámec s průměrným blokem pod 1 KiB (například z proudového zapisovače, který po každých pár bajtech vyprázdní vyrovnávací
-      paměť) se odmítne s kódem 'blocks'. Obyčejné jednorázové stlačení takové bloky nedělá; ve třech skutečných exportech z FM27 má každý ze čtyř rámců jediný blok. */
+  /** Největší okno, které přijmeme: 2^27 + 1 B, tedy stejný strop, jaký má libzstd na proudové cestě (ZSTD_MAXWINDOWSIZE_DEFAULT = (1 << 27) + 1, lib/decompress/zstd_decompress.c 1.5.7). Okno zapsané deskriptorem
+      je buď nejvýš 2^27, nebo aspoň 2^27 + 2^24, takže ten bajt navíc se projeví jen u jednosegmentového rámce s velikostí obsahu přesně 2^27 + 1. RFC 8878 doporučuje podporu aspoň 8 MiB a dovoluje strop volit.
+      Okno samo paměť nestojí (výstup se skládá do jednoho pole a je omezený zvlášť). Pozor: libzstd tenhle strop nekontroluje u rámce s uvedenou velikostí obsahu, který se vejde do výstupní paměti volajícího
+      (jednoprůchodová zkratka); my ho kontrolujeme vždy. */
+  const MAX_WINDOW = 2 ** 27 + 1;
+  /** Počet bloků v rámci je omezený podle povoleného výstupu, nebo podle slíbené velikosti obsahu, je-li v rámci: nejvýš ceil(výstup / 1 KiB) + 16 bloků. Tabulky Huffmana a FSE se staví v každém bloku znovu, a tak by rámec
+      z milionů drobných bloků zdržel stránku řádově sekundy až minuty, i když by vydal jen pár bajtů. Cena: platný rámec s víc bloky, než strop dovolí (například ze zapisovače, který po každých pár bajtech vyprázdní
+      vyrovnávací paměť), se odmítne s kódem 'blocks', ale jen při stropu blízkém jeho velikosti, jak ho volá fmfcontainer.js (velikost z manifestu); s výchozím stropem 16 MiB projde až 16 400 bloků. Obyčejné jednorázové
+      stlačení takové bloky nedělá; ve třech skutečných exportech z FM27 má každý ze čtyř rámců jediný blok. */
   const BYTES_PER_BLOCK = 1024;
   const BLOCK_SLACK = 16;
   const MAX_HUF_BITS = 12;
@@ -272,11 +278,12 @@
     return { table: { sym, nb, maxBits }, bytes };
   }
 
-  /** Rozbalí jeden proud literálů. Proud musí mít koncovou značku a být spotřebovaný přesně do konce, jinak je to chyba s kódem 'litend'. Pozorování na libzstd 1.5.7 (Python balíček zstandard 0.25.0, procesor
-      s BMI2; test/zstd.test.mjs): u čtyřproudých literálů, jejichž každý ze čtyř proudů má aspoň 8 bajtů, konec proudu nekontroluje (ani koncovou značku) a po přečtení za konec vrací jiné bity než nuly (příčina se
-      neověřovala); u kratších proudů a u jednoho proudu ho kontroluje stejně jako my (123 měřených případů bez jediné výjimky z pravidla „nejkratší proud aspoň 8 B“). Tohle chování nenapodobujeme. Příčina podle zdrojového kódu
-      libzstd 1.5.7 (lib/decompress/huf_decompress.c): rychlá cesta potřebuje všechny čtyři proudy aspoň po 8 bajtech (jinak jede pomalá s kontrolou konce) a v sestavení s dynamickým BMI2 se používá jen na procesoru
-      s BMI2; na procesoru bez BMI2 by se tedy konec kontroloval vždy (tohle se neměřilo, zkouška s tím počítá). */
+  /** Rozbalí jeden proud literálů. Proud musí mít koncovou značku a být spotřebovaný přesně do konce, jinak je to chyba s kódem 'litend'. Pozorování na libzstd 1.5.7 (Python balíček zstandard 0.25.0, procesor s BMI2;
+      test/zstd.test.mjs): u čtyřproudých literálů konec proudu nekontroluje (ani koncovou značku) a po přečtení za konec vrací jiné bity než nuly (příčina se neověřovala), když má každý ze čtyř proudů aspoň 8 bajtů
+      A nejdelší kód stromu je nejvýš 11 bitů; u kratších proudů, u stromu s 12bitovými kódy a u jednoho proudu ho kontroluje stejně jako my (123 měřených případů se stromem s kódy do 2 bitů, nejkratší proud 5 až 13 B,
+      bez výjimky z pravidla „nejkratší proud aspoň 8 B“). Tohle chování nenapodobujeme. Příčina podle zdrojového kódu libzstd 1.5.7 (lib/decompress/huf_decompress.c): rychlá cesta potřebuje všechny čtyři proudy aspoň
+      po 8 bajtech (jinak jede pomalá s kontrolou konce) a tabulku o 11 bitech (HUF_DECODER_FAST_TABLELOG; strom s kratšími kódy se přepočte na 11, strom s 12bitovými kódy rychlou cestu nepoužije) a v sestavení
+      s dynamickým BMI2 se používá jen na procesoru s BMI2; na procesoru bez BMI2 by se konec kontroloval vždy (tohle se neměřilo, zkouška s tím počítá). */
   function huffStream(b, start, end, count, table, out, at) {
     const r = backReader(b, start, end, 'litend');
     const { sym, nb, maxBits } = table;
@@ -503,8 +510,10 @@
     return null;
   }
 
-  /** Hlavička rámce → {windowSize, contentSize|null, hasChecksum, headerLength}; chyba pro cokoli, co tenhle modul nepodporuje nebo co formát zakazuje. */
-  function readFrameHeader(b) {
+  /** Hlavička rámce → {windowSize, contentSize|null, hasChecksum, headerLength}; chyba (vždy ZstdError, u nebinárního vstupu s kódem 'input') pro cokoli, co tenhle modul nepodporuje nebo co formát zakazuje. */
+  function readFrameHeader(input) {
+    const b = toBytes(input);
+    if (!b) fail('Vstup není binární.', 'input');
     if (b.length < 6) fail('Rámec je useknutý (hlavička).');
     const magic = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
     if (magic !== MAGIC) fail('Chybí zstd magic.', 'magic');
@@ -544,7 +553,7 @@
   }
 
   /** decompressFrame(bytes, opts) → {data, length, blocks}: rozbalí PRÁVĚ JEDEN rámec od začátku. opts: {maxOutput (výchozí 16 MiB), exact (true = za rámcem nesmí být žádné bajty),
-      maxBlocks (nejvýš tolik bloků; platí menší z tohoto čísla a odvozeného stropu 1 blok na každý KiB povoleného výstupu + 16, kód chyby 'blocks')}.
+      maxBlocks (nejvýš tolik bloků; platí menší z tohoto čísla a odvozeného stropu ceil(výstup / 1 KiB) + 16, kde výstup je slíbená velikost obsahu, je-li v rámci, jinak maxOutput; kód chyby 'blocks')}.
       Kontrolní součet rámce se jen přeskočí (ověřuje ho volající). Chyba je vždy ZstdError (cizí výjimka se zabalí s kódem 'internal') a jakmile se začalo rozbalovat, nese e.blocks (kolik bloků se zpracovalo)
       a e.produced (kolik bajtů výstupu vzniklo), aby volající mohl započítat práci i za rámec, který nakonec selhal. */
   function decompressFrame(input, opts) {

@@ -99,7 +99,7 @@ Pozn.: „VÝPOČET“ v tabulkách znamená hodnotu spočtenou aplikací z vlo�
 - **Předpoklady:** atributy jsou celá čísla 1 až 20; role (klíčové a žádoucí atributy) pochází z profilu role z obrazovky nebo ručního zadání. Atribut role, který v tabulce skupiny není (třeba útočný atribut u brankáře), se nepočítá a je to vidět. **Chybí-li hráči atribut z tabulky, výsledek je „nedostupné“ (UNKNOWN), nikdy nula**; částečný výpočet jen na přání při aspoň 80 % váhy a je označený. Skryté údaje hry (CA, PA, osobnost, reputace) se nepoužijí.
 - **Omezení:** výsledek je odhad: tabulky kategorií nejsou ověřené proti enginu FM27 (**nikdy nezkoušeno proti skutečné hře**). Skupina pozic role se bere z nastavení u role, jinak z pozice místa v taktice, jinak z anglického názvu role; kde to nejde, role se nehodnotí a je to řečeno.
 - **Příklad (zkouška to počítá):** skupina útočník, role Poacher (klíčový Finishing, žádoucí Off The Ball), hráč má všechny atributy 10 kromě Finishing 16 a Off The Ball 14. V kategorii „extrémně důležitý“ jsou 3 atributy (Finishing, Acceleration, Pace), takže váha Finishing je 8 × 1,5 / 3 = **4,0**, Pace 8 / 3 = 2,667; Off The Ball je ve 4 „důležitých“: 4 × 1,2 / 4 = **1,2**. Σ w = 16,733, Σ w·hodnota = 196,133, minimum 16,733, maximum 334,667 → **skóre 56,4**. Hráč se samými 10 má 47,4 (= 9 / 19), se samými 20 má 100, se samými 1 má 0.
-- **Zkoušky:** `dwrs.test.mjs` (39), scénáře 20.
+- **Zkoušky:** `dwrs.test.mjs` (40), scénáře 20.
 
 ### M16. Správa vah DWRS: profily, přednastavení, porovnání (etapa 2)
 - **Co to je:** profil vah = váhy kategorií (hráči z pole i brankář), násobiče role, **kontextové násobiče atributů** (styl hry) a přesuny atributu do jiné kategorie. Přednastavení: Univerzální analytik (bez změn), Rychlostní fotbal, Poziční fotbal, Pressing, Protiútoky, Technický fotbal. Přednastavení jsou **kontextové násobiče** (např. Rychlostní: Pace a Acceleration ×1,5, Agility, Stamina, Work Rate ×1,2); posun kategorie se nepoužívá, protože by v kategorii zředil průměr.
@@ -112,7 +112,7 @@ Pozn.: „VÝPOČET“ v tabulkách znamená hodnotu spočtenou aplikací z vlo�
 - **Zdroj:** algoritmus je veřejný (Kuhn–Munkres); strategie „nejdřív základní sestava, pak nejlepší lavička“ a přísné pořadí je princip z FM Player Analyzer (GPL-3.0; jen myšlenka). **Štítek: SOURCE-BASED** (algoritmus a princip), **CUSTOM MODEL** (cíle, tajbrejk podle pořadí hráčů v soupisce).
 - **Předpoklady:** způsobilost podle pozic (přísně, nebo volně), místo bez profilu role se neobsazuje; hráč, kterého nejde ohodnotit (chybí atribut), se do sestavy nedostane a je v seznamu „mimo sestavu“ s důvodem. Model hodnocení: jednoduchý (M1) nebo DWRS (M15).
 - **Příklad (zkouška to počítá):** dvě místa (útočník, stoper) a hráči a1 (útočník, 100), a2 (stoper, 100), X (obojí: 80 jako útočník, 10 jako stoper), Y (útočník, 50). A = a1 + a2 = **200**. Lavička B: buď X na útočníka (80) a stoper prázdný (jedno obsazené místo), nebo Y na útočníka (50) a X na stopera (10): **dvě obsazená místa, součet 60**. Přednost má počet obsazených míst, takže B je 60, ne 80.
-- **Zkoušky:** `squadopt.test.mjs` (shoda s hrubou silou na 240 + 150 + 180 náhodných úlohách se zámky, vyřazením a zraněním, shoda se starou funkcí `assignBest`, příklady výše, mutační kontrola), scénáře 18 a 20.
+- **Zkoušky:** `squadopt.test.mjs` (shoda s hrubou silou na 240 + 150 + 180 náhodných úlohách se zámky, vyřazením a zraněním, shoda se starou funkcí `assignBest`, příklady výše), scénáře 18 a 20. Mutační kontrola modulu byla jednorázová a ruční při psaní kódu (záznam jen ve zprávě commitu f8d7ad8), skripty v repozitáři nejsou a v `squadopt.test.mjs` žádná mutační zkouška není.
 
 ### M18. Omezení: zámky, vyřazení, zranění (etapa 2)
 - **Pravidla:** **zámek** (uživatel dá hráče na místo A) drží vždycky, i mimo pozici (s příznakem „zamčeno uživatelem, nemá pozici místa“); zamčený hráč není nikde jinde ani v B. Zámek, který nejde použít (neznámé místo, hráč není v soupisce, je zraněný nebo vyřazený, je zamčený na dvou místech), se **nepřijme a aplikace to řekne**. **Zraněný** hráč (příznak v Můj tým) a **vyřazený** (volba na kartě sestavy) se do A ani B nedá a je v seznamu „mimo sestavu“. Únava je jen informace.
@@ -136,7 +136,7 @@ Pozn.: „VÝPOČET“ v tabulkách znamená hodnotu spočtenou aplikací z vlo�
 - **Štítek:** DWRS (ESTIMATED); prahy 12 a 9 a výběr tří jsou CUSTOM MODEL. Skupina pozic role: z nastavení u role, z použití v taktikách (jen když je jednoznačné), z anglického názvu; jinak se role nehodnotí.
 - **Zkoušky:** `dwrs.test.mjs`, `squadopt.test.mjs`, scénář 20.
 
-### M22. Podobní hráči (etapa 2, zatím bez obrazovky)
+### M22. Podobní hráči (etapa 2)
 - **Vzorec:** `vzdálenost = √(Σ w·(x − y)² / Σ w)` přes atributy s váhou DWRS pro skupinu pozic; `podobnost = 100 · (1 − vzdálenost / 19)`. Hráč, kterému chybí atribut s váhou, se neřadí (je zvlášť v `unknown`), cíl bez atributů vrací chybu, nic se nehádá.
 - **Štítek: CUSTOM MODEL** (míra podobnosti je vlastní). Funkce je v modulu a zkoušená (`squadopt.test.mjs`); v aplikaci ji používá přestupový poradce (M28: nejpodobnější kandidáti hráči, který by odešel).
 
@@ -144,7 +144,7 @@ Pozn.: „VÝPOČET“ v tabulkách znamená hodnotu spočtenou aplikací z vlo�
 - **Co:** cizí hráč, kterého zadal uživatel (ručně nebo z exportu tabulky): jméno (2 až 60 znaků), věk 14 až 50, pozice jako kódy 1 až 4 písmen (nejvýš čtyři), viditelné atributy (celá čísla 1 až 20, nejvýš 40; skryté názvy se nepřevezmou), klub, cena a mzda, měna (nejvýš čtyři znaky), konec smlouvy, poznámka, původ (ručně, nebo tabulka a soubor) a jednání (stav, platnost, poznámka). Pole CA, PA, potenciál, osobnost a reputace se nikdy nepřevezmou a je to řečeno.
 - **Čtení částky** (`parseMoney`): přečte jednu čitelnou částku. Číslo, zkratky K, M, B, „tis.“, „mil.“, „mld.“ a slova thousand, million, billion; oddělovače tisíců (mezera, tečka, čárka, apostrof) jen po skupinách po třech číslicích a jen jednoho druhu; ve zkratce je oddělovač desetinný („€12,5M“). Měna (€, £, $, Kč, CZK, EUR, GBP, USD) se jen zapíše a nepřepočítává. Rozsah („€25M - €30M“), slovo („neprodejný“), nejednoznačný zápis („12.5“, „1.234,567“) a hodnota nad 10¹⁰ dají **neznámou částku** (u rozsahu a nejednoznačného zápisu s důvodem): nic se neodhaduje a neznámá cena není nula. Mzda se čeká týdenní: roční („p/a“, „ročně“) se nepřepočítá (nepřevzato s důvodem); u ceny se údaj o období odmítne.
 - **Štítek:** údaje jsou „zadal uživatel“ (ne ověřeno hrou); pravidla čtení částky jsou vlastní pravidla aplikace, ne formát žádného nástroje.
-- **Zkoušky:** `recruit.test.mjs` (tabulky zápisů částek, normalizace, čtení z CSV, mutace modulu), scénář 22.
+- **Zkoušky:** `recruit.test.mjs` (tabulky zápisů částek, normalizace, čtení z CSV), scénář 22. Mutační kontrola modulu byla jednorázová a ruční při psaní kódu (záznam jen ve zprávě commitu 67f3629), skripty v repozitáři nejsou a v `recruit.test.mjs` žádná mutační zkouška není.
 
 ### M24. Dopad příchodu, odchodu a výměny na sestavu (etapa 3)
 - **Vzorec:** `dopad A = součet A po − součet A před` (stejně B), kde „po“ je sestava A + B znovu spočtená v jedné úloze (M17) s kandidátem navíc (příchod), bez hráče (odchod) nebo s obojím (výměna), a se stejnými omezeními (zámky, vyřazení, zranění). Je to přesný rozdíl dvou optim, ne odhad postupu.
@@ -156,7 +156,7 @@ Pozn.: „VÝPOČET“ v tabulkách znamená hodnotu spočtenou aplikací z vlo�
 - **Pořadí na celý tým:** 1. dopad na součet A sestupně, 2. dopad na součet B, 3. nejlepší vhodnost na některé místo, 4. jméno; kdo nejde ohodnotit, je na konci s důvodem (ne s nulou). **Na jedno místo:** 1. vhodnost na roli místa, potom jako celý tým.
 - **Filtry:** věk, cena, mzda (neznámou hodnotu kandidáta nechá s příznakem „neznámá“, nebo na přání vyřadí), pozice (kandidát bez uvedené pozice se nevyřadí), stav jednání (výchozí jen otevřená), jméno, vyřazení. Nejvýš 200 kandidátů, výchozích 50 řádků.
 - **Potřeby (`needs`):** neobsazená a slabá místa (M3) a tenká nebo chybějící hloubka (M20), bez vlastních prahů.
-- **Štítek:** pořadí a filtry CUSTOM MODEL, čísla ESTIMATED (viz M24).
+- **Štítek:** pořadí a filtry CUSTOM MODEL, čísla podle zvoleného modelu (viz M24).
 
 ### M26. Doporučení a úspěšnost podle hodnocení uživatele (etapa 3)
 - **Co:** doporučení je záznam s kandidátem, místem, modelem, doklady (řádky s čísly z výpočtu), očekávaným dopadem a prázdným výsledkem. Výsledek zapíše uživatel později: rozhodnutí (koupeno, nekoupeno, nepodařilo se získat), u koupeného hodnocení (dopadlo dobře, bez většího vlivu, dopadlo špatně) a poznámku.

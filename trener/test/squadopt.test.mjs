@@ -736,7 +736,7 @@ test('summaryLines: model, každé místo, součty, zámek, zranění a nápis, 
 });
 
 // ---------------------------------------------------------------- zdroj
-test('zdroj: žádný DOM, žádná síť, žádné skryté údaje, žádný neviditelný znak, čistá funkce bez Math.random a Date', () => {
+test('zdroj: žádný DOM, žádná síť, žádné skryté údaje, žádný řídicí ani přepínací znak (úplné hlídání neviditelných znaků je v sanitize.test.mjs), čistá funkce bez Math.random a Date', () => {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(code, /document\.|window\.|fetch\(|XMLHttpRequest|localStorage/);
   assert.doesNotMatch(code, /Math\.random|Date\.now|new Date/);

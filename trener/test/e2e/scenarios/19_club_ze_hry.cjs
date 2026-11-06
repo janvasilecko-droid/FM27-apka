@@ -177,7 +177,8 @@ module.exports = async function run(env) {
   await until(async () => (await careerOf(ps)) !== null);
   const k3 = await careerOf(ps);
   check('19 kariéra z pluginu: klub a soutěž jsou „zadal uživatel“ s označením nástroje fmmatchlens, sezóna je zadání uživatele', k3 && k3.club === 'Chelsea' && k3.prov.club === 'user_entered' && k3.prov.competition === 'user_entered' && k3.prov.season === 'user_entered' && k3.via === 'fmmatchlens', k3);
-  const stored = await ps.evaluate(() => ({ players: window.FM27.app.store.list('player').length, career: JSON.stringify(window.FM27.app.career()) }));
+  // časová značka vzniku a náhodné id se z kontroly vynechají (mohly by náhodou obsahovat hledané číslice)
+  const stored = await ps.evaluate(() => { const { createdAt, id, ...rest } = window.FM27.app.career(); return { players: window.FM27.app.store.list('player').length, career: JSON.stringify(rest) }; });
   check('19 z pluginu se nebere nic než název týmu a soutěž: žádní hráči, žádné skryté údaje (CA/PA) v kariéře', stored.players === 0 && !/9876|8765|Finishing|currentAbility/.test(stored.career), stored);
 
   // druhá kariéra z hlavičky: z dat se nepozná, který tým je můj → vybírá uživatel

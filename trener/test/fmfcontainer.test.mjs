@@ -554,14 +554,27 @@ test('meze kontejneru proti nepřátelskému souboru platí na bajt přesně: so
   const edgeE = (await read(withThird(16 * MiB))).entries.find((e) => e.ext === '.img');
   assert.doesNotMatch(edgeE.issues.join(';'), /by přesáhl/);
   assert.match(edgeE.issues.join(';'), /nesedí s manifestem/);
-  // součet: dva záznamy po 12 MiB skutečně rozbalené a třetí, který by součet přivedl přes 32 MiB, se před rozbalením odmítne; přesně na 32 MiB ještě ne
+  // součet: .tac a dva záznamy po 12 MiB se skutečně rozbalí a třetí, který by součet přivedl o jediný bajt přes 32 MiB, se před rozbalením odmítne; o bajt míň (přesně na 32 MiB) ještě ne
   const big12 = (name) => ({ dir: '', name, ext: '.bin', content: Buffer.alloc(12 * MiB) });
-  const over = await read(buildFmf({ title: TITLE, resources: [tacRes, big12('a'), big12('b'), { ...imgRes, third: 8 * MiB + 1 }] }, 3).file);
+  const over = await read(buildFmf({ title: TITLE, resources: [tacRes, big12('a'), big12('b'), { ...imgRes, third: 8 * MiB - tacRes.content.length + 1 }] }, 3).file);
   const [, oa, ob, oc] = over.entries;
   assert.ok(oa.ok && ob.ok, JSON.stringify([oa.issues, ob.issues]));
   assert.match(oc.issues.join(';'), /by přesáhl povolenou velikost/);
   const edge = await read(buildFmf({ title: TITLE, resources: [tacRes, big12('a'), big12('b'), { ...imgRes, third: 8 * MiB - tacRes.content.length }] }, 3).file);
   assert.doesNotMatch(edge.entries[3].issues.join(';'), /by přesáhl/);
+  // strop, který kontejner předává rozbalovači: manifest dostane 1 MiB, záznam svou slíbenou velikost, nejméně 1 B (nulu by dekodér bral jako neplatný strop a použil výchozích 16 MiB)
+  const caps = [];
+  const inner = G.makeFrameDecompressor(Z);
+  const spy = { ...deps, zstd: (bytes, maxOut) => { caps.push(maxOut); return inner(bytes, maxOut); } };
+  const emptyRes = { dir: '', name: 'empty', ext: '.bin', content: Buffer.alloc(0) };
+  const spied = await C.decode(new Uint8Array(buildFmf({ title: TITLE, resources: [tacRes, imgRes, emptyRes] }, 3).file), spy);
+  assert.equal(spied.ok, true, JSON.stringify(spied.issues));
+  assert.deepEqual(caps, [MiB, tacRes.content.length, imgRes.content.length, 1]);
+  // rámec, který vydá víc, než manifest slibuje, se zastaví na slíbené velikosti: rozbalovač dostane strop podle manifestu a vyhodí chybu, výstup se nepřijme
+  const lied = (await read(buildFmf({ title: TITLE, resources: [tacRes, { ...imgRes, third: imgRes.content.length - 1 }] }, 3).file)).entries.find((e) => e.ext === '.img');
+  assert.equal(lied.ok, false);
+  assert.equal(lied.content, null);
+  assert.match(lied.issues.join(';'), /rozbalení selhalo: Rozbalený obsah přesáhl povolenou velikost/);
   // počet souborů v manifestu: 64 ještě ano, 65 ne
   const many = (n) => buildFmf({ title: TITLE, resources: [tacRes, ...Array.from({ length: n - 1 }, (_, k) => ({ dir: '', name: 'f' + k, ext: '.bin', content: Buffer.from('x') }))] }, 3).file;
   assert.equal((await read(many(64))).entries.length, 64);
@@ -603,7 +616,7 @@ test('decode: soubor s mnoha záznamy z drahých rámců vadných až na konci s
 
 test('decode: soubor se 64 záznamy, z nichž každý vydá skoro 16 MiB a selže až na konci, se dočte za několik sekund: rozpočet výstupu platí i pro rámce, které selžou', async () => {
   const ZB = require('./fixtures/zstd_builders.cjs');
-  // jeden rámec má jen asi 1,5 KB a vydá 16 646 190 B ze samých tříbajtových sekvencí; hlavička slibuje o sedm bajtů víc, takže dekodér udělá všechnu práci a selže až na posledním kroku
+  // jeden rámec má jen asi 1,8 KB a vydá 16 646 190 B ze samých tříbajtových sekvencí; hlavička slibuje o sedm bajtů víc, takže dekodér udělá všechnu práci a selže až na posledním kroku
   const frame = ZB.seqBombFrame(127);
   assert.ok(frame.length < 2000, String(frame.length));
   const resources = Array.from({ length: 64 }, (_, i) => ({ dir: '', name: i === 0 ? TITLE : 'z' + i, ext: i === 0 ? '.tac' : '.img', frame, third: 16 * 1024 * 1024 }));
@@ -768,7 +781,7 @@ test('věty pro obrazovku: skloňování počtu, věta o zdroji (s klíčem a IV
 });
 
 // ---------------------------------------------------------------- zdroj
-test('zdroj: čistý modul (žádný DOM, síť, úložiště, náhoda ani čas) a bez neviditelných znaků', () => {
+test('zdroj: čistý modul (žádný DOM, síť, úložiště, náhoda ani čas) a bez řídicích a přepínacích znaků (úplné hlídání neviditelných znaků je v sanitize.test.mjs)', () => {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(code, /document\.|window\.|fetch\(|XMLHttpRequest|localStorage|Math\.random|Date\.now|new Date|crypto\.subtle|require\(/);
   // eslint-disable-next-line no-control-regex

@@ -37,6 +37,10 @@
 ["bez dekodéru jiná zpráva", "throw new Error('Rozbalení zstd není k dispozici.');", "throw new Error('x');"],
 ["bez dekodéru se rozbaluje dál", "if (!okZstd(zstd)) throw new Error('Rozbalení zstd není k dispozici.');", ""],
 ["za rámcem smí být bajty", "exact: true, maxBlocks: blockBudget }", "exact: false, maxBlocks: blockBudget }"],
-["limitOf: neplatný strop se přijme", "Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"],
-["limitOf: desetinný strop se nezaokrouhlí", "Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut > 0 ? maxOut : DEFAULT_MAX_OUT"]
+["limitOf: neplatný strop se přijme", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"],
+["limitOf: desetinný strop se nezaokrouhlí", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut >= 1 ? maxOut : DEFAULT_MAX_OUT"],
+["limitOf: strop pod 1 se zaokrouhlí na nulu (dřívější mez > 0)", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"],
+["limitOf: nula se přijme jako strop", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut >= 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"],
+["limitOf: strop 1 B se bere jako neplatný", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut > 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT"],
+["limitOf: necelý strop se zaokrouhlí nahoru", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT", "Number.isFinite(maxOut) && maxOut >= 1 ? Math.ceil(maxOut) : DEFAULT_MAX_OUT"]
 ]

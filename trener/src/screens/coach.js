@@ -82,7 +82,16 @@
       onStep: (id, cls, note) => stepsUi.set(id, cls, note),
     });
     run = null;
-    setBusy(false);
+    try {
+      await showResult(app, res, question);
+    } finally {
+      // tlačítka se uvolní až po uložení a vykreslení výsledku: jinak by se dalo (a zkoušky v prohlížeči to dělaly) sáhnout na výsledek dřív, než je vidět
+      setBusy(false);
+    }
+  }
+
+  /** Výsledek jedné rady: zastavení, odchod z obrazovky, chybová hlášení, uložení do historie a vykreslení. */
+  async function showResult(app, res, question) {
     if (res.status === 'cancelled') {
       stepsUi.set('advice', 'fail', 'zastaveno');
       toast('Zastaveno.');

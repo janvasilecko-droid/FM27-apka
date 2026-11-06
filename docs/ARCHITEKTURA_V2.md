@@ -71,7 +71,9 @@ Vychází z `trener/src/core.js` (zdroj pravdy) a ze zadání § 12, § 16, § 1
 ## 4. Datový model
 
 Každý uložený dokument: `{id, type, careerId?, updatedAt, deleted?, data}`; `type` ∈ `career`, `player`, `tactic`, `match`, `opponent`, `memory`,
-`progress`, `settings`, `advice`, `source`. Id jsou `[a-z0-9]` (kvůli cestám v `db`). Úložiště (`store.js`) řeší lokální uložení
+`progress`, `settings`, `advice`, `source`, `roleprofile`, `weightprofile`, `candidate`, `recommendation` (závazný seznam je `TYPES` v `trener/src/store.js`; tvar prvních deseti
+je rozepsaný níže, `weightprofile`, `candidate` a `recommendation` popisuje `docs/PLAN_ROZSIRENI.md`, část 2, a metodika M16, M23 a M26 v `docs/ANALYTICS_METHODOLOGY.md`, `roleprofile` je profil role z M1).
+Id jsou `[a-z0-9]` (kvůli cestám v `db`). Úložiště (`store.js`) řeší lokální uložení
 (IndexedDB `fm27-data`) a zrcadlení do `db`: jeden dokument na entitu, klíč `type_id`, poslední zápis vyhrává podle `updatedAt`, smazání
 je náhrobek bez dat, dokument nejvýš 240 kB, zápisy se slučují a řadí, vzdálené změny přicházejí jedním `onSnapshot`.
 **Texty knih a lekce z nich se nesynchronizují**: knihy jsou v IndexedDB `fm27-trener` (schéma z první verze se nemění), lekce v `localStorage`
@@ -204,7 +206,7 @@ opponent.js   FIELDS, profileToObservations, buildPlanTurns, searchSeeds, valida
 report.js     buildReportTurns, validateReport (zákaz příčinných slov, povinná opatrná formulace, kontrola změn), reportToText
 labexplain.js buildExplainTurns, validateExplain   // vysvětlení rozestavení: jen z geometrických nálezů, o chování hráčů ve FM27 nic netvrdí
 zstd.js       decompress, decompressFrame, readFrameHeader        // vlastní dekodér zstd (RFC 8878): bez závislostí, se stropy výstupu, bloku, okna a počtu bloků
-fmfglue.js    makeFrameDecompressor, makeFirstFrameDecompressor, makeWebAesCtr   // lepidlo čteček .fmf: přesně jeden rámec (s rozpočtem bloků na soubor) / první rámec (nejvýš 64 bloků), AES-CTR přes WebCrypto
+fmfglue.js    makeFrameDecompressor, makeFirstFrameDecompressor, makeWebAesCtr   // lepidlo čteček .fmf: přesně jeden rámec (s rozpočty bloků a výstupu na jedno čtení souboru) / první rámec (nejvýš 64 bloků), AES-CTR přes WebCrypto
 ```
 
 Rozhraní AI v prohlížeči (`ai.js`): `FM27.ai.structured({turns, validate, tier, images, signal, purpose, onStep})` → `{status: 'ok'|'needs_more_info', value, verdict}`;
@@ -240,5 +242,14 @@ je v akceptační matici označeno výslovně i s kroky pro majitele.
   rozdíl, limity za hodinu a za zápas). Skryté nebo zakryté okno prohlížeč zpomaluje; aplikace na to upozorní, obejít to neumí.
 - **Hlas a oznámení** (`voice.js`): `speechSynthesis` (česky), `SpeechRecognition` (jen samostatná verze), `Notification` jen při skrytém okně a
   jen pro důležité upozornění. Oznámení na zavřený telefon (push) nejsou: potřebovala by server.
-- **Nasazení**: `.github/workflows/pages.yml` (ruční spuštění): testy jádra, `STRICT=1` sestavení, nahrání `trener/dist/standalone`, nasazení na Pages.
+- **Nasazení**: `.github/workflows/pages.yml` se spouští ručně a automaticky po pushi na `main`, když se změní `trener/**`, `reference/codex-2026-11-01/**` (čtou je sestavení a zkoušky jádra), `ai_gateway/costs.py`
+  (zkouška ceníku v `trener/test/providers.test.mjs` ho porovnává s ceníkem v JS) nebo samotné workflow. Kroky: testy jádra (`node --test trener/test/*.test.mjs`), `STRICT=1` sestavení, nahrání `trener/dist/standalone`
+  a nasazení na Pages. **Věštírna libzstd se v bráně nasazení nepoužije**: testy jádra tam běží s `ZSTD_ORACLE_PYTHON=/nonexistent/python`, takže se porovnání s libzstd přeskočí. Důvod: systémový `python3` na runneru má
+  balíček `zstandard` nepřipnuté verze a změna obrazu runneru by mohla zablokovat nasazení bez jakékoli změny v repozitáři.
+- **Porovnání dekodéru zstd s libzstd**: samostatné workflow `.github/workflows/zstd-oracle.yml` se spouští ručně a po pushi na `main`, když se změní `trener/src/zstd.js`, `trener/src/fmfglue.js`, `trener/test/zstd.test.mjs`,
+  `trener/test/fixtures/zstd_*` nebo samotné workflow. Nainstaluje Python balíček `zstandard==0.25.0` (libzstd 1.5.7, na které se zkoušky ladily) a pustí `trener/test/zstd.test.mjs` s povinnou věštírnou
+  (`ZSTD_ORACLE_REQUIRED=1`): bez balíčku nebo při selhání věštírny zkouška selže, nepřeskočí se. Na nasazení stránky nemá vliv (a nasazení na ní nezávisí).
+- **Co v CI neběží**: Pythonové zkoušky (`ai_gateway`, `fmf_research`, včetně hlídání klíčů v repozitáři) a zkoušky v prohlížeči (Playwright); pouštějí se ručně (`trener/README.md`, `README.md`).
+- **Známé omezení CI (neopraveno)**: GitHub při každém běhu varuje, že akce `actions/checkout@v4`, `actions/setup-node@v4`, `actions/setup-python@v5`, `actions/upload-pages-artifact@v3` a `actions/deploy-pages@v4` míří
+  na zastaralé Node.js 20 a že je runner nuceně spouští na Node.js 24. Běhy procházejí, ale spoléhají na toto přechodové chování runneru. Verze akcí se zatím nezměnily, protože novější hlavní verze nešlo ověřit.
 

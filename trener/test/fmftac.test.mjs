@@ -589,7 +589,7 @@ test('skutečné exporty z FM27 (FMF_SAMPLES_DIR): celý payload taktiky se pře
 });
 
 // ---------------------------------------------------------------- zdroj
-test('zdroj: čistý modul (žádný DOM, síť, úložiště, náhoda ani čas) a bez neviditelných znaků', () => {
+test('zdroj: čistý modul (žádný DOM, síť, úložiště, náhoda ani čas) a bez řídicích a přepínacích znaků (úplné hlídání neviditelných znaků je v sanitize.test.mjs)', () => {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(code, /document\.|window\.|fetch\(|XMLHttpRequest|localStorage|Math\.random|Date\.now|new Date|crypto\.subtle|require\(/);
   // eslint-disable-next-line no-control-regex

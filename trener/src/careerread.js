@@ -52,7 +52,7 @@ Odpověz POUZE JSON objektem:
       issues.push(`${what}: hodnota není text, nepřebírá se.`);
       return null;
     }
-    const t = value.replace(/[ \t ]+/g, ' ').trim();
+    const t = value.replace(/[ \t\u00a0]+/g, ' ').trim();
     if (!t) return null;
     if (CONTROL.test(t)) {
       issues.push(`${what}: obsahuje zalomení nebo řídicí znaky, nevypadá jako název, nepřebírá se.`);

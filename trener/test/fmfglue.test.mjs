@@ -130,6 +130,14 @@ test('strop výstupu: bez maxBytes (nebo s vadným) platí výchozí strop 16 Mi
   assert.throws(() => G.makeFrameDecompressor(Z)(small, 999), (e) => e.code === 'limit');
   assert.equal(G.makeFrameDecompressor(Z)(small, 1000.9).length, 1000, 'necelý strop se zaokrouhlí dolů');
   assert.throws(() => G.makeFrameDecompressor(Z)(small, 999.9), (e) => e.code === 'limit');
+  assert.throws(() => G.makeFrameDecompressor(Z)(small, 1), (e) => e.code === 'limit', 'strop 1 B je skutečný strop, ne výchozí');
+  assert.throws(() => G.makeFrameDecompressor(Z)(small, 1.9), (e) => e.code === 'limit', 'necelý strop nad 1 se zaokrouhlí dolů na 1 B');
+  // vadný nebo necelý strop pod 1 znamená výchozí strop (16 MiB), a ten se dál zkracuje rozpočtem výstupu; kdyby se 0,5 zaokrouhlilo na nulu, dekodér by nulu bral jako neplatnou a rozpočet by se neuplatnil
+  for (const bad of [undefined, null, 0, 0.5, 0.999, -1, NaN, 'x', Infinity]) {
+    assert.equal(G.makeFrameDecompressor(Z)(small, bad).length, 1000, 'výchozí strop, ' + String(bad));
+    assert.throws(() => G.makeFrameDecompressor(Z, { maxTotalOutput: 500 })(small, bad), (e) => e.code === 'limit', 'rozpočet 500 B je menší než obsah 1000 B, strop ' + String(bad));
+  }
+  for (const bad of [0.5, 0.999]) assert.equal(G.makeFirstFrameDecompressor(Z)(small, bad).length, 1000, 'první rámec: strop ' + bad + ' je výchozí');
 });
 
 test('rozpočet výstupu: výstup všech rámců jednoho souboru dohromady je omezený, i s rámci, které selžou; zbytek rozpočtu je strop pro další rámec', () => {
@@ -146,10 +154,14 @@ test('rozpočet výstupu: výstup všech rámců jednoho souboru dohromady je om
   assert.throws(() => y(bad, 1 << 20), (e) => /před začátek výstupu/.test(e.message) && e.produced === 1000);
   assert.throws(() => y(bad, 1 << 20), (e) => e.code === 'limit' && e.produced === 1000); // zbývalo přesně 1000 B: vydají se a další blok už se nevejde
   assert.throws(() => y(bad, 1 << 20), /příliš mnoho dat dohromady/, 'rozpočet je vyčerpaný selhanými rámci');
-  // zbytek rozpočtu je strop pro další rámec: rámec, který by vydal víc, narazí na zbytek (kód limit) a tím se rozpočet vyčerpá
+  // zbytek rozpočtu je strop pro další rámec: rámec, který by vydal víc, narazí na zbytek (kód limit) a účtuje se jen to, co stihl vydat;
+  // rozpočet se vyčerpá, jen když rámec stihl vydat celý zbytek
   const x = G.makeFrameDecompressor(Z, { maxTotalOutput: 1500 });
   assert.equal(x(kib, 1 << 20).length, 1024);
-  assert.throws(() => x(B.zframe([{ rle: [0x42, 512] }, { rle: [0x42, 512] }]), 1 << 20), (e) => e.code === 'limit' && e.produced === 0); // zbývá 476 B a první blok má 512
+  assert.throws(() => x(B.zframe([{ rle: [0x42, 512] }, { rle: [0x42, 512] }]), 1 << 20), (e) => e.code === 'limit' && e.produced === 0); // zbývá 476 B a první blok má 512: nevydalo se nic, nic se neúčtuje
+  assert.equal(x(B.zframe([{ rle: [0x42, 100] }]), 1 << 20).length, 100, 'rozpočet se nevyčerpal: zbývalo 476 B, vydalo se 100');
+  assert.throws(() => x(B.zframe([{ rle: [0x42, 376] }, { rle: [0x42, 1] }]), 1 << 20), (e) => e.code === 'limit' && e.produced === 376); // zbývá 376 B: vydají se a další blok už se nevejde
+  assert.throws(() => x(B.zframe([{ rle: [0x42, 1] }]), 1 << 20), /příliš mnoho dat dohromady/, 'celý zbytek je vydaný, rozpočet je vyčerpaný');
   // chyba, která dekodér zastaví dřív, než cokoli vydá (hlavička), výstup neúčtuje: řada vadných hlaviček rozpočet výstupu nespotřebuje
   const h = G.makeFrameDecompressor(Z, { maxTotalOutput: 2048 });
   for (let i = 0; i < 5; i++) assert.throws(() => h(Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]), 100), (e) => e.code === 'magic' && e.produced === undefined);

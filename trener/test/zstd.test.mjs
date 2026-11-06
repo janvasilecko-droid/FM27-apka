@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import zlib from 'node:zlib';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const Z = require('../src/zstd.js');
@@ -56,16 +57,20 @@ const ours = (frame, opts) => {
 };
 const same = (a, b) => a !== null && b !== null && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0;
 /** Přísná věštírna (libzstd přes Python `zstandard`, viz fixtures/zstd_oracle.py): pole null (odmítnuto) nebo Uint8Array. Bez Pythonu a balíčku vrací null a zkoušky, které ji potřebují, se přeskočí.
+    S ZSTD_ORACLE_REQUIRED=1 je věštírna povinná v KAŽDÉ zkoušce, která se jí ptá (i když se zkouška vybere samostatně přes --test-name-pattern): chybějící nebo selhávající věštírna pak zkoušku shodí.
     Jakmile se věštírna při zkoušce dostupnosti osvědčila (oracleWorked), je její selhání na další dávce chyba zkoušky, ne důvod k přeskočení: jinak by se při pádu Pythonu nebo nedostatku paměti
-    tiše přeskočila všechna porovnání s libzstd, a to i s ZSTD_ORACLE_REQUIRED=1. */
+    tiše přeskočila všechna porovnání s libzstd. `probing` je jediný dotaz při načtení souboru, který zjišťuje dostupnost a nikdy nehází. */
+const REQUIRED = process.env.ZSTD_ORACLE_REQUIRED === '1';
+const ORACLE_SCRIPT = fileURLToPath(new URL('./fixtures/zstd_oracle.py', import.meta.url));
 let oracleWorked = false;
-function oracle(frames) {
+function oracle(frames, probing) {
   const py = process.env.ZSTD_ORACLE_PYTHON || 'python3';
-  const r = spawnSync(py, [new URL('./fixtures/zstd_oracle.py', import.meta.url).pathname], { input: frames.map((f) => Buffer.from(f).toString('hex')).join('\n') + '\n', encoding: 'utf8', maxBuffer: 1 << 29, timeout: 300000 });
   const fail = (why) => {
-    if (oracleWorked) throw new Error(`věštírna selhala na dávce ${frames.length} rámců: ${why}`);
+    if (!probing && (oracleWorked || REQUIRED)) throw new Error(`věštírna ${oracleWorked ? 'selhala' : 'není k dispozici'} na dávce ${frames.length} rámců: ${why}`);
     return null;
   };
+  if (!existsSync(ORACLE_SCRIPT)) return fail('chybí skript věštírny ' + ORACLE_SCRIPT);
+  const r = spawnSync(py, [ORACLE_SCRIPT], { input: frames.map((f) => Buffer.from(f).toString('hex')).join('\n') + '\n', encoding: 'utf8', maxBuffer: 1 << 29, timeout: 300000 });
   if (r.error || r.status !== 0) return fail(r.error ? String(r.error) : `stav ${r.status}, ${String(r.stderr || '').slice(0, 300)}`);
   const lines = r.stdout.split('\n');
   lines.pop();
@@ -76,7 +81,7 @@ function oracle(frames) {
 const TOLERATED = ['litend', 'window', 'blocksize'];
 /** Věštírna je k dispozici, když na jednom malém rámci odpoví správně. */
 const ORACLE_PROBE = (() => {
-  const w = oracle([zframe([{ raw: Buffer.from('ahoj') }])]);
+  const w = oracle([zframe([{ raw: Buffer.from('ahoj') }])], true);
   return !!(w && w[0] && Buffer.from(w[0]).toString() === 'ahoj');
 })();
 oracleWorked = ORACLE_PROBE;
@@ -98,14 +103,14 @@ test('věštírna (libzstd přes Python balíček zstandard) je k dispozici; bez
 });
 
 // ---------------------------------------------------------------- shoda s libzstd
-test('rozbalení shodné s libzstd: sedm druhů dat × délky kolem hranic bloků × úrovně 1, 3, 9, 19 a 22, s kontrolním součtem i bez', () => {
+test('rozbalení shodné s libzstd: sedm druhů dat × délky kolem hranic bloků × úrovně 1, 3, 9, 19, 20, 21 a 22, s kontrolním součtem i bez', () => {
   const r = rng(1);
   let cases = 0;
   for (const kind of ['zeros', 'same', 'random', 'text', 'skewed', 'records', 'mixed']) {
     for (const n of [0, 1, 2, 3, 7, 31, 127, 128, 129, 255, 256, 1000, 4096, 20000, 131071, 131072, 131073, 300000]) {
       if ((kind === 'random' || kind === 'mixed') && n > 131073) continue;
       const input = gen[kind](n, r);
-      const level = [1, 3, 9, 19, 22][cases % 5];
+      const level = [1, 3, 9, 19, 20, 21, 22][cases % 7];
       const frame = compress(input, { [C.ZSTD_c_compressionLevel]: level, [C.ZSTD_c_checksumFlag]: cases % 2, [C.ZSTD_c_contentSizeFlag]: (cases >> 1) % 2 });
       const out = ours(frame);
       assert.ok(same(out, input), `${kind} ${n} B, úroveň ${level}: výstup se liší nebo je chyba`);
@@ -173,7 +178,9 @@ function hasFourStreamLiterals(f) {
       se pošle věštírně znovu a ta ho musí přijmout a dát stejný výstup (jinak by součet jen zakryl jiný důvod odmítnutí);
     - co oba přijmou, vyjde bajt po bajtu stejně;
     - co libzstd přijme a my ne, smí být jen ze tří pozorovaných důvodů, v nichž je libzstd 1.5.7 shovívavější než specifikace (u nás každý má svůj kód chyby): 'litend' (konec proudu čtyřproudých literálů, na rychlé cestě
-      se nekontroluje ani koncová značka), 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti) a 'blocksize' (blok větší než okno, když rámec uvádí velikost obsahu).
+      se nekontroluje ani koncová značka: každý ze čtyř proudů má aspoň 8 bajtů a strom kódy nejvýš 11 bitů), 'window' (odkaz dál než okno rámce, když data ještě drží ve vyrovnávací paměti) a 'blocksize' (blok větší než okno,
+      když rámec uvádí velikost obsahu, která se vejde do výstupní paměti volajícího; věštírna má 128 KiB). Další tři odchylky (okno nad 2^27 + 1 při uvedené velikosti, velikost obsahu 2^64−1, váhy přes FSE) náhodné poškození
+      nezasáhne, a proto se tu netolerují a zkoušejí se přímo (zkouška „další odchylky od libzstd“).
       U sekvencí žádnou shovívavost nemá: nepřečtené bity i čtení za začátek proudu odmítá stejně jako my (kódy 'inexact' a 'overread' tedy v tomto seznamu nejsou).
     Vrací počty případů. */
 function judge(frames, want) {
@@ -208,7 +215,7 @@ function judge(frames, want) {
       if (got) assert.ok(same(got, want[it]), `iterace ${it}: libzstd přijal, ale výstup se liší: ${shown}`);
       else {
         assert.ok(TOLERATED.includes(code), `iterace ${it}: libzstd přijal, my jsme odmítli z jiného důvodu než jeho pozorovaná shovívavost (${code}): ${shown}`);
-        // shovívavost u konce proudu literálů pozorujeme jen u čtyř proudů; u jednoho proudu libzstd konec kontroluje (na 32 000 poškozených rámcích žádná výjimka)
+        // shovívavost u konce proudu literálů pozorujeme jen u čtyř proudů; u jednoho proudu libzstd konec kontroluje (v měřených dávkách žádná výjimka)
         if (code === 'litend') assert.ok(hasFourStreamLiterals(f), `iterace ${it}: libzstd přijal pokažený konec proudu literálů v rámci bez čtyřproudých literálů: ${shown}`);
         c.endClass++;
       }
@@ -223,7 +230,7 @@ function judge(frames, want) {
 }
 
 // ---------------------------------------------------------------- shovívavost libzstd, na které stojí tolerance v judge
-test('shovívavosti libzstd 1.5.7, které toleruje porovnávací pomůcka (odkaz za okno, blok větší než okno u rámce s velikostí obsahu, pokažený konec čtyřproudých literálů, když má každý proud aspoň 8 bajtů): my je odmítneme se svým kódem, libzstd je přijme (druhá polovina potřebuje věštírnu)', () => {
+test('shovívavosti libzstd 1.5.7, které toleruje porovnávací pomůcka (odkaz za okno, blok větší než okno u rámce s uvedenou velikostí obsahu do 128 KiB, pokažený konec čtyřproudých literálů, když má každý proud aspoň 8 bajtů a strom kódy nejvýš 11 bitů): my je odmítneme se svým kódem, libzstd je přijme (druhá polovina potřebuje věštírnu)', () => {
   const cases = []; // [název, rámec, kód chyby u nás, délka výstupu libzstd nebo null (odmítne)]
   // odkaz za okno: okno 1 KiB (wd 0), historie 2000 B ze dvou surových bloků, posun 1025 a 1500
   const hist = [{ raw: Buffer.alloc(1000, 1) }, { raw: Buffer.alloc(1000, 2) }];
@@ -234,14 +241,25 @@ test('shovívavosti libzstd 1.5.7, které toleruje porovnávací pomůcka (odkaz
   };
   cases.push(['odkaz za okno (posun 1025)', seqAt(1025), 'window', 2003]);
   cases.push(['odkaz za okno (posun 1500)', seqAt(1500), 'window', 2003]);
-  // blok větší než okno: okno 1 KiB, rámec uvádí velikost obsahu 1025 (dvoubajtové pole: hodnota − 256 = 769); bez uvedené velikosti libzstd odmítne
+  // blok větší než okno: okno 1 KiB, rámec uvádí velikost obsahu 1025 (dvoubajtové pole: hodnota − 256 = 769); bez uvedené velikosti libzstd odmítne. Shovívavost je vlastnost jednoprůchodové zkratky libzstd:
+  // platí, jen když uvedená velikost nepřevyšuje výstupní paměť volajícího (u věštírny 128 KiB = 131 072 B); u větší uvedené velikosti libzstd stejný vadný blok odmítne (poslední případ této skupiny)
   const withSize = [0x40, 0x00, 769 & 255, 769 >> 8];
   cases.push(['surový blok 1025 B u okna 1 KiB, velikost obsahu uvedena', zframe([{ raw: Buffer.alloc(1025, 7) }], { head: withSize }), 'blocksize', 1025]);
   cases.push(['RLE blok 1025 B u okna 1 KiB, velikost obsahu uvedena', zframe([{ rle: [7, 1025] }], { head: withSize }), 'blocksize', 1025]);
   cases.push(['surový blok 1025 B u okna 1 KiB, velikost obsahu neuvedena', zframe([{ raw: Buffer.alloc(1025, 7) }], { head: [0x00, 0x00] }), 'blocksize', null]);
-  // čtyřproudé literály s pokaženým koncem jednoho proudu: libzstd na rychlé cestě (každý ze čtyř proudů má aspoň 8 bajtů) konec proudu nekontroluje, na pomalé cestě (nějaký proud je kratší) ano.
-  // U stromu o délkách kódů 1, 1, 2 to vychází na 152 znaků (nejkratší proud 8 B); u 148 znaků (nejkratší proud 7 B) libzstd chybu ještě pozná. Hranice se měřila po čtyřech znacích od 100 do 260
-  // (123 případů, nejkratší proud 3 až 13 B: verdikt libzstd se vždy shodoval s pravidlem „nejkratší proud má aspoň 8 B“, ani jednou ne s počtem znaků).
+  {
+    const total = 200000; // uvedená velikost nad 128 KiB: zkratka se nepoužije a libzstd vadný blok pozná
+    const blocks = [{ raw: Buffer.alloc(1025, 7) }];
+    for (let left = total - 1025; left > 0; ) {
+      const k = Math.min(left, 1024);
+      blocks.push({ rle: [7, k] });
+      left -= k;
+    }
+    cases.push(['surový blok 1025 B u okna 1 KiB, uvedená velikost obsahu 200 000 B (nad pamětí věštírny)', zframe(blocks, { head: [0x80, 0x00, total & 255, (total >> 8) & 255, (total >> 16) & 255, (total >>> 24) & 255] }), 'blocksize', null]);
+  }
+  // čtyřproudé literály s pokaženým koncem jednoho proudu: libzstd na rychlé cestě (každý ze čtyř proudů má aspoň 8 bajtů a strom kódy nejvýš 11 bitů) konec proudu nekontroluje, na pomalé cestě
+  // (nějaký proud je kratší, nebo má strom 12bitové kódy) ano. U stromu o délkách kódů 1, 1, 2 to vychází na 152 znaků (nejkratší proud 8 B); u 148 znaků (nejkratší proud 7 B) libzstd chybu ještě pozná.
+  // Hranice se měřila po čtyřech znacích od 100 do 260 (123 případů, nejkratší proud 5 až 13 B: verdikt libzstd se vždy shodoval s pravidlem „nejkratší proud má aspoň 8 B“, ani jednou ne s počtem znaků).
   const good = huffCodes([1, 1, 2]);
   const four = (n, mutate) => {
     const parts = splitFour(Array.from({ length: n }, (_, i) => [2, 0, 1, 2, 2, 1, 0, 2][i % 8]));
@@ -257,8 +275,29 @@ test('shovívavosti libzstd 1.5.7, které toleruje porovnávací pomůcka (odkaz
       cases.push([`čtyři proudy, ${n} znaků (nejkratší proud ${shortest} B), ${what}`, frame, 'litend', len]);
     }
   }
+  // druhá podmínka rychlé cesty: strom s nejdelším kódem 12 bitů ji nepoužije ani při dlouhých proudech (libzstd konec proudu zkontroluje a rámec odmítne), strom do 11 bitů ano
+  const longTree = (maxBits) => {
+    const { explicit, all } = B.chainWeights(maxBits);
+    const codes = huffCodes(all);
+    const symbols = [maxBits - 1, maxBits, maxBits - 2, maxBits - 3]; // nejdelší kódy: každý proud je dlouhý
+    return (n, mutate) => {
+      const parts = splitFour(Array.from({ length: n }, (_, i) => symbols[i % 4]));
+      mutate(parts);
+      const streams = parts.map((x) => huffStreamBytes(codes, x));
+      return { frame: literalsFrame(directTree(explicit), streams, n), shortest: Math.min(...streams.map((x) => x.length)) };
+    };
+  };
+  for (const [maxBits, len] of [[11, 100], [12, null]]) {
+    for (const [what, mutate] of [['druhý o znak víc', (p) => p[1].push(maxBits)], ['čtvrtý o znak víc', (p) => p[3].push(maxBits)]]) {
+      const { frame, shortest } = longTree(maxBits)(100, mutate);
+      assert.ok(shortest >= 8, `${maxBits} bitů, ${what}: nejkratší proud má ${shortest} B, pravidlo o 8 bajtech je splněné`);
+      cases.push([`čtyři proudy, strom s kódy do ${maxBits} bitů, 100 znaků (nejkratší proud ${shortest} B), ${what}`, frame, 'litend', len]);
+    }
+  }
   for (const [name, f, code] of cases) assert.throws(() => Z.decompress(f), (e) => e instanceof Z.ZstdError && e.code === code, name);
   // správné protějšky se rozbalí
+  assert.equal(ours(longTree(12)(100, () => {}).frame).length, 100);
+  assert.equal(ours(longTree(11)(100, () => {}).frame).length, 100);
   assert.equal(ours(four(300, () => {}).frame).length, 300);
   assert.equal(ours(four(152, () => {}).frame).length, 152);
   assert.equal(ours(seqAt(1024)).length, 2003);
@@ -274,8 +313,8 @@ test('shovívavosti libzstd 1.5.7, které toleruje porovnávací pomůcka (odkaz
   judge(frames, want);
 });
 
-// ---------------------------------------------------------------- dvě další odchylky od libzstd, na které náhodné poškození nenarazí (judge je proto netoleruje, zkouší se přímo)
-test('dvě další odchylky od libzstd 1.5.7: váhy Huffmanova stromu přes FSE se symbolem 12 při přesnosti 6 (92 při přesnosti 5) libzstd odmítne a my přijmeme; velikost obsahu 2^64−1 libzstd bere jako neuvedenou a my ji odmítneme (druhá polovina potřebuje věštírnu)', () => {
+// ---------------------------------------------------------------- další odchylky od libzstd, na které náhodné poškození nenarazí (judge je proto netoleruje, zkouší se přímo)
+test('další odchylky od libzstd 1.5.7: okno nad 2^27 + 1 B libzstd nekontroluje u rámce s uvedenou velikostí, který se vejde do výstupní paměti, a my ho odmítneme; velikost obsahu 2^64−1 libzstd bere jako neuvedenou a my ji odmítneme; váhy Huffmanova stromu přes FSE se symbolem 12 při přesnosti 6 (92 při přesnosti 5) libzstd odmítne a my přijmeme (druhá polovina potřebuje věštírnu)', () => {
   // [název, rámec, zamýšlený výstup, přijme libzstd?]
   const T = B.chainTreeFrame;
   const tree = (name, maxBits, how, accLog, unused, libzstdAccepts) => [name, T(maxBits, how, accLog, unused), libzstdAccepts];
@@ -294,17 +333,55 @@ test('dvě další odchylky od libzstd 1.5.7: váhy Huffmanova stromu přes FSE 
   // velikost obsahu 2^64−1: u nás není bezpečné celé číslo, takže rámec odmítneme; libzstd tutéž hodnotu používá jako „neuvedeno“ a rámec rozbalí
   const sentinel = Uint8Array.from([0x28, 0xb5, 0x2f, 0xfd, 0xc0, 0x50, 255, 255, 255, 255, 255, 255, 255, 255, ...u24((1 << 3) | 1), 0x78]);
   assert.throws(() => Z.decompress(sentinel), (e) => e instanceof Z.ZstdError && e.code === 'corrupt' && /Neplatná velikost obsahu/.test(e.message));
-  const want = oracle([...cases.map((c) => c[1].frame), sentinel]);
+  // strop okna: libzstd ho (2^27 + 1 B) kontroluje na proudové cestě; rámec, který uvádí velikost obsahu a vejde se do výstupní paměti volajícího (u věštírny 128 KiB), rozbalí jednoprůchodovou zkratkou
+  // a okno nekontroluje (jen windowLog nad 31 odmítne už při čtení hlavičky); my okno nad 2^27 + 1 odmítáme vždy (kód bigwindow)
+  const rawN = (n) => [...u24((n << 3) | 1), ...new Uint8Array(n).fill(0x78)];
+  const small = (fhd, wd, fcs) => Uint8Array.from([...MAGIC_BYTES, fhd, wd, ...fcs, ...rawN(300)]); // 300 B obsahu
+  const sized = (wd) => small(0x40, wd, [44, 0]); // uvedená velikost 300 (dvoubajtové pole: hodnota − 256)
+  const bigSized = (wd) => {
+    const total = 300000; // nad výstupní pamětí věštírny: zkratka se nepoužije
+    const bytes = [];
+    for (let left = total; left > 0; ) {
+      const k = Math.min(left, 131072);
+      bytes.push(...u24((k << 3) | (1 << 1) | (left - k === 0 ? 1 : 0)), 0x78);
+      left -= k;
+    }
+    return Uint8Array.from([...MAGIC_BYTES, 0x80, wd, total & 255, (total >> 8) & 255, (total >> 16) & 255, (total >>> 24) & 255, ...bytes]);
+  };
+  // [název, rámec, délka výstupu, přijme libzstd?, přijmeme my?]
+  const windowCases = [
+    ['okno 2^27 (0x88), uvedená velikost 300: oba přijmou', sized(0x88), 300, true, true],
+    ['okno 2^27 + 2^24 (0x89), uvedená velikost 300: libzstd přijme (zkratka), my odmítneme', sized(0x89), 300, true, false],
+    ['okno 2^31 (0xa8), uvedená velikost 300: libzstd přijme (zkratka), my odmítneme', sized(0xa8), 300, true, false],
+    ['okno 2^33 (0xb8), uvedená velikost 300: oba odmítnou (libzstd už při čtení hlavičky)', sized(0xb8), 300, false, false],
+    ['okno 2^27 + 2^24 (0x89), velikost obsahu neuvedena (proudová cesta): oba odmítnou', small(0x00, 0x89, []), 300, false, false],
+    ['okno 2^27 + 2^24 (0x89), uvedená velikost 300 000 (nad pamětí věštírny, zkratka se nepoužije): oba odmítnou', bigSized(0x89), 300000, false, false],
+    ['okno 2^27 (0x88), uvedená velikost 300 000: oba přijmou', bigSized(0x88), 300000, true, true],
+  ];
+  for (const [name, f, n, , weAccept] of windowCases) {
+    if (weAccept) assert.equal(Z.decompress(f, { exact: true }).length, n, name);
+    else assert.throws(() => Z.decompress(f, { exact: true }), (e) => e instanceof Z.ZstdError && e.code === 'bigwindow', name);
+  }
+  // hranice našeho stropu: okno přesně 2^27 + 1 (jednosegmentový rámec s velikostí obsahu 2^27 + 1) se nepovažuje za příliš velké (selže až na nesouladu velikosti), o bajt víc ano
+  const single = (n) => Uint8Array.from([...MAGIC_BYTES, 0xe0, ...Array.from({ length: 8 }, (_, i) => Number((BigInt(n) >> BigInt(8 * i)) & 255n)), ...rawN(1)]);
+  assert.throws(() => Z.decompress(single(2 ** 27 + 1), { maxOutput: 2 ** 30 }), (e) => e instanceof Z.ZstdError && e.code === 'corrupt' && /nesedí s velikostí/.test(e.message));
+  assert.throws(() => Z.decompress(single(2 ** 27 + 2), { maxOutput: 2 ** 30 }), (e) => e instanceof Z.ZstdError && e.code === 'bigwindow');
+  const want = oracle([...cases.map((c) => c[1].frame), sentinel, ...windowCases.map((c) => c[1])]);
   if (!want) return;
   cases.forEach(([name, { message }, accepts], i) => {
     if (accepts) assert.ok(want[i] && same(want[i], message), 'libzstd má přijmout: ' + name);
     else assert.equal(want[i], null, 'libzstd má odmítnout: ' + name);
   });
   assert.ok(want[cases.length] && Buffer.from(want[cases.length]).toString() === 'x', 'libzstd má rámec s velikostí obsahu 2^64−1 rozbalit jako rámec bez uvedené velikosti');
+  windowCases.forEach(([name, , n, accepts], k) => {
+    const got = want[cases.length + 1 + k];
+    if (accepts) assert.ok(got && got.length === n, 'libzstd má přijmout (' + n + ' B): ' + name + (got ? ' dal ' + got.length : ' odmítl'));
+    else assert.equal(got, null, 'libzstd má odmítnout: ' + name);
+  });
 });
 
 // ---------------------------------------------------------------- poškozené rámce: stejné rozhodnutí jako libzstd
-test('poškozené rámce: co libzstd odmítne, odmítneme i my (kromě vadného kontrolního součtu), co oba přijmou, vyjde stejně; tolerují se jen tři shovívavosti libzstd, které dokazuje zkouška výše (12 000 poškození; bez věštírny se přeskočí; ZSTD_SEED pro delší zkoušky s jiným semínkem)', (t) => {
+test('poškozené rámce: co libzstd odmítne, odmítneme i my (kromě vadného kontrolního součtu), co oba přijmou, vyjde stejně; tolerují se jen tři shovívavosti libzstd, které dokazuje zkouška výše (12 000 rámců, z nichž asi osmina vyjde beze změny; bez věštírny se přeskočí; ZSTD_SEED pro delší zkoušky s jiným semínkem)', (t) => {
   const r = rng(Number(process.env.ZSTD_SEED) || 4);
   const pick = (n) => Math.floor(r() * n);
   const bases = [];
@@ -330,7 +407,7 @@ test('poškozené rámce: co libzstd odmítne, odmítneme i my (kromě vadného 
   if (!want) return t.skip('věštírna libzstd není k dispozici: tahle zkouška bez ní nehlídá nic');
   const c = judge(frames, want);
   assert.ok(c.accepted > 600 && c.rejected > 4000, `přijato ${c.accepted}, odmítnuto ${c.rejected}: zkouška by byla slabá`);
-  assert.ok(c.endClass > 0, 'zkouška nikdy nezasáhla shovívavost libzstd (konec proudu literálů, okno nebo velikost bloku): povolená výjimka by zůstala nevyzkoušená');
+  assert.ok(c.endClass > 0, 'zkouška nikdy nezasáhla shovívavost libzstd: povolená výjimka by zůstala nevyzkoušená (náhodné poškození zasáhne prakticky jen konec proudu literálů, kód litend; odkaz za okno a velikost bloku se zkoušejí přímo ve zkoušce shovívavostí)');
   assert.ok(c.sumExplained > 0, 'zkouška nikdy nezasáhla rámec s vadným kontrolním součtem: oprávněná výjimka by zůstala nevyzkoušená');
 });
 
@@ -453,12 +530,15 @@ test('bloky: rezervovaný typ 3 se odmítne, strop výstupu platí na bajt přes
   const reserved = Buffer.from([...MAGIC_BYTES, 0x00, 0x50, ...u24((2 << 3) | (3 << 1) | 1), 0x00, 0x00]);
   assert.throws(() => Z.decompress(reserved), /Neplatný typ bloku/);
   const frames = [reserved];
-  // rámce bez uvedené velikosti obsahu: RLE, surový, komprimovaný, víceblokový
+  // rámce bez uvedené velikosti obsahu: ručně sestavené bloky RLE (jeden a dva za sebou, takže jde jistě o typ RLE), a rámce, které napsal libzstd (jednobajtová data, surový, komprimovaný, víceblokový)
   const noSize = (buf) => zlib.zstdCompressSync(buf, { params: { [C.ZSTD_c_contentSizeFlag]: 0 } });
   const r = rng(31);
-  const cases = [Buffer.alloc(5000, 0x41), gen.random(300, r), gen.text(1000, r), Buffer.concat([gen.random(200000, r), Buffer.alloc(5000)])];
-  for (const input of cases) {
-    const f = noSize(input);
+  const cases = [
+    [Buffer.alloc(5000, 0x41), zframe([{ rle: [0x41, 5000] }])],
+    [Buffer.concat([Buffer.alloc(3000, 0x41), Buffer.alloc(2000, 0x42)]), zframe([{ rle: [0x41, 3000] }, { rle: [0x42, 2000] }])],
+    ...[Buffer.alloc(5000, 0x41), gen.random(300, r), gen.text(1000, r), Buffer.concat([gen.random(200000, r), Buffer.alloc(5000)])].map((input) => [input, noSize(input)]),
+  ];
+  for (const [input, f] of cases) {
     frames.push(f);
     const n = input.length;
     assert.ok(same(ours(f, { maxOutput: n }), input), 'přesně na stropu, ' + n);
@@ -641,7 +721,7 @@ test('konce proudů bitů, přímo (bez věštírny): literály bez koncové zna
   if (want) judge(frames, want);
 });
 
-test('sekvence: odkaz dál než 2^25 bajtů (bity posunu nad 24) se přečte přesně; zkouška staví 33 MiB výstupu z RLE bloků', () => {
+test('sekvence: odkaz dál než 2^25 bajtů (bity posunu nad 24) se přečte přesně; zkouška staví asi 32 MiB výstupu z RLE bloků', () => {
   // okno 64 MiB (wd 0x80); bloky RLE: A 65636 bajtů, B 131072, 255 × C po 131072 a C o 65536 bajtech; pak sekvence s posunem 2^25 + 65537, který ukazuje na poslední bajt bloku A
   const blocks = [{ rle: [0x41, 65636] }, { rle: [0x42, 131072] }];
   for (let i = 0; i < 255; i++) blocks.push({ rle: [0x43, 131072] });
@@ -842,7 +922,7 @@ test('počet bloků: strop se odvozuje z povoleného výstupu (1 blok na KiB + 1
   assert.equal(Buffer.from(ok.data.subarray(0, 16)).toString(), 'abcdefghijklmnop');
   const heavyOk = heavyFrame(16399); // 16 400 bloků včetně surového: přesně na stropu
   assert.equal(Z.decompressFrame(heavyOk).blocks, 16400);
-  // rámec ze 190 000 drahých bloků by bez stropu trval řádově desítky sekund; takhle se zastaví na stropu za zlomek času (strop 4 s je štědrý i pro pomalý stroj)
+  // rámec ze 190 000 drahých bloků by bez stropu trval kolem 9 s na tomto stroji (asi 45 µs na blok), na pomalém déle; takhle se zastaví na stropu 16 400 bloků za zlomek času (strop 4 s je štědrý i pro pomalý stroj)
   const heavy = heavyFrame(190000);
   const t0 = Date.now();
   assert.throws(() => Z.decompress(heavy), (e) => e instanceof Z.ZstdError && e.code === 'blocks');
@@ -924,25 +1004,26 @@ test('paměť: rámec, který slibuje obří obsah, nepřidělí hned obří vyr
   assert.ok(grew2 < 64 * 1024 * 1024, 'přidělilo se ' + (grew2 / 1048576).toFixed(1) + ' MiB');
 });
 
-test('rámce s obřím oknem nebo obří slíbenou velikostí: okno nad 128 MiB se odmítne hned (jako v libzstd), na hranici projde; slíbená velikost nad strop se odmítne před rozbalením', () => {
+test('rámce s obřím oknem nebo obří slíbenou velikostí: okno nad 2^27 + 1 B se odmítne hned (jako v libzstd na proudové cestě), na hranici projde; slíbená velikost nad strop se odmítne před rozbalením', () => {
   const raw = (txt) => [...u24((txt.length << 3) | 1), ...Buffer.from(txt)];
   const withWindow = (wd) => Uint8Array.from([0x28, 0xb5, 0x2f, 0xfd, 0x00, wd, ...raw('ahoj')]);
-  // okno 0xff (skoro 4 TiB) a okno o kousek nad hranicí 2^27 se odmítnou; okno přesně 2^27 (0x88) a o jeden stupeň menší projdou a nic se podle okna nealokuje
+  // okno 0xff (skoro 4 TiB) a okno o kousek nad hranicí 2^27 + 1 se odmítnou; okno přesně 2^27 (0x88) a o jeden stupeň menší projdou a nic se podle okna nealokuje
   for (const wd of [0xff, 0x89, 0xc0]) assert.throws(() => Z.decompress(withWindow(wd)), (e) => e instanceof Z.ZstdError && e.code === 'bigwindow', 'okno ' + wd.toString(16));
   for (const wd of [0x88, 0x87, 0x00]) assert.equal(Buffer.from(Z.decompress(withWindow(wd))).toString(), 'ahoj', 'okno ' + wd.toString(16));
-  assert.equal(Z.LIMITS.maxWindow, 2 ** 27);
-  // jednosegmentový rámec má okno rovné velikosti obsahu: nad 2^27 se odmítne i při dostatečném stropu výstupu
+  assert.equal(Z.LIMITS.maxWindow, 2 ** 27 + 1);
+  // jednosegmentový rámec má okno rovné velikosti obsahu: nad 2^27 + 1 se odmítne i při dostatečném stropu výstupu (hranici 2^27 + 1 samu zkouší „další odchylky od libzstd“)
   const head4 = (n) => [0x28, 0xb5, 0x2f, 0xfd, 0x80 | 0x20, n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
-  assert.throws(() => Z.decompress(Uint8Array.from([...head4(2 ** 27 + 1), ...raw('x')]), { maxOutput: 2 ** 30 }), (e) => e instanceof Z.ZstdError && e.code === 'bigwindow');
+  assert.throws(() => Z.decompress(Uint8Array.from([...head4(2 ** 27 + 2), ...raw('x')]), { maxOutput: 2 ** 30 }), (e) => e instanceof Z.ZstdError && e.code === 'bigwindow');
   // velikost obsahu 8 bajtů s hodnotou 2^40
   const f2 = Uint8Array.from([0x28, 0xb5, 0x2f, 0xfd, 0xc0, 0x50, 0, 0, 0, 0, 0, 1, 0, 0, ...raw('x')]);
   assert.throws(() => Z.decompress(f2), (e) => e instanceof Z.ZstdError && e.code === 'limit');
   // velikost obsahu přes bezpečné celé číslo
   const f3 = Uint8Array.from([0x28, 0xb5, 0x2f, 0xfd, 0xc0, 0x50, 255, 255, 255, 255, 255, 255, 255, 255, ...raw('x')]);
   assert.throws(() => Z.decompress(f3), (e) => e instanceof Z.ZstdError);
-  // totéž se zeptá libzstd: výchozí nastavení (nejvýš okno 2^27) odmítne všechny rámce, které odmítáme my, a přijme ty tři s oknem do 2^27 se stejným výstupem; žádný rámec tu nesmí být důvod k toleranci
-  // (velikost obsahu 2^64−1, kterou libzstd bere jako neuvedenou a my odmítneme, má vlastní zkoušku: „dvě další odchylky od libzstd“)
-  const frames = [...[0xff, 0x89, 0xc0].map(withWindow), Uint8Array.from([...head4(2 ** 27 + 1), ...raw('x')]), f2, ...[0x88, 0x87, 0x00].map(withWindow)];
+  // totéž se zeptá libzstd: na proudové cestě (a tu tady mají všechny rámce, protože neuvádějí velikost obsahu, nebo ji uvádějí nad 2^27) odmítne všechny rámce, které odmítáme my, a přijme ty tři s oknem do 2^27
+  // se stejným výstupem; žádný rámec tu nesmí být důvod k toleranci. Velikost obsahu 2^64−1 (libzstd ji bere jako neuvedenou, my odmítneme) a okno nad 2^27 + 1 u rámce s uvedenou velikostí, který se vejde
+  // do výstupní paměti (libzstd přijme zkratkou, my odmítneme), mají vlastní zkoušku: „další odchylky od libzstd“
+  const frames = [...[0xff, 0x89, 0xc0].map(withWindow), Uint8Array.from([...head4(2 ** 27 + 2), ...raw('x')]), f2, ...[0x88, 0x87, 0x00].map(withWindow)];
   const want = oracle(frames);
   if (!want) return;
   assert.deepEqual(want.map((w) => w !== null), [false, false, false, false, false, true, true, true], 'verdikty libzstd');
@@ -1024,7 +1105,12 @@ test('volby: maxOutput, exact (bajty za rámcem), vstupy Buffer, ArrayBuffer a p
   assert.throws(() => Z.decompress(frame, { maxOutput: want.length - 1 }), (e) => e.code === 'limit');
   assert.ok(same(Z.decompress(frame, { maxOutput: want.length }), want));
   for (const badMax of [0, -5, 1.5, 'x', null, NaN]) assert.ok(same(Z.decompress(frame, { maxOutput: badMax }), want), String(badMax)); // vadná volba = výchozí strop
-  for (const bad of [null, undefined, 'text', 42, {}, [1, 2, 3]]) assert.throws(() => Z.decompress(bad), (e) => e instanceof Z.ZstdError && e.code === 'input');
+  // nebinární vstup: každá ze tří veřejných funkcí vyhodí ZstdError s kódem 'input' (readFrameHeader a decompressFrame ho kontrolují samy, ne až cestou přes decompress)
+  for (const bad of [null, undefined, 'text', 42, {}, [1, 2, 3]]) {
+    for (const [fn, label] of [[Z.decompress, 'decompress'], [Z.decompressFrame, 'decompressFrame'], [Z.readFrameHeader, 'readFrameHeader']]) {
+      assert.throws(() => fn(bad), (e) => e instanceof Z.ZstdError && e.code === 'input', `${label}(${JSON.stringify(bad)})`);
+    }
+  }
 });
 
 test('výstup je nová paměť a vstup se nemění; konstanty jsou zmrazené', () => {
@@ -1035,7 +1121,7 @@ test('výstup je nová paměť a vstup se nemění; konstanty jsou zmrazené', (
   out.fill(0);
   assert.deepEqual(Z.decompress(frame).subarray(0, 3), Uint8Array.from([0x61, 0x62, 0x63]));
   assert.ok(Object.isFrozen(Z.LIMITS));
-  assert.deepEqual({ ...Z.LIMITS }, { maxOutput: 16 * 1024 * 1024, blockMax: 131072, maxHufBits: 12, maxWindow: 134217728, bytesPerBlock: 1024, blockSlack: 16 });
+  assert.deepEqual({ ...Z.LIMITS }, { maxOutput: 16 * 1024 * 1024, blockMax: 131072, maxHufBits: 12, maxWindow: 2 ** 27 + 1, bytesPerBlock: 1024, blockSlack: 16 });
   const e = new Z.ZstdError('x', 'kód');
   assert.ok(e instanceof Error && e.name === 'ZstdError' && e.code === 'kód');
   assert.equal(new Z.ZstdError('y').code, 'corrupt');
@@ -1052,7 +1138,7 @@ test('rychlost: 12 MiB nul a 3 MiB textu se rozbalí v řádu sekund', () => {
 });
 
 // ---------------------------------------------------------------- zdroj
-test('zdroj: čistý modul (žádný DOM, síť, úložiště, náhoda, čas ani načítání knihoven) a bez neviditelných znaků', () => {
+test('zdroj: čistý modul (žádný DOM, síť, úložiště, náhoda, čas ani načítání knihoven) a bez řídicích a přepínacích znaků (úplné hlídání neviditelných znaků je v sanitize.test.mjs)', () => {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(code, /document\.|window\.|fetch\(|XMLHttpRequest|localStorage|Math\.random|Date\.now|new Date|crypto\.|require\(|import\(|importScripts|Worker\(/);
   // eslint-disable-next-line no-control-regex

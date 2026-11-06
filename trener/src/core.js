@@ -766,13 +766,14 @@
 
   // ---------------------------------------------------------------- text do promptů
   /** Text z pozorování, úryvků, názvů a zdrojů je do promptu vždy jen DATA na jednom řádku: zalomení řádků se nahradí
-      středníkem, svislice (oddělovač sloupců) se změní na podobný znak a řídicí znaky zmizí. Bez toho by text mohl
+      středníkem, svislice (oddělovač sloupců) se změní na podobný znak a řídicí, formátovací a jiné skryté znaky se nahradí mezerou. Bez toho by text mohl
       obsahovat řádek vydávající se za jiné pozorování („- snap-2 | screenshot_verified | …“) a model by ho vzal za skutečný. */
   // řídicí znaky, formátovací znaky Unicode (nulová šířka, řízení směru písma, značky U+E0000 a dál, kterými jde do textu ukrýt pokyn pro model), znaky ignorované při zobrazení, prázdné braillské písmeno a náhradní znak objektu
   const PROMPT_HIDDEN = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
+  // první průchod je lineární (každá souvislá řada bílých znaků se nahradí jednou: ' ; ', když obsahuje zalomení, jinak mezerou); dřívější tvar /\s*[zalomení]+\s*/ byl kvadratický pro dlouhou řadu mezer bez zalomení
   function oneLine(text, max) {
     const t = String(text === null || text === undefined ? '' : text)
-      .replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ; ')
+      .replace(/\s+/g, (m) => (/[\r\n\u2028\u2029]/.test(m) ? ' ; ' : ' '))
       .replace(PROMPT_HIDDEN, ' ')
       .replace(/\s+/g, ' ')
       .replace(/\|/g, '¦')

@@ -17,7 +17,8 @@
       konci, zdrželo čtení o desítky sekund (výstup stojí kolem 43 ns na bajt, tedy kolem 1,4 s na celý rozpočet). */
   const DEFAULT_TOTAL_OUTPUT = 33 * 1024 * 1024;
   const okZstd = (zstd) => !!zstd && typeof zstd.decompressFrame === 'function';
-  const limitOf = (maxOut) => (Number.isFinite(maxOut) && maxOut > 0 ? Math.floor(maxOut) : DEFAULT_MAX_OUT);
+  /** Strop výstupu jako celé číslo aspoň 1; cokoli jiného (včetně necelých hodnot pod 1, které by se zaokrouhlily na nulu a dekodér by je bral jako neplatné) znamená výchozí strop. */
+  const limitOf = (maxOut) => (Number.isFinite(maxOut) && maxOut >= 1 ? Math.floor(maxOut) : DEFAULT_MAX_OUT);
 
   /** zstd: modul TrenerZstd (zstd.js). Vrací funkci (bytes, maxBytes) → Uint8Array|null podle kontraktu inspectFmf: rozbalí první rámec od začátku `bytes`
       (za ním smí být cokoli), nejvýš maxBytes výstupu. Neplatný nebo useknutý rámec dá null; rámec, který by měl víc než maxBytes, vyhodí chybu s kódem 'limit',

@@ -43,7 +43,11 @@ module.exports = async function run(env) {
   await frame.waitForSelector('#liveStart');
   await frame.fill('#liveOpp', 'Sparta Praha');
   await frame.click('#liveStart');
-  await frame.waitForSelector('#liveShare', { timeout: 10000 });
+  // když se tlačítko neukáže, chyba řekne proč (zpráva formuláře, vyplněný soupeř, jestli formulář ještě je): jednou za čas tu spadl úplný běh a samostatný scénář pak desítkykrát prošel
+  await frame.waitForSelector('#liveShare', { timeout: 10000 }).catch(async (e) => {
+    const state = await frame.evaluate(() => ({ hash: location.hash, setupMsg: (document.querySelector('#liveSetupMsg') || {}).textContent || null, opponent: document.querySelector('#liveOpp') ? document.querySelector('#liveOpp').value : null, formStillThere: !!document.querySelector('#liveStart') })).catch(() => null);
+    throw new Error('13: tlačítko „Sdílet obrazovku FM27“ se neukázalo po založení zápasu: ' + JSON.stringify(state) + ' | ' + e.message);
+  });
   check('13 Live Coach ve stránce v Claude nabízí „Sdílet obrazovku FM27“', await frame.isVisible('#liveShare'));
   check('13 nenabízí se text „stránka nesmí sama snímat obrazovku“', !/nesmí sama snímat obrazovku/.test(await frame.locator('#liveCapStatus').evaluate((el) => el.parentElement.innerText)));
   await frame.click('#liveShare');
