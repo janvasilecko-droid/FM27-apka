@@ -7,9 +7,9 @@
    použít jen výslovně. Skryté údaje hry (CA a PA, skryté atributy, osobnost) se do profilů nepouštějí a nikdy se nečtou.
    Čisté funkce: stejný vstup dá vždy stejný výstup, vstupy se nemění. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./tableimport.js'));
-  else root.TrenerRoleFit = factory(root.TrenerCore, root.TrenerTableImport);
-})(typeof self !== 'undefined' ? self : this, function (core, TI) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./tableimport.js'), require('./fm27cs.js'));
+  else root.TrenerRoleFit = factory(root.TrenerCore, root.TrenerTableImport, root.TrenerFm27Cs);
+})(typeof self !== 'undefined' ? self : this, function (core, TI, CS) {
   'use strict';
 
   const DEFAULT_WEIGHTS = Object.freeze({ key: 2, pref: 1 });
@@ -35,8 +35,11 @@
   const r1 = (v) => Math.round(v * 10) / 10;
   const cz = (v) => String(v).replace('.', ','); // české desetinné číslo do textů
 
-  /** Klíč pro porovnání názvů bez ohledu na velikost písmen, diakritiku, mezery a interpunkci („Off The Ball“ = „Off the ball“ = „offtheball“). */
-  const attrKey = (s) => core.fold(String(s === null || s === undefined ? '' : s)).replace(/[^a-z0-9]/g, '');
+  /** Klíč pro porovnání názvů bez ohledu na velikost písmen, diakritiku, mezery a interpunkci („Off The Ball“ = „Off the ball“ = „offtheball“).
+      České názvy atributů ze hry se nejdřív převedou na kanonický anglický („Hlavičky“ = „Heading“), takže hráč přečtený z české obrazovky
+      sedí na profil role i na tabulky pozic zadané anglicky. */
+  const plainKey = (s) => core.fold(String(s === null || s === undefined ? '' : s)).replace(/[^a-z0-9]/g, '');
+  const attrKey = (s) => (CS ? CS.attrKey(s) : plainKey(s));
   const roleKey = attrKey;
 
   // ---------------------------------------------------------------- profil role z obrazovky

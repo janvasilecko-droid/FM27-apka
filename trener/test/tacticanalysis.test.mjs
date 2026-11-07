@@ -292,7 +292,7 @@ test('odolnost: náhodné taktiky a zmatené texty nikdy nehodí výjimku a výs
 test('summaryLines: souhrn pro kopírování a pro Osobního trenéra má pokrytí, nálezy a počty kontrol', () => {
   const r = A.analyze(tac('4-3-3', { ti: ['Defensive Line: Lower', 'Line of Engagement: High Press'], mentality: 'Balanced' }), {});
   const lines = A.summaryLines(r);
-  assert.match(lines[0], /Rozbor taktiky 4-3-3: mentalita Balanced, instrukcí rozpoznáno 2 z 28/);
+  assert.match(lines[0], /Rozbor taktiky 4-3-3: mentalita Balanced, instrukcí rozpoznáno 2 z 27/);
   assert.ok(lines.some((l) => /\[A01\]/.test(l) && /Defensive Line → Standard/.test(l)));
   assert.match(lines[lines.length - 1], /Kontroly: vyhodnoceno \d+ z 42 \(bez nálezu \d+, nález 1\)/);
 });

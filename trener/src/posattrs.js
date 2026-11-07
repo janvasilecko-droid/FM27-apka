@@ -13,16 +13,17 @@
    spolehlivější než jakákoli tabulka. Zdroje se u pár atributů rozcházejí (u krajního obránce je Tackling a Positioning u jednoho klíčový, u druhého žádoucí):
    takové atributy jsou klíčové a u zdrojů je to poznamenané. ČÍSLA (váhy, prahy) jsou komunitní odhad, ne pravidlo FM27. Skryté údaje (CA, PA, osobnost) se nepoužívají. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
-  else root.TrenerPosAttrs = factory(root.TrenerCore);
-})(typeof self !== 'undefined' ? self : this, function (core) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./fm27cs.js'));
+  else root.TrenerPosAttrs = factory(root.TrenerCore, root.TrenerFm27Cs);
+})(typeof self !== 'undefined' ? self : this, function (core, CS) {
   'use strict';
 
   const VERSION = 'posattrs-1';
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
   const r1 = (v) => Math.round(v * 10) / 10;
-  const attrKey = (s) => core.fold(String(s === null || s === undefined ? '' : s)).replace(/[^a-z0-9]/g, '');
+  const plainKey = (s) => core.fold(String(s === null || s === undefined ? '' : s)).replace(/[^a-z0-9]/g, '');
+  const attrKey = (s) => (CS ? CS.attrKey(s) : plainKey(s)); // české názvy atributů ze hry se převedou na kanonické anglické
 
   const SOURCES = Object.freeze({
     VG: { name: 'Vortex Gaming: FM26 Top 5 Key Attributes by Position', url: 'https://vortexgaming.io/en/postdetail/640375' },

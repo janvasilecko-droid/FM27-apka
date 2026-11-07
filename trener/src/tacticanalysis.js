@@ -658,8 +658,8 @@
       settings,
       unknownSettings: c.unknownSettings,
       coverage: {
-        settingsKnown: settings.length,
-        settingsTotal: K.TEAM_INSTRUCTIONS.length,
+        settingsKnown: settings.filter((x) => !K.THIRD_PARTY_ONLY.includes(x.id)).length,
+        settingsTotal: K.GAME_INSTRUCTION_COUNT,
         rolesIn: { known: rolesKnown('in'), total: placed.length },
         rolesOut: { known: rolesKnown('out'), total: placed.length },
         withAttributes: c.slots.filter((s) => s.attrs).length,

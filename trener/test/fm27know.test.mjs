@@ -8,11 +8,11 @@ const require = createRequire(import.meta.url);
 const K = require('../src/fm27know.js');
 const source = readFileSync(new URL('../src/fm27know.js', import.meta.url), 'utf8');
 
-test('slovník FM27: počty odpovídají ověřenému průzkumu (7 mentalit, 10 stylů, 28 instrukcí = 19 + 9, 40 rolí s míčem, 39 bez míče)', () => {
+test('slovník FM27: počty odpovídají průzkumu (7 mentalit, 11 stylů, 29 instrukcí = 20 + 9 vč. jedné jen z české hry, 40 rolí s míčem, 39 bez míče)', () => {
   assert.equal(K.MENTALITIES.length, 7);
-  assert.equal(K.STYLES.length, 10);
-  assert.equal(K.TEAM_INSTRUCTIONS.length, 28);
-  assert.equal(K.TEAM_INSTRUCTIONS.filter((t) => t.phase === 'in').length, 19);
+  assert.equal(K.STYLES.length, 11);
+  assert.equal(K.TEAM_INSTRUCTIONS.length, 29);
+  assert.equal(K.TEAM_INSTRUCTIONS.filter((t) => t.phase === 'in').length, 20);
   assert.equal(K.TEAM_INSTRUCTIONS.filter((t) => t.phase === 'out').length, 9);
   const distinct = (table) => new Set(Object.values(table).flat()).size;
   assert.equal(distinct(K.ROLES_IN), 40);
@@ -33,8 +33,11 @@ test('slovník: každá instrukce má jedinečné id a název, výchozí hodnotu
   }
 });
 
-test('styly nesou doporučenou mentalitu, která je ve slovníku mentalit', () => {
-  for (const s of K.STYLES) assert.ok(K.MENTALITIES.includes(s.mentality), s.name);
+test('styly nesou doporučenou mentalitu, která je ve slovníku mentalit (jedenáctý styl ze hry, Clean Sheet, ji nemá: hra ji neukázala)', () => {
+  for (const s of K.STYLES) {
+    if (s.name === 'Clean Sheet') assert.equal(s.mentality, null);
+    else assert.ok(K.MENTALITIES.includes(s.mentality), s.name);
+  }
 });
 
 test('všechny role ve vlastnostech jsou skutečné role slovníku (překlep by tiše vypnul pravidlo)', () => {

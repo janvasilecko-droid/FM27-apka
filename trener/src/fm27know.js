@@ -7,11 +7,17 @@
    Sports Interactive nebyl dostupný (403), takže názvy jsou opis třetí strany a ve hře se ověřují: co aplikace nepozná, řekne jako
    „nerozpoznáno“, nehádá. Vlastnosti rolí (kdo drží šířku, kdo je tvůrce, kdo je Outlet) jsou z popisů rolí v Guide to Football FM26
    (Role Explorer) a z komunitních průvodců; práce „držák / běžec / tvůrce“ je klasifikace autora podle těch popisů (ODHAD).
-   FM26 a FM27 mají dvě sady rolí (s míčem a bez míče) a žádné povinnosti (Defend / Support / Attack). */
+   FM26 a FM27 mají dvě sady rolí (s míčem a bez míče) a žádné povinnosti (Defend / Support / Attack).
+
+   OVĚŘENÍ VE HŘE (7. 11. 2026, česká hra majitele, docs/FM27_PRUZKUM_VE_HRE.md): obrazovka Týmové instrukce ukazuje s míčem 18 různých názvů a bez míče 9.
+   Všech 9 instrukcí bez míče a 17 z 18 instrukcí s míčem sedí na slovník níž; „Doprovodné akce“ (hodnoty Vyvážené / Obě strany) je jedno nastavení, které
+   veřejné zdroje dělí na Overlap a Underlap, proto je tu jako samostatné id `supportActions` (gameOnly). Role a styly: u středních obránců, defenzivních
+   záložníků a útočníka viděl průzkum celé české seznamy a sedí na role níž (6 + 6, 5 + 5, 6 + 4); styl hry má ve hře 11 voleb, o jedenáctou
+   („Čistý štít“ = Clean Sheet) je slovník rozšířen, doporučenou mentalitu k ní hra nikde neukázala. České názvy a převod jsou v fm27cs.js. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.TrenerFm27Know = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./fm27cs.js'));
+  else root.TrenerFm27Know = factory(root.TrenerFm27Cs);
+})(typeof self !== 'undefined' ? self : this, function (CS) {
   'use strict';
 
   const VERSION = 'FM27-2026-11-06';
@@ -48,11 +54,12 @@
     { name: 'Direct Counter-Attack', mentality: 'Cautious' },
     { name: 'Catenaccio', mentality: 'Defensive' },
     { name: 'Park the Bus', mentality: 'Defensive' },
+    { name: 'Clean Sheet', mentality: null }, // 11. styl ze hry (7. 11. 2026); doporučenou mentalitu hra neukázala
   ]);
 
   // ---------------------------------------------------------------- týmové instrukce (28): id, název, fáze, hodnoty od nejpasivnější po nejaktivnější, výchozí
   const TEAM_RAW = [
-    // s míčem (19)
+    // s míčem (19 z veřejných zdrojů + 1 jen z české hry)
     ['passingDirectness', 'Passing Directness', 'in', ['Much Shorter', 'Shorter', 'Standard', 'More Direct', 'Much More Direct'], 'Standard'],
     ['tempo', 'Tempo', 'in', ['Much Lower', 'Lower', 'Standard', 'Higher', 'Much Higher'], 'Standard'],
     ['attackingWidth', 'Attacking Width', 'in', ['Much Narrower', 'Narrower', 'Standard', 'Wider', 'Much Wider'], 'Standard'],
@@ -72,6 +79,8 @@
     ['overlap', 'Overlap', 'in', ['Balanced', 'Left', 'Right', 'Both Flanks'], 'Balanced'],
     ['underlap', 'Underlap', 'in', ['Balanced', 'Left', 'Right', 'Both Flanks'], 'Balanced'],
     ['progressThrough', 'Progress Through', 'in', ['Balanced', 'Left', 'Middle', 'Right', 'Both Flanks'], 'Balanced'],
+    // jen z české hry: „Doprovodné akce“ (anglický název NEZJIŠTĚN); hodnoty Vyvážené a Obě strany viděny, Levá a Pravá odvozeny
+    ['supportActions', 'Doprovodné akce', 'in', ['Balanced', 'Left', 'Right', 'Both Flanks'], 'Balanced', true],
     // bez míče (9)
     ['lineOfEngagement', 'Line of Engagement', 'out', ['Low Block', 'Mid Block', 'High Press'], 'Mid Block'],
     ['defensiveLine', 'Defensive Line', 'out', ['Much Lower', 'Lower', 'Standard', 'Higher', 'Much Higher'], 'Standard'],
@@ -83,8 +92,13 @@
     ['pressingTrap', 'Pressing Trap', 'out', ['Trap Inside', 'Balanced', 'Trap Outside'], 'Balanced'],
     ['shortGkDistribution', 'Short Goalkeeper Distribution', 'out', ['No', 'Yes'], 'No'],
   ];
-  const TEAM_INSTRUCTIONS = deepFreeze(TEAM_RAW.map(([id, name, phase, values, def]) => ({ id, name, phase, values, default: def })));
+  const TEAM_INSTRUCTIONS = deepFreeze(TEAM_RAW.map(([id, name, phase, values, def, gameOnly]) => ({ id, name, phase, values, default: def, gameOnly: gameOnly === true })));
   const TEAM_BY_ID = new Map(TEAM_INSTRUCTIONS.map((t) => [t.id, t]));
+  /** Instrukce, které obrazovka FM27 nenabízí jako samostatné nastavení (jen veřejné zdroje je dělí; ve hře je jedno „Doprovodné akce“).
+      Pravidla je dál umějí vyhodnotit, ale v pokrytí „kolik z kolika instrukcí je načteno“ se nepočítají. */
+  const THIRD_PARTY_ONLY = deepFreeze(['overlap', 'underlap']);
+  /** Počet nastavení, která má taktika ve hře FM27 (18 s míčem + 9 bez míče, ověřeno 7. 11. 2026). */
+  const GAME_INSTRUCTION_COUNT = TEAM_INSTRUCTIONS.filter((t) => !THIRD_PARTY_ONLY.includes(t.id)).length;
 
   // ---------------------------------------------------------------- role po pozicích a fázích
   const ROLES_IN = deepFreeze({
@@ -158,8 +172,16 @@
   function findRole(text, phase) {
     const k = norm(text);
     if (!k) return null;
-    const e = ROLE_INDEX[phase === 'out' ? 'out' : 'in'].get(k);
-    return e || null;
+    const ph = phase === 'out' ? 'out' : 'in';
+    const e = ROLE_INDEX[ph].get(k);
+    if (e) return e;
+    if (!CS) return null;
+    // česky („Rozehrávající stoper“) a ověřená zkratka z tabulky Tvar týmu („BCB“); co se nepozná, vrací null (nehádá se)
+    const en = CS.canonRole(text, ph);
+    const viaName = en && en !== String(text).trim() ? ROLE_INDEX[ph].get(norm(en)) : null;
+    if (viaName) return viaName;
+    const chip = CS.roleFromChip(text, ph);
+    return chip ? ROLE_INDEX[ph].get(norm(chip)) || null : null;
   }
 
   // ---------------------------------------------------------------- vlastnosti rolí pro pravidla
@@ -237,6 +259,11 @@
       Hodnota bez názvu instrukce (jen „Higher“) se nepozná, protože není jasné, které instrukce patří. Nepozná-li, vrací null. */
   function parseInstruction(text) {
     const raw = String(text === null || text === undefined ? '' : text);
+    if (CS) {
+      const cz = CS.parseInstruction(raw);
+      const t = cz && TEAM_BY_ID.get(cz.id);
+      if (t && t.values.includes(cz.value)) return { id: t.id, name: t.name, value: cz.value, phase: t.phase };
+    }
     const colon = raw.indexOf(':');
     const candidates = colon > 0 ? [raw.slice(colon + 1), raw] : [raw];
     for (const cand of candidates) {
@@ -260,10 +287,26 @@
   function parseMentality(text) {
     const k = norm(text);
     if (!k) return null;
+    const cz = CS ? CS.parseMentality(text) : null;
+    if (cz && MENTALITIES.includes(cz)) return cz;
     let best = null;
     for (const m of MENTALITIES) {
       const mk = norm(m);
       if (k.includes(mk) && (!best || mk.length > norm(best).length)) best = m;
+    }
+    return best;
+  }
+
+  /** parseStyle(text) → název stylu hry ze slovníku | null (česky i anglicky: „Čistý štít“ → „Clean Sheet“). */
+  function parseStyle(text) {
+    const k = norm(text);
+    if (!k) return null;
+    const cz = CS ? CS.parseStyle(text) : null;
+    if (cz && STYLES.some((x) => x.name === cz)) return cz;
+    let best = null;
+    for (const st of STYLES) {
+      const sk = norm(st.name);
+      if (k.includes(sk) && (!best || sk.length > norm(best).length)) best = st.name;
     }
     return best;
   }
@@ -277,7 +320,14 @@
   }
 
   return {
-    VERSION, MENTALITIES, STYLES, TEAM_INSTRUCTIONS, TEAM_BY_ID, ROLES_IN, ROLES_OUT, GROUP_BY_POS, TRAITS,
-    norm, groupOfPos, sideOfPos, findRole, hasTrait, findValue, parseInstruction, parseMentality, stepOf,
+    VERSION, MENTALITIES, STYLES, TEAM_INSTRUCTIONS, TEAM_BY_ID, THIRD_PARTY_ONLY, GAME_INSTRUCTION_COUNT, ROLES_IN, ROLES_OUT, GROUP_BY_POS, TRAITS,
+    norm, groupOfPos, sideOfPos, findRole, hasTrait, findValue, parseInstruction, parseMentality, parseStyle, stepOf,
+    // české názvy a údaje ze hry (fm27cs.js); bez modulu fm27cs jsou null
+    labelCs: CS ? CS.labelCs : () => null,
+    valueCs: CS ? CS.valueCs : () => null,
+    TE: CS ? CS.TE : null,
+    TRAINING: CS ? CS.TRAINING : null,
+    TWEAKS: CS ? CS.TWEAKS : null,
+    OPPOSITION_COLUMNS: CS ? CS.OPPOSITION_COLUMNS : null,
   };
 });
