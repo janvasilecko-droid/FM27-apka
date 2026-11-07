@@ -41,6 +41,15 @@
   const plainKey = (s) => core.fold(String(s === null || s === undefined ? '' : s)).replace(/[^a-z0-9]/g, '');
   const attrKey = (s) => (CS ? CS.attrKey(s) : plainKey(s));
   const roleKey = attrKey;
+  /** Fáze profilu role: 'in' (s míčem), 'out' (bez míče) nebo '' (neurčeno / starý profil). FM27 má dvě sady rolí a „Střední obránce“ existuje v obou. */
+  function phaseOf(value) {
+    const k = plainKey(value);
+    if (/^(out|outofpossession|bezmice|bezbalonu)/.test(k)) return 'out';
+    if (/^(in|inpossession|smicem|smicemnakopackach)/.test(k)) return 'in';
+    return '';
+  }
+  /** Klíč profilu: název role, u rolí bez míče s předponou, aby se role téhož jména v obou fázích nepřepisovaly. */
+  const profileKey = (name, phase) => (phaseOf(phase) === 'out' ? 'out:' : '') + roleKey(name);
 
   // ---------------------------------------------------------------- profil role z obrazovky
   function cleanList(v, issues) {
@@ -102,7 +111,7 @@
     const k = roleKey(c.name);
     if (!k) return { ok: false, profile: null, issues: issues.concat('Název role nemá žádné písmeno ani číslici.') };
     const profile = {
-      id: ('r' + k).slice(0, 40),
+      id: ('r' + (phaseOf(c.phase) === 'out' ? 'o' : '') + k).slice(0, 40),
       name: c.name,
       key: c.key,
       pref: c.pref,
@@ -117,7 +126,7 @@
 
   const profilesIndex = (profiles) => {
     const m = new Map();
-    for (const p of Array.isArray(profiles) ? profiles : []) if (isObj(p) && typeof p.name === 'string') m.set(roleKey(p.name), p);
+    for (const p of Array.isArray(profiles) ? profiles : []) if (isObj(p) && typeof p.name === 'string') m.set(profileKey(p.name, p.phase), p);
     return m;
   };
 
@@ -348,5 +357,5 @@
     return lines;
   }
 
-  return { DEFAULT_WEIGHTS, SOURCES, SOURCE_CS, SLOT_FM_POS, attrKey, roleKey, normalizeRoleExtraction, makeProfile, profilesIndex, roleFit, eligibility, hungarianMax, assignBest, weakSpots, summaryLines };
+  return { DEFAULT_WEIGHTS, SOURCES, SOURCE_CS, SLOT_FM_POS, attrKey, roleKey, phaseOf, profileKey, normalizeRoleExtraction, makeProfile, profilesIndex, roleFit, eligibility, hungarianMax, assignBest, weakSpots, summaryLines };
 });

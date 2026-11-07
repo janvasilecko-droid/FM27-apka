@@ -63,6 +63,26 @@
   /** Skupiny atributů v profilu hráče a v pohledech soupisky (jak je hra píše). */
   const ATTR_GROUPS_CS = deepFreeze({ profile: ['Technika', 'Psychika', 'Fyzička', 'Brankářské'], squadViews: ['Fyzické atributy', 'Psychika', 'Technické', 'Brankářské', 'Obrana', 'Útok'] });
 
+  // ---------------------------------------------------------------- jména hráčů: „L. Horníček“ = „Lukáš Horníček“
+  const nameTokens = (s) => core.fold(str(s)).split(/[^a-z]+/).filter(Boolean);
+  /** Jméno z obrazovky („L. Horníček“) sedí na jméno v kádru („Lukáš Horníček“): každé slovo kratšího jména je shodné nebo je iniciála slova
+      delšího jména a aspoň jedno slovo (příjmení) je shodné celé a má aspoň tři písmena. Bez příjmení se nepáruje. */
+  function sameName(a, b) {
+    const A = nameTokens(a);
+    const B = nameTokens(b);
+    if (!A.length || !B.length) return false;
+    const [short, long] = A.length <= B.length ? [A, B] : [B, A];
+    const used = new Set();
+    let full = false;
+    for (const tok of short) {
+      const i = long.findIndex((x, k) => !used.has(k) && (x === tok || (tok.length === 1 && x.startsWith(tok)) || (x.length === 1 && tok.startsWith(x))));
+      if (i < 0) return false;
+      used.add(i);
+      if (tok.length >= 3 && long[i] === tok) full = true;
+    }
+    return full;
+  }
+
   // ---------------------------------------------------------------- pozice: seznamy „O/KO/Z/OZ (P)“ a kódy míst „OZSP“
   // Pozice se v tabulkách píše dvěma způsoby: v sloupci Pozice a na hřišti „O (S)“, „DZ, Z (S)“, „OZ (LS), ÚT (S)“ (písmena ve
   // závorce = strany P pravá, L levá, S střední; každé písmeno je zvláštní pozice) a v seznamu míst pokynů k soupeři „OSP“, „DZSL“
@@ -159,6 +179,14 @@
     GK: ['GK'], DR: ['RB'], DL: ['LB'], DC: ['CB', 'RCB', 'LCB'], WBR: ['RWB'], WBL: ['LWB'], DM: ['DM', 'RDM', 'LDM'], MC: ['CM', 'RCM', 'LCM'], MR: ['RM'], ML: ['LM'],
     AMR: ['RAM', 'RW'], AML: ['LAM', 'LW'], AMC: ['AM'], ST: ['ST', 'RST', 'LST'],
   });
+
+  /** Kód pozice (FM kód) míst z rozestavení aplikace: RCB → DC, RW → AMR… Neznámé místo → null. */
+  const FM_OF_SLOT = (() => {
+    const m = {};
+    for (const [fm, slots] of Object.entries(SLOTS_BY_FM)) for (const sl of slots) m[sl] = fm;
+    return Object.freeze(m);
+  })();
+  const fmOfSlot = (pos) => FM_OF_SLOT[str(pos).trim().toUpperCase()] || null;
 
   /** Všech 22 míst, která hra nabízí v pokynech k soupeři (záložka „Všechny pozice“), v pořadí obrazovky. */
   const OPPOSITION_SLOT_CODES = deepFreeze(['B', 'OP', 'OL', 'OS', 'OSL', 'OSP', 'KOP', 'KOL', 'DZS', 'DZSL', 'DZSP', 'ZP', 'ZL', 'ZS', 'ZSL', 'ZSP', 'OZP', 'OZL', 'OZS', 'OZSL', 'OZSP', 'ÚTS']);
@@ -372,11 +400,14 @@
     const m = phase === 'out' ? ROLE_OUT_BY_KEY : ROLE_IN_BY_KEY;
     return m.get(key(raw)) || raw;
   }
-  // Zkratky na štítcích rolí v tabulce „Tvar týmu“. Jen dvojice, které se daly ověřit u téhož hráče (profil hráče proti štítku v tabulce);
-  // ostatní zkratky (O, KO, DZ, PHH, FR, IW, KH s míčem; FB, TWM, AM bez míče) se ODHADEM nepřekládají.
+  // Zkratky na štítcích rolí v tabulce „Tvar týmu“. Jen dvojice, které se daly ověřit u téhož hráče (profil hráče nebo nabídka rolí proti štítku
+  // v tabulce): GK je základní role brankáře; CB s míčem potvrzuje zaškrtnutá „Střední obránce“ v nabídce rolí u téhož místa; BCB a CB bez míče
+  // potvrdil profil stopera; CFD potvrdil profil útočníka. Ostatní zkratky (O, KO, DZ, ZTH, PHH, FR, IW, KH s míčem; FB, TWM, AM, DM bez míče)
+  // se ODHADEM nepřekládají: role zůstane nepoznaná a pravidla pro ni se nevyhodnotí.
   const ABBR_RAW = deepFreeze([
-    { abbr: 'GK', phase: 'in', en: 'Goalkeeper', verified: false },
-    { abbr: 'GK', phase: 'out', en: 'Goalkeeper', verified: false },
+    { abbr: 'GK', phase: 'in', en: 'Goalkeeper', verified: true },
+    { abbr: 'GK', phase: 'out', en: 'Goalkeeper', verified: true },
+    { abbr: 'CB', phase: 'in', en: 'Centre-Back', verified: true },
     { abbr: 'BCB', phase: 'in', en: 'Ball-Playing Centre-Back', verified: true },
     { abbr: 'CB', phase: 'out', en: 'Centre-Back', verified: true },
     { abbr: 'CFD', phase: 'out', en: 'Centre Forward', verified: true },
@@ -423,8 +454,8 @@
   ]);
 
   return {
-    VERSION, OBSERVED_ON, key, ATTR_PAIRS, ATTR_GROUPS_CS, canonAttr, attrKey, isKnownAttr,
-    parsePositions, normalizePositions, normalizeAttributes, parseSlotCode, SLOTS_BY_FM, OPPOSITION_SLOT_CODES,
+    VERSION, OBSERVED_ON, key, ATTR_PAIRS, ATTR_GROUPS_CS, canonAttr, attrKey, isKnownAttr, sameName,
+    parsePositions, normalizePositions, normalizeAttributes, parseSlotCode, SLOTS_BY_FM, fmOfSlot, OPPOSITION_SLOT_CODES,
     INSTR, VALUES, parseInstruction, labelCs, valueCs, valueSeen,
     MENTALITY_PAIRS, STYLE_PAIRS, parseMentality, parseStyle,
     ROLE_CS_IN, ROLE_CS_OUT, canonRole, roleFromChip,

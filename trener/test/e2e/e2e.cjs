@@ -146,10 +146,10 @@ function installMock(config) {
     const isStr = typeof input === 'string';
     const kindOf = (t) =>
       /\{"ok": true\}/.test(t) ? 'ping'
-      : /obrazovka se soupiskou hráčů/.test(t) ? 'squad'
+      : /Přepiš jen hráče, které na obrázku opravdu čteš/.test(t) ? 'squad'
       : /obrazovka s taktikou hry Football Manager/.test(t) ? 'tacread'
       : /zjistil, jaký klub uživatel řídí/.test(t) ? 'careread'
-      : /s popisem jedné role hráče/.test(t) ? 'roleread'
+      : /s profilem hráče nebo s popisem role/.test(t) ? 'roleread'
       : /informacemi o soupeři/.test(t) ? 'oppread'
       : /připravuješ předzápasový plán proti soupeři/.test(t) ? 'opponent'
       : /vysvětluješ, jak je postavené rozložení/.test(t) ? 'explain'

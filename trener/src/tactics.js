@@ -9,9 +9,9 @@
    (stejně jako reference/codex-2026-11-01/takticky-plan.json). Fáze: 'in' = s míčem (x, y), 'out' = bez míče (ox, oy).
    Čisté funkce: žádná síť, žádné hodiny, žádná náhoda; stejný vstup dá vždy stejný výstup. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
-  else root.TrenerTactics = factory(root.TrenerCore);
-})(typeof self !== 'undefined' ? self : this, function (core) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./fm27cs.js'));
+  else root.TrenerTactics = factory(root.TrenerCore, root.TrenerFm27Cs);
+})(typeof self !== 'undefined' ? self : this, function (core, CS) {
   'use strict';
 
   // ---------------------------------------------------------------- konstanty a pomůcky
@@ -224,6 +224,7 @@
       kind: o.kind === 'alternative' ? 'alternative' : 'primary',
       formation: f.id,
       mentality: '',
+      style: '',
       teamInstructions: [],
       notes: '',
       slots: f.slots.map((s, i) => ({ key: 's' + (i + 1), pos: s.pos, x: s.x, y: s.y, ox: s.x, oy: s.y, playerId: null, role: '', oopRole: '', duty: '' })),
@@ -1268,11 +1269,21 @@
   const HIDDEN_CHARS = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
   const oneLineText = (v, n) => (typeof v === 'string' ? v.replace(HIDDEN_CHARS, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
 
-  /** normalizeTacticExtraction(raw) → {ok, read: {name, formation (id šablony|null), formationRaw, mentality, instructions: [text], roles: [{pos, role, duty, player}], notes}, issues}.
-      Cokoli podezřelého se zahodí a řekne se to v `issues`. `ok` je true, jen když je přečtené aspoň něco. */
+  /** Tvary čtení rozestavení z tabulky míst: které šablony formací mají přesně tuto množinu pozic (podle kódů pozic, ne podle čísel v názvu).
+      Víc šablon se stejnou množinou (např. dvě varianty téže formace) se vrací všechny: která platí, rozhodne uživatel. */
+  function formationsBySlotCodes(fmCodes) {
+    if (!CS || !Array.isArray(fmCodes) || !fmCodes.length) return [];
+    const want = fmCodes.slice().sort().join(',');
+    return FORMATIONS.filter((f) => f.slots.map((sl) => CS.fmOfSlot(sl.pos) || '?').sort().join(',') === want).map((f) => f.id);
+  }
+
+  /** normalizeTacticExtraction(raw) → {ok, read: {name, formation (id šablony|null), formationRaw, formationCandidates, style, mentality, instructions: [text],
+      roles: [{pos, slot, fm, role, oopRole, duty, player}], notes}, issues}.
+      Přijímá starý tvar (instrukce {group, text}, role {position, role, duty, player}) i tvar české obrazovky FM27 (instrukce {label, value, phase},
+      řádky tabulky Tvar týmu {slot, role, oopRole, player}). Cokoli podezřelého se zahodí a řekne se to v `issues`. `ok` je true, jen když je přečtené aspoň něco. */
   function normalizeTacticExtraction(raw) {
     const issues = [];
-    const read = { name: '', formation: null, formationRaw: '', mentality: '', instructions: [], roles: [], notes: '' };
+    const read = { name: '', formation: null, formationRaw: '', formationCandidates: [], style: '', mentality: '', instructions: [], roles: [], notes: '' };
     if (!isObj(raw)) return { ok: false, read, issues: ['Odpověď nemá očekávaný tvar.'] };
     read.name = oneLineText(raw.name, 60);
     const fr = typeof raw.formation === 'string' || isNum(raw.formation) ? oneLineText(String(raw.formation), 30) : '';
@@ -1281,6 +1292,7 @@
       read.formation = normalizeFormationId(fr);
       if (!read.formation) issues.push(`Formace „${fr}“ není mezi šablonami aplikace (nebo ji nejde jednoznačně přečíst), vyber ji ručně.`);
     }
+    read.style = oneLineText(raw.style, TAC_TEXT);
     read.mentality = oneLineText(raw.mentality, TAC_TEXT);
     const seen = new Set();
     let dropped = 0;
@@ -1288,9 +1300,14 @@
       let text = '';
       if (typeof item === 'string') text = oneLineText(item, 120);
       else if (isObj(item)) {
-        const g = oneLineText(item.group, 40);
-        const t = oneLineText(item.text, 100);
-        text = t ? (g ? `${g}: ${t}` : t) : '';
+        const label = oneLineText(item.label, 60);
+        const value = oneLineText(item.value, 60);
+        if (label || value) text = label && value ? `${label}: ${value}` : label || value;
+        else {
+          const g = oneLineText(item.group, 40);
+          const t = oneLineText(item.text, 100);
+          text = t ? (g ? `${g}: ${t}` : t) : '';
+        }
       }
       const key = text.toLowerCase();
       if (!text) {
@@ -1306,22 +1323,42 @@
     for (const r of (Array.isArray(raw.roles) ? raw.roles : []).slice(0, TAC_MAX_ROLES)) {
       if (!isObj(r)) continue;
       const role = oneLineText(r.role, 60);
+      const oopRole = oneLineText(r.oopRole, 60);
       const duty = oneLineText(r.duty, 40);
       const player = oneLineText(r.player, 60);
+      const slot = oneLineText(r.slot, 14);
+      if (/^S\d{1,2}$/i.test(slot)) continue; // lavička (S1 až S9) není základní jedenáctka
       const posRaw = oneLineText(r.position, 8).toUpperCase();
       const pos = /^[A-Z]{1,4}$/.test(posRaw) ? posRaw : '';
-      if (!role && !duty) continue;
-      read.roles.push({ pos, role, duty, player });
+      if (!role && !oopRole && !duty) continue;
+      let fm = null;
+      if (slot && CS) {
+        const parsed = CS.parsePositions(slot);
+        fm = parsed.codes.length === 1 ? parsed.codes[0] : null;
+        if (!fm) issues.push(`Místo „${slot}“ se nepodařilo převést na pozici, role se přiřadí jen podle zkratky pozice, pokud ji aplikace zná.`);
+      }
+      read.roles.push({ pos, slot, fm, role, oopRole, duty, player });
+    }
+    // formace odvozená z míst v tabulce Tvar týmu (jedenáct míst s rozpoznanou pozicí)
+    const fmCodes = read.roles.filter((r) => r.fm).map((r) => r.fm);
+    if (!read.formation && fmCodes.length === 11) {
+      read.formationCandidates = formationsBySlotCodes(fmCodes);
+      if (read.formationCandidates.length === 1) {
+        read.formation = read.formationCandidates[0];
+        issues.push(`Formace ${read.formation} je odvozená z jedenácti míst v tabulce (na obrazovce není napsaná), zkontroluj ji.`);
+      } else if (read.formationCandidates.length > 1) issues.push(`Podle míst v tabulce sedí víc šablon (${read.formationCandidates.join(', ')}), vyber správnou.`);
+      else issues.push('Místa v tabulce nesedí na žádnou šablonu formace aplikace, vyber nejbližší ručně.');
     }
     read.notes = oneLineText(raw.notes, 200);
-    const ok = !!(read.formation || read.mentality || read.instructions.length || read.roles.length);
+    const ok = !!(read.formation || read.style || read.mentality || read.instructions.length || read.roles.length);
     if (!ok) issues.push('Na obrázku jsem nenašel nic čitelného z taktiky.');
     return { ok, read, issues };
   }
 
-  /** tacticFromExtraction(read, opts) → {tactic|null, unplaced: [text], issues}. Role se přiřadí jen k pozici, kterou má
-      v rozestavení přesně jeden hráč a na obrázku je k ní přesně jedna role; ostatní skončí v poznámce (nehádá se pořadí
-      hráčů se stejnou pozicí). Bez rozpoznané formace se taktika nevytvoří. opts: {name, careerId, kind, fileName, now}. */
+  /** tacticFromExtraction(read, opts) → {tactic|null, unplaced: [text], issues}. Role z tabulky míst (kód místa, např. „O (S)“) se přiřadí k místu
+      šablony podle pozice; u dvou a více míst na téže pozici (dva stopeři) jen když se počet řádků a míst shoduje, a to v pořadí zprava doleva
+      (tak je řadí hra) s poznámkou, že pořadí je odhad. Starý tvar čtení (zkratka pozice shodná s místem šablony) funguje dál.
+      Bez rozpoznané formace se taktika nevytvoří. opts: {name, careerId, kind, fileName, now}. */
   function tacticFromExtraction(read, opts) {
     const o = isObj(opts) ? opts : {};
     const issues = [];
@@ -1330,36 +1367,90 @@
     const t = makeTactic({ formation: read.formation, name, kind: o.kind, careerId: o.careerId });
     if (!t) return { tactic: null, unplaced: [], issues: [`Formace „${read.formation}“ není mezi šablonami.`] };
     t.mentality = read.mentality || '';
+    t.style = read.style || '';
     t.teamInstructions = Array.isArray(read.instructions) ? read.instructions.slice(0, TAC_MAX_INSTRUCTIONS) : [];
     const unplaced = [];
-    for (const r of Array.isArray(read.roles) ? read.roles : []) {
-      const label = `${r.pos ? r.pos + ': ' : ''}${r.role || '?'}${r.duty ? ' (' + r.duty + ')' : ''}${r.player ? ' – ' + r.player : ''}`;
+    const roles = Array.isArray(read.roles) ? read.roles : [];
+    const labelOf = (r) => `${r.slot || r.pos ? (r.slot || r.pos) + ': ' : ''}${r.role || '?'}${r.oopRole ? ' / ' + r.oopRole : ''}${r.duty ? ' (' + r.duty + ')' : ''}${r.player ? ' – ' + r.player : ''}`;
+    let orderGuess = false;
+    const byFm = new Map();
+    for (const r of roles) if (r && r.fm) byFm.set(r.fm, (byFm.get(r.fm) || []).concat([r]));
+    const placed = new Set();
+    for (const [fm, rows] of byFm) {
+      const cands = t.slots.filter((s) => CS && CS.fmOfSlot(s.pos) === fm).sort((a, b) => b.x - a.x);
+      if (rows.length === cands.length) {
+        if (rows.length > 1) orderGuess = true;
+        rows.forEach((r, i) => {
+          cands[i].role = r.role || '';
+          cands[i].oopRole = r.oopRole || '';
+          cands[i].duty = r.duty || '';
+          if (r.player) cands[i].readPlayer = r.player;
+          placed.add(r);
+        });
+      }
+    }
+    for (const r of roles) {
+      if (placed.has(r)) continue;
+      if (r.fm) {
+        unplaced.push(labelOf(r));
+        continue;
+      }
+      // starý tvar: zkratka pozice shodná s místem šablony
       const slots = r.pos ? t.slots.filter((s) => s.pos === r.pos) : [];
-      const same = r.pos ? read.roles.filter((x) => x.pos === r.pos) : [];
+      const same = r.pos ? roles.filter((x) => !x.fm && x.pos === r.pos) : [];
       if (slots.length === 1 && same.length === 1) {
         slots[0].role = r.role || '';
+        if (r.oopRole) slots[0].oopRole = r.oopRole;
         slots[0].duty = r.duty || '';
-      } else unplaced.push(label);
+        if (r.player) slots[0].readPlayer = r.player;
+      } else unplaced.push(labelOf(r));
     }
     const notes = [];
     if (unplaced.length) notes.push(`Role z obrazovky, které se nepodařilo bezpečně přiřadit k pozici: ${unplaced.join('; ')}.`);
+    if (orderGuess) notes.push('Pořadí hráčů na téže pozici (např. dvou stoperů) je odhad, řazeno zprava doleva jako v tabulce hry; pro rozbor je to jedno.');
     if (read.notes) notes.push(read.notes);
     t.notes = notes.join(' ').slice(0, 400);
     const fields = {
-      formation: 'screenshot_verified',
+      formation: 'screenshot_verified', // přečtená nebo odvozená z jedenácti míst v tabulce; uživatel ji stejně potvrzuje podle obrazovky
       mentality: read.mentality ? 'screenshot_verified' : 'unknown',
+      style: read.style ? 'screenshot_verified' : 'unknown',
       instructions: read.instructions && read.instructions.length ? 'screenshot_verified' : 'unknown',
-      roles: read.roles && read.roles.length ? 'screenshot_verified' : 'unknown',
+      roles: roles.length ? 'screenshot_verified' : 'unknown',
     };
     t.source = { type: 'screenshot', fileName: oneLineText(o.fileName, 80) || null, importedAt: isNum(o.now) ? o.now : null, fields };
     return { tactic: t, unplaced, issues };
+  }
+
+  // ---------------------------------------------------------------- hráči v tabulce míst → hráči kádru (podle jména)
+  const sameName = (a, b) => CS.sameName(a, b); // „L. Horníček“ = „Lukáš Horníček“ (fm27cs.js)
+
+  /** assignReadPlayers(tactic, players) → {tactic: kopie, assigned: [{slot, name, playerId}], ambiguous: [jména], unmatched: [jména]}.
+      Místa s `readPlayer` (jméno přečtené z tabulky) dostanou `playerId` jen tehdy, když sedí právě jeden hráč kádru; `readPlayer` se odstraní. */
+  function assignReadPlayers(tactic, players) {
+    const copy = JSON.parse(JSON.stringify(tactic));
+    const out = { tactic: copy, assigned: [], ambiguous: [], unmatched: [] };
+    const list = (Array.isArray(players) ? players : []).filter((p) => isObj(p) && p.id && typeof p.name === 'string');
+    const taken = new Set();
+    for (const slot of copy.slots || []) {
+      const read = slot.readPlayer;
+      delete slot.readPlayer;
+      if (!read) continue;
+      const hits = list.filter((p) => !taken.has(p.id) && sameName(read, p.name));
+      if (hits.length === 1) {
+        slot.playerId = hits[0].id;
+        taken.add(hits[0].id);
+        out.assigned.push({ slot: slot.key, name: hits[0].name, playerId: hits[0].id });
+      } else if (hits.length > 1) out.ambiguous.push(read);
+      else out.unmatched.push(read);
+    }
+    return out;
   }
 
   return {
     PLAN_FORMAT, PLAN_VERSION, PHASES, CHANNELS, THIRDS, FMF,
     FORMATIONS, DEFAULT_THRESHOLDS,
     normalizeFormationId, formationById, makeTactic, lineOf, channelOf, thirdOf,
-    importPlanJson, exportPlanJson, normalizeTacticExtraction, tacticFromExtraction,
+    importPlanJson, exportPlanJson, normalizeTacticExtraction, tacticFromExtraction, formationsBySlotCodes, sameName, assignReadPlayers,
     analyzeShape, shapeFacts, findConflicts, compareTactics, opponentOverloads, factsToObservations,
     inspectFmf,
   };

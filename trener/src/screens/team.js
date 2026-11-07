@@ -275,45 +275,10 @@
   }
 
   // ------------------------------------------------------------------ čtení soupisky ze screenshotu
-  const SQUAD_PROMPT = `Na přiložených obrázcích je obrazovka se soupiskou hráčů hry Football Manager. Přepiš jen hráče, které na obrázku opravdu čteš.
-
-Pravidla:
-- Co na obrázku není čitelné, napiš jako null. Nikdy nic nehádej ani nedoplňuj z paměti.
-- Jména přepiš přesně tak, jak jsou napsaná. Pozice jako zkratky, které vidíš (např. GK, DC, ST).
-- Atributy jen tehdy, když je vidíš jako čísla; název atributu přepiš tak, jak je napsaný.
-- Neuváděj názvy rolí ani nastavení hry, které na obrázku nevidíš.
-- Hráče, jejichž jméno nečteš, vynech.
-
-Odpověz POUZE JSON objektem:
-{"players": [{"name": "…", "positions": ["…"], "age": číslo|null, "role": "…"|null, "attributes": {"Název": číslo}, "injured": true|false|null}], "notes": "krátká poznámka o čitelnosti"}`;
-
-  /** Kontrola odpovědi modelu: cokoli podezřelého se zahodí. Návrhy jsou vždy neověřené, dokud je uživatel nepotvrdí. */
+  const SR = () => window.TrenerSquadRead;
+  /** Kontrola odpovědi modelu (čistý modul squadread.js): české pozice a názvy atributů se převedou na kanonické, hráči ze dvou snímků se sloučí. */
   function normalizeSquadExtraction(raw) {
-    const issues = [];
-    const list = raw && Array.isArray(raw.players) ? raw.players : null;
-    if (!list) return { proposals: [], issues: ['Odpověď nemá seznam hráčů.'] };
-    const seen = new Set();
-    const proposals = [];
-    for (const r of list.slice(0, 40)) {
-      const name = r && typeof r.name === 'string' ? r.name.replace(/\s+/g, ' ').trim() : '';
-      if (name.length < 2 || name.length > 60) {
-        issues.push('Řádek bez čitelného jména se vynechal.');
-        continue;
-      }
-      if (seen.has(name.toLowerCase())) continue;
-      seen.add(name.toLowerCase());
-      const positions = (Array.isArray(r.positions) ? r.positions : []).map((x) => String(x).toUpperCase().trim()).filter((x) => /^[A-Z]{1,4}$/.test(x)).slice(0, 4);
-      const age = Number.isInteger(r.age) && r.age >= 14 && r.age <= 50 ? r.age : null;
-      const attributes = {};
-      if (r.attributes && typeof r.attributes === 'object') {
-        for (const [k, v] of Object.entries(r.attributes).slice(0, 40)) {
-          if (Number.isInteger(v) && v >= 1 && v <= 20) attributes[String(k).slice(0, 30)] = v;
-          else issues.push(`${name}: atribut „${k}“ má nečitelnou hodnotu, vynechal se.`);
-        }
-      }
-      proposals.push({ name, positions, age, role: typeof r.role === 'string' ? r.role.trim().slice(0, 60) : '', attributes, injured: r.injured === true });
-    }
-    return { proposals, issues };
+    return SR().normalizeSquadRead(raw);
   }
   FM27.team.normalizeSquadExtraction = normalizeSquadExtraction;
 
@@ -342,7 +307,7 @@ Odpověz POUZE JSON objektem:
         status.textContent = 'Čtu obrázek… (při prvním použití potvrď okno Claude)';
         out.replaceChildren();
         try {
-          const raw = await ai.json(SQUAD_PROMPT, { modelTier: 'quick', images: files, cache: false, purpose: 'čtení soupisky' });
+          const raw = await ai.json(SR().PROMPT, { modelTier: 'quick', images: files, cache: false, purpose: 'čtení soupisky' });
           const { proposals, issues } = normalizeSquadExtraction(raw);
           status.textContent = proposals.length ? `Přečetl jsem ${proposals.length} hráčů. Není to ověřené: zkontroluj je podle screenshotu.` : 'Nic čitelného jsem nenašel.';
           if (issues.length) out.append(h('p', { class: 'hint', text: 'Poznámky ke čtení: ' + [...new Set(issues)].slice(0, 4).join(' ') }));
@@ -358,29 +323,46 @@ Odpověz POUZE JSON objektem:
   }
 
   function renderProposals(app, box, proposals, redraw) {
-    const checks = proposals.map((p) => h('input', { type: 'checkbox', checked: true, 'aria-label': 'Přidat ' + p.name }));
+    const plan = SR().planWrites(FM27.context.players(app), proposals);
+    const addChecks = plan.add.map((p) => h('input', { type: 'checkbox', checked: true, 'aria-label': 'Přidat ' + p.name }));
+    const updChecks = plan.update.map((u) => h('input', { type: 'checkbox', checked: true, 'aria-label': 'Doplnit ' + u.name }));
     const confirm = h('input', { type: 'checkbox', id: 'squadConfirm' });
     const add = h('button', {
       class: 'btn primary',
       id: 'squadAdd',
       type: 'button',
-      text: 'Přidat vybrané hráče',
+      text: 'Zapsat vybrané',
       onclick: async () => {
         if (!confirm.checked) return toast('Nejdřív potvrď, že jsi návrhy zkontroloval podle screenshotu.');
-        const existing = new Set(FM27.context.players(app).map((p) => p.name.toLowerCase()));
         let n = 0;
-        for (const [i, p] of proposals.entries()) {
-          if (!checks[i].checked || existing.has(p.name.toLowerCase())) continue;
+        let m = 0;
+        for (const [i, p] of plan.add.entries()) {
+          if (!addChecks[i].checked) continue;
           await app.store.put('player', { careerId: app.career().id, name: p.name, positions: p.positions, role: p.role, duty: '', foot: 'unknown', age: p.age, attributes: p.attributes, strengths: [], weaknesses: [], flags: { injury: p.injured, fatigue: false }, notes: '', source: 'screenshot', prov: { all: 'screenshot_verified' } });
           n++;
         }
-        toast(n ? `Přidáno hráčů: ${n}.` : 'Nikdo nový k přidání.');
+        for (const [i, u] of plan.update.entries()) {
+          if (!updChecks[i].checked) continue;
+          const cur = app.store.get('player', u.id);
+          if (!cur) continue;
+          const rec = app.store.draft(cur);
+          if (u.patch.attributes) rec.attributes = u.patch.attributes;
+          if (u.patch.positions) rec.positions = u.patch.positions;
+          if (u.patch.age !== undefined) rec.age = u.patch.age;
+          if (u.patch.injury) rec.flags = Object.assign({}, rec.flags, { injury: true });
+          await app.store.put('player', rec);
+          m++;
+        }
+        toast(n || m ? `${n ? `Přidáno hráčů: ${n}. ` : ''}${m ? `Doplněno hráčů: ${m}.` : ''}`.trim() : 'Nic se nezapsalo.');
         box.replaceChildren();
         redraw();
       },
     });
+    const describe = (p) => [p.positions.join('/') || 'pozice nečitelná', p.age ? `věk ${p.age}` : null, p.role ? `role: ${p.role}` : null, Object.keys(p.attributes).length ? `${Object.keys(p.attributes).length} atributů` : null, p.injured ? 'zraněný' : null].filter(Boolean).join(' · ');
     box.append(
-      h('div', { class: 'books' }, proposals.map((p, i) => h('label', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: p.name }), h('span', { text: [p.positions.join('/') || 'pozice nečitelná', p.age ? `věk ${p.age}` : null, p.role ? `role: ${p.role}` : null, Object.keys(p.attributes).length ? `${Object.keys(p.attributes).length} atributů` : null, p.injured ? 'zraněný' : null].filter(Boolean).join(' · ') })), checks[i]))),
+      plan.add.length ? h('div', null, h('h3', { text: 'Noví hráči' }), h('div', { class: 'books', id: 'squadNew' }, plan.add.map((p, i) => h('label', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: p.name }), h('span', { text: describe(p) })), addChecks[i])))) : null,
+      plan.update.length ? h('div', null, h('h3', { text: 'Už v kádru: doplnit atributy z tohoto snímku' }), h('div', { class: 'books', id: 'squadUpdate' }, plan.update.map((u, i) => h('label', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: u.name }), h('span', { text: u.changes.slice(0, 8).join(' · ') + (u.changes.length > 8 ? ` · … (${u.changes.length} změn)` : '') })), updChecks[i])))) : null,
+      plan.same.length ? h('p', { class: 'hint', text: `Beze změny (hráč už je v kádru se stejnými údaji): ${plan.same.join(', ')}.` }) : null,
       h('label', { class: 'checkline' }, confirm, h('span', { text: 'Zkontroloval jsem návrhy podle screenshotu a odpovídají mu.' })),
       h('div', { class: 'actions' }, add)
     );

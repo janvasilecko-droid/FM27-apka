@@ -153,7 +153,7 @@ module.exports = async function run(env) {
   await ask(page, 'Co s pravým obráncem?');
   const prompts = await page.evaluate(() => window.__mock.prompts);
   const adv = prompts.filter((p) => /Pozorování \(id/.test(p)).pop() || '';
-  check('03 do rady jde soupiska zadaná uživatelem', /- squad \| user_entered \| - \| Soupiska \(zadal uživatel, 13 hráčů\)/.test(adv) && /Jan Novák \[RB\/RWB, role Krajní obránce \(podpora\), věk 24, atributy: Pace 16, Finishing 14, zraněný\]/.test(adv), adv.slice(adv.indexOf('Pozorování'), adv.indexOf('Pozorování') + 700));
+  check('03 do rady jde soupiska zadaná uživatelem', /- squad \| user_entered \| - \| Soupiska \(zadal uživatel, 13 hráčů\)/.test(adv) && /Jan Novák \[RB\/RWB, role Krajní obránce \(podpora\), věk 24, atributy: Pace 16, Finishing 15, zraněný\]/.test(adv), adv.slice(adv.indexOf('Pozorování'), adv.indexOf('Pozorování') + 700));
   check('03 do rady jde aktivní taktika s rolemi a instrukcemi', /- tactic \| user_entered/.test(adv) && /Taktika „Hlavní 4-3-3“/.test(adv) && /Týmové instrukce: Hrát přes střed; Vysoký presink/.test(adv) && /role Brankář \(hraje nohama\)/.test(adv), '');
   check('03 rada s kontextem kariéry prošla kontrolou', /prošla kontrolou/.test(await text(page, '#result .banner')), await text(page, '#result .banner'));
 

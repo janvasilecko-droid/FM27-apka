@@ -53,7 +53,7 @@ module.exports = async function run(env) {
   await page.waitForSelector('#tacCheckResult');
   const result = await text(page, '#tacCheckResult');
   const ruleIds = await page.$$eval('#tacCheckFindings [data-rule]', (els) => els.map((e) => e.getAttribute('data-rule')));
-  check('23 rozbor ukáže, co se přečetlo: mentalitu, 5 z 28 instrukcí, role s míčem, role bez míče a atributy', /mentalita: Balanced/.test(result) && /týmové instrukce: 5 z 28/.test(result) && /role s míčem: 11 z 11/.test(result) && /role bez míče: 1 z 11/.test(result) && /atributy hráčů u 2 z 11 míst/.test(result), result.slice(0, 400));
+  check('23 rozbor ukáže, co se přečetlo: mentalitu, 5 z 27 instrukcí, role s míčem, role bez míče a atributy', /mentalita: Balanced/.test(result) && /týmové instrukce: 5 z 27/.test(result) && /role s míčem: 11 z 11/.test(result) && /role bez míče: 1 z 11/.test(result) && /atributy hráčů u 2 z 11 míst/.test(result), result.slice(0, 400));
   check('23 nerozpoznaná instrukce se uvede a nezkresluje rozbor', /Nerozpoznané instrukce/.test(result) && /Něco mimo slovník/.test(result));
   check('23 nálezy: linie × zapojení (A01), Counter-Press z nízkého bloku (A04), brankář na čáře při vysoké linii (A09), přímé × trpělivé (C01), pomalý stoper (A08); Counter-Press s NÍZKOU linií se nehlásí, linie je vysoká (A03)', ['A01', 'A04', 'A08', 'A09', 'C01'].every((id) => ruleIds.includes(id)) && !ruleIds.includes('A03'), JSON.stringify(ruleIds));
   check('23 vážné rozpory jsou první a každý nález má důkaz, návrh změny a druh zdroje', await page.evaluate(() => {

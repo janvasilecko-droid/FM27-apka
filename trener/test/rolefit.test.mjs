@@ -367,3 +367,34 @@ test('summaryLines: pro AI trenéra s nápisem, že jde o heuristiku; neobsazen�
   assert.ok(lines.some((l) => /^ST Neznámá: neobsazeno \(Chybí profil role „Neznámá“/.test(l)));
   assert.deepEqual(RF.summaryLines(null), []);
 });
+
+// ---------------------------------------------------------------- FM27: dvě sady rolí a česká obrazovka
+test('FM27: stejná role s míčem a bez míče se neslévá (jiná fáze = jiný profil), starý profil bez fáze se chová jako dřív', () => {
+  const inP = RF.makeProfile({ name: 'Střední obránce', key: ['Hlavičky', 'Obranné zákroky'], pref: ['Rychlost'], phase: 'in', source: 'screenshot' }, { now: 1 }).profile;
+  const outP = RF.makeProfile({ name: 'Střední obránce', key: ['Hlavičky', 'Poziční hra'], pref: ['Agresivita'], phase: 'out', source: 'screenshot' }, { now: 1 }).profile;
+  const plain = RF.makeProfile({ name: 'Libero', key: ['Passing'], pref: [], source: 'user' }, { now: 1 }).profile;
+  assert.notEqual(inP.id, outP.id);
+  assert.equal(plain.id, 'rlibero', 'profil bez fáze má id jako dřív');
+  assert.equal(RF.phaseOf('S míčem na kopačkách'), 'in');
+  assert.equal(RF.phaseOf('Bez míče'), 'out');
+  assert.equal(RF.phaseOf('Out of Possession'), 'out');
+  assert.equal(RF.phaseOf('in'), 'in');
+  assert.equal(RF.phaseOf(''), '');
+  assert.notEqual(RF.profileKey('Střední obránce', 'in'), RF.profileKey('Střední obránce', 'out'));
+  const idx = RF.profilesIndex([inP, outP, plain]);
+  assert.equal(idx.size, 3);
+  assert.equal(idx.get(RF.roleKey('Střední obránce')).phase, 'in', 'role místa v taktice (s míčem) najde profil s míčem');
+  assert.equal(idx.get('out:' + RF.roleKey('Střední obránce')).phase, 'out');
+});
+
+test('FM27: profil role přečtený z české obrazovky (české názvy atributů) sedí na hráče s anglickými názvy atributů i naopak', () => {
+  const p = mk('Rozehrávající stoper', ['Hlavičky', 'Obranné zákroky', 'Obsazování', 'Přihrávky'], ['Zpracování', 'Rychlost']);
+  const en = RF.roleFit({ attributes: { Heading: 15, Tackling: 16, Marking: 16, Passing: 12, 'First Touch': 13, Pace: 13 } }, p);
+  const cs = RF.roleFit({ attributes: { Hlavičky: 15, 'Obranné zákroky': 16, Obsazování: 16, Přihrávky: 12, Zpracování: 13, Rychlost: 13 } }, p);
+  assert.equal(en.score, cs.score);
+  assert.deepEqual(en.missing, []);
+  assert.ok(en.score > 60);
+  // profil zadaný anglicky a hráč z české obrazovky
+  const pe = mk('Anglický', ['Heading', 'Tackling'], ['Pace']);
+  assert.equal(RF.roleFit({ attributes: { Hlavičky: 15, 'Obranné zákroky': 16, Rychlost: 13 } }, pe).missing.length, 0);
+});

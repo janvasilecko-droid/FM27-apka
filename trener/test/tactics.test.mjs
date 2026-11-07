@@ -9,6 +9,7 @@ import zlib from 'node:zlib';
 
 const require = createRequire(import.meta.url);
 const core = require('../src/core.js');
+const cs = require('../src/fm27cs.js');
 const T = require('../src/tactics.js');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
@@ -1128,8 +1129,8 @@ test('kanály a třetiny: hranice podle zadání', () => {
 });
 
 test('modul: UMD v prohlížeči, determinismus, žádné DOM, čas ani náhoda', () => {
-  // Bez `module` se zaregistruje globál TrenerTactics a vezme se TrenerCore z globálu.
-  const sandbox = { TrenerCore: core };
+  // Bez `module` se zaregistruje globál TrenerTactics a vezmou se TrenerCore a TrenerFm27Cs z globálu.
+  const sandbox = { TrenerCore: core, TrenerFm27Cs: cs };
   sandbox.self = sandbox;
   vm.runInNewContext(source, sandbox);
   assert.equal(typeof sandbox.TrenerTactics.makeTactic, 'function');
@@ -1144,7 +1145,7 @@ test('modul: UMD v prohlížeči, determinismus, žádné DOM, čas ani náhoda'
   assert.deepEqual(T.importPlanJson(plan), T.importPlanJson(plan));
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(withoutComments, /Math\.random|Date\.now|new Date|performance\.now|\bdocument\b|\bwindow\b|localStorage|fetch\s*\(|XMLHttpRequest/);
-  assert.doesNotMatch(withoutComments, /\brequire\((?!'\.\/core\.js'\))/, 'jediná závislost je core.js');
+  assert.doesNotMatch(withoutComments, /\brequire\((?!'\.\/(?:core|fm27cs)\.js'\))/, 'jediné závislosti jsou core.js a fm27cs.js (obojí čisté moduly)');
 });
 
 // ------------------------------------------------------------------ náhodné vstupy (deterministicky, vlastní generátor)
@@ -1647,7 +1648,7 @@ test('tacticFromExtraction: vytvoří taktiku z šablony, role dosadí jen k jed
   assert.deepEqual(r.unplaced, ['CB: Ball Playing Defender (Defend)']);
   assert.match(t.notes, /nepodařilo bezpečně přiřadit.*CB: Ball Playing Defender/);
   assert.match(t.notes, /Čitelné\./);
-  assert.deepEqual(t.source, { type: 'screenshot', fileName: 'taktika.png', importedAt: 1234, fields: { formation: 'screenshot_verified', mentality: 'screenshot_verified', instructions: 'screenshot_verified', roles: 'screenshot_verified' } });
+  assert.deepEqual(t.source, { type: 'screenshot', fileName: 'taktika.png', importedAt: 1234, fields: { formation: 'screenshot_verified', mentality: 'screenshot_verified', style: 'unknown', instructions: 'screenshot_verified', roles: 'screenshot_verified' } });
 });
 
 test('tacticFromExtraction: dvě role se stejnou pozicí v odpovědi se nepřiřadí ani k jedinému hráči; role bez pozice jde do poznámky', () => {
@@ -1668,6 +1669,6 @@ test('tacticFromExtraction: pole, která se nepřečetla, jsou ve zdroji „nezn
   const { read } = T.normalizeTacticExtraction({ formation: '4-4-2' });
   const r = T.tacticFromExtraction(read, {});
   assert.equal(r.tactic.name, 'Taktika 4-4-2');
-  assert.deepEqual(r.tactic.source.fields, { formation: 'screenshot_verified', mentality: 'unknown', instructions: 'unknown', roles: 'unknown' });
+  assert.deepEqual(r.tactic.source.fields, { formation: 'screenshot_verified', mentality: 'unknown', style: 'unknown', instructions: 'unknown', roles: 'unknown' });
   assert.equal(T.tacticFromExtraction(read, { name: 'Moje' }).tactic.name, 'Moje');
 });

@@ -238,6 +238,8 @@ test('role: zkratky ze štítků tabulky Tvar týmu se překládají jen tam, kd
   assert.equal(K.findRole('BCB', 'in').name, 'Ball-Playing Centre-Back');
   assert.equal(K.findRole('CFD', 'out').name, 'Centre Forward');
   assert.equal(K.findRole('CB', 'out').name, 'Centre-Back');
+  assert.equal(K.findRole('CB', 'in').name, 'Centre-Back');
+  assert.equal(K.findRole('GK', 'in').name, 'Goalkeeper');
   for (const chip of ['KH', 'PHH', 'FR', 'KO', 'O']) assert.equal(K.findRole(chip, 'in'), null, `${chip} nemá ověřený překlad`);
   assert.equal(K.findRole('TWM', 'out'), null);
   assert.equal(CS.roleFromChip('ZTH', 'in'), null, 'ZTH je jen odhad podle iniciál');
