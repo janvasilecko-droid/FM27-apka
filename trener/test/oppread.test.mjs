@@ -90,9 +90,10 @@ test('normalizeReport: nesmysly se zahodí a řekne se to (sestava o deseti hrá
 
 test('normalizeReport: duplicitní hráč v sestavě se vynechá, texty se ořežou a neviditelné znaky zmizí', () => {
   const long = 'x'.repeat(500);
-  const r = OR.normalizeReport({ team: `Tým​‮${long}`, summary: long, lineup: [{ slot: 'OZP', name: 'Oto Křídlo' }, { slot: 'OZP', name: 'Oto Křídlo' }], weaknesses: [{ area: 'Síla', text: long }] });
+  const INVISIBLE = String.fromCharCode(0x200b, 0x202e); // nulová šířka a přepnutí směru písma, zapsané číslem, ne doslovně
+  const r = OR.normalizeReport({ team: `Tým${INVISIBLE}${long}`, summary: long, lineup: [{ slot: 'OZP', name: 'Oto Křídlo' }, { slot: 'OZP', name: 'Oto Křídlo' }], weaknesses: [{ area: 'Síla', text: long }] });
   assert.equal(r.report.lineup.length, 1);
-  assert.ok(r.report.team.length <= 60 && !/[​‮]/.test(r.report.team));
+  assert.ok(r.report.team.length <= 60 && !new RegExp(`[${INVISIBLE}]`).test(r.report.team));
   assert.ok(r.report.summary.length <= 240);
   assert.ok(r.report.weaknesses[0].text.length <= 260);
 });
