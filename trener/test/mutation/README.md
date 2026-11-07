@@ -17,7 +17,19 @@ node trener/test/mutation/mutate.mjs trener/src/fmfglue.js trener/test/mutation/
 
 # čtečka kontejneru (rozložení souboru, souhrny, množná čísla, meze na bajt přesně, strop předávaný rozbalovači): 37 mutací
 node trener/test/mutation/mutate.mjs trener/src/fmfcontainer.js trener/test/mutation/container.mutations.json fmfcontainer.test.mjs
+
+# moduly přípravy na zápas a čtení české hry (69 mutací, každá se chytí; stav 7. 11. 2026 po nezávislé revizi)
+node trener/test/mutation/mutate.mjs trener/src/oppanalysis.js trener/test/mutation/oppanalysis.mutations.json oppanalysis.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/fm27cs.js trener/test/mutation/fm27cs.mutations.json fm27cs.test.mjs,squadread.test.mjs,tacticread.test.mjs,oppread.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/squadread.js trener/test/mutation/squadread.mutations.json squadread.test.mjs,tacticread.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/oppread.js trener/test/mutation/oppread.mutations.json oppread.test.mjs,oppanalysis.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/tacteff.js trener/test/mutation/tacteff.mutations.json tacteff.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/rolefit.js trener/test/mutation/rolefit.mutations.json rolefit.test.mjs,squadopt.test.mjs
 ```
+
+Seznamy pro poslední skupinu modulů vznikly z oprav po nezávislé revizi 7. 11. 2026: každá oprava, na kterou je zkouška, má mutaci, která ji vrací zpět. První běh nechal 19 mutací přežít (například meze délky pozic, hranice složitosti 7 a 12
+a sloučení zpráv podle novějšího čtení); pro každou přibyla zkouška a druhý běh je zabil všechny. Dvě mutace se vyřadily jako rovnocenné (funkce `mentioned` v `oppanalysis.js` vrací při nejednoznačnosti prázdný seznam a volající bere jen přesně jednu shodu,
+takže návratová hodnota s víc shodami nic nemění). Jeden běh trvá několik sekund.
 
 - `--oracle` zapne věštírnu libzstd (Python balíček `zstandard`, interpret z `ZSTD_ORACLE_PYTHON`, jinak `python3`): nástroj před během ověří, že v něm jde `import zstandard`, a zkouškám nastaví `ZSTD_ORACLE_REQUIRED=1`, takže věštírna není nikdy tiše vynechaná. Bez `--oracle` je věštírna vypnutá, aby se vidělo, co chytí samotné přímé zkoušky.
 - `--only <regulární výraz>` pustí jen mutace s odpovídajícím názvem, `--shard i/n` každou n-tou mutaci počínaje i-tou (souběžné běhy se nepřepisují: každý má vlastní pracovní složku s číslem procesu, `WORK` netřeba). Hodnoty přepínačů se píšou za mezeru (ne `--only=výraz`), zkoušky se oddělují čárkou (ne mezerou), zdroj musí ležet v kopírovaných složkách; neznámý přepínač, přepínač bez hodnoty nebo zdvojený, víc než tři poziční argumenty nebo chybný tvar `--shard` skončí kódem 64, nic se mlčky neignoruje.
@@ -28,4 +40,4 @@ node trener/test/mutation/mutate.mjs trener/src/fmfcontainer.js trener/test/muta
 
 Každý záznam je trojice `[název, původní text, nový text]`; původní text se musí v souboru vyskytovat PRÁVĚ JEDNOU (po změně kódu se vzor musí upravit, jinak ho běh ohlásí jako nepoužitelný a započítá mezi přeživší).
 Seznamy vznikly ručně z toho, co kód dělá (hranice, příznaky, kódy chyb, rozpočty, hlášení), a rostly o mutace, které se při revizích ukázaly jako nezachycené. Nejsou důkazem, že zkoušky jsou úplné:
-chytají jen takové chyby, jaké se do seznamu napsaly. Mutační seznamy jsou jen pro tyto tři soubory (`zstd.js`, `fmfglue.js`, `fmfcontainer.js`); jiné moduly (například `squadopt.js` a `recruit.js`) mutační seznam nemají.
+chytají jen takové chyby, jaké se do seznamu napsaly. Mutační seznamy jsou pro soubory `zstd.js`, `fmfglue.js`, `fmfcontainer.js` a pro moduly přípravy na zápas výše; jiné moduly (například `squadopt.js` a `recruit.js`) mutační seznam nemají.

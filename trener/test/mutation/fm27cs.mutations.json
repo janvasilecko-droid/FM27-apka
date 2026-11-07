@@ -1,0 +1,67 @@
+[
+[
+"sameName: příjmení kratší než tři písmena stačí",
+"if (surname !== B[B.length - 1] || surname.length < 3) return false;",
+"if (surname !== B[B.length - 1] || surname.length < 2) return false;"
+],
+[
+"sameName: příjmení nemusí sedět",
+"if (surname !== B[B.length - 1] || surname.length < 3) return false;",
+"if (surname.length < 3) return false;"
+],
+[
+"sameName: jednoslovné jméno sedí na plné jméno",
+"if (A.length === 1 || B.length === 1) return A.length === B.length;",
+"if (A.length === 1 || B.length === 1) return true;"
+],
+[
+"sameName: iniciála se neověřuje",
+"if (i < 0) return false;\n      used.add(i);",
+"used.add(i);"
+],
+[
+"sameName: iniciála jen jedním směrem",
+"(tok.length === 1 && x.startsWith(tok)) || (x.length === 1 && tok.startsWith(x))",
+"(tok.length === 1 && x.startsWith(tok))"
+],
+[
+"skládání písmen: Ł se neskládá",
+"ł: 'l', ø: 'o', đ: 'd',",
+"ø: 'o', đ: 'd',"
+],
+[
+"skládání písmen: Ø se neskládá",
+"ł: 'l', ø: 'o', đ: 'd',",
+"ł: 'l', đ: 'd',"
+],
+[
+"parsePositions: bez meze celého textu",
+"if (whole.length > MAX_POSITION_TEXT) return { codes, unknown: ['příliš dlouhý údaj o pozici'] };",
+""
+],
+[
+"parsePositions: bez meze jedné pozice",
+"if (part.length > MAX_POSITION_PART) {",
+"if (false) {"
+],
+[
+"parsePositions: mez celého textu 40 000",
+"const MAX_POSITION_TEXT = 400;",
+"const MAX_POSITION_TEXT = 400000;"
+],
+[
+"normalizeAttributes: bere i neznámé názvy",
+"if (!isKnownAttr(k)) {",
+"if (false) {"
+],
+[
+"canonAttr: anglický název v jiném psaní se nepřevede",
+"return ATTR_BY_KEY.get(k) || ENGLISH_BY_KEY.get(k) || raw;",
+"return ATTR_BY_KEY.get(k) || raw;"
+],
+[
+"isKnownAttr: anglické brankářské atributy neznámé",
+"const isKnownAttr = (name) => ATTR_BY_KEY.has(key(name)) || ENGLISH_BY_KEY.has(key(name));",
+"const isKnownAttr = (name) => ATTR_BY_KEY.has(key(name)) || ATTR_BY_KEY.has(key(name));"
+]
+]

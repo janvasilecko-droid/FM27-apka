@@ -156,6 +156,20 @@ test('dva různí hráči téhož jména na snímcích (jiný věk nebo jiné po
   assert.ok(plan.skipped.every((x) => x.name === 'J. Silva' && /stejným jménem/.test(x.reason)));
 });
 
+test('jméno, které už je nejednoznačné, se do dalšího řádku nesloučí, ani když mu sedí jediná shoda (Jan Silva, J. Silva, Jiří Silva)', () => {
+  const r = SR.normalizeSquadRead({
+    players: [
+      { name: 'Jan Silva', positions: ['O (S)'], age: 25, attributes: { Rychlost: 12 } },
+      { name: 'J. Silva', positions: ['O (S)'], age: 31, attributes: { Síla: 14 } },
+      { name: 'Jiří Silva', positions: ['O (S)'], age: 31, attributes: { Výdrž: 11 } },
+    ],
+  });
+  assert.equal(r.proposals.length, 3, 'J. Silva je nejednoznačný, Jiří Silva se do něj neslije');
+  assert.ok(r.proposals.every((p) => p.ambiguous === true));
+  assert.deepEqual(r.proposals.find((p) => p.name === 'J. Silva').attributes, { Strength: 14 });
+  assert.ok(r.issues.some((i) => /Jiří Silva/.test(i) && /dva různí hráči/.test(i)));
+});
+
 test('stejný hráč na dvou snímcích bez rozporu ve věku a pozicích se dál sloučí (atributy se sjednotí)', () => {
   const r = SR.normalizeSquadRead({
     players: [

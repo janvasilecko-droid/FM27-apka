@@ -148,6 +148,24 @@ test('mergeReports: chudší sestava (jen jména) nenahradí úplnou a jen dopln
   assert.equal(m4.lineup.length, 11);
 });
 
+test('mergeReports: skalární údaje a formace z novějšího čtení platí; sestava s deseti místy je úplné čtení; dvě podoby jména v jednom čtení se spojí do delšího (doplněno podle mutační zkoušky)', () => {
+  const old = part({ matchDate: 'Dnes 20:00', leaguePosition: 3, summary: 'Starý souhrn.', formations: { inPossession: [{ formation: '4-3-3' }], outOfPossession: [{ formation: '4-4-2' }] }, lineup: LINEUP11 });
+  const fresh = part({ matchDate: 'Za týden 15:00', leaguePosition: 5, summary: 'Nový souhrn.', formations: { inPossession: [{ formation: '4-2-3-1' }] } });
+  const m = OR.mergeReports(old, fresh);
+  assert.deepEqual([m.matchDate, m.leaguePosition, m.summary], ['Za týden 15:00', 5, 'Nový souhrn.']);
+  assert.deepEqual(m.formations.ip.map((f) => f.formation), ['4-2-3-1'], 'nové čtení formací s míčem nahradí staré');
+  assert.deepEqual(m.formations.oop.map((f) => f.formation), ['4-4-2'], 'formace bez míče nové čtení nemá, zůstává stará');
+  assert.equal(m.lineup.length, 11);
+  // deset hráčů s místy už je úplné čtení tabulky a nahradí starou sestavu
+  const ten = part({ lineup: LINEUP11.slice(0, 10).map((x, i) => (i === 9 ? { slot: x.slot, name: 'Nový Levák' } : x)) });
+  const m10 = OR.mergeReports(old, ten);
+  assert.equal(m10.lineup.length, 10);
+  assert.ok(m10.lineup.some((x) => x.name === 'Nový Levák') && !m10.lineup.some((x) => x.name === 'Ondra Levák'));
+  // dvě podoby téhož jména v jednom čtení se spojí do delšího tvaru
+  const twice = OR.mergeReports(part({}), part({ absences: [{ name: 'L. Horáček', status: 'out' }, { name: 'Lukáš Horáček', status: 'out' }] }));
+  assert.deepEqual(twice.absences.map((x) => x.name), ['Lukáš Horáček']);
+});
+
 test('mergeReports: zpráva o jiném týmu se nikdy nesmíchá se starou (platí jen nová); sameTeam to řekne předem', () => {
   const slavia = part({ team: 'Slavia Test', absences: [{ name: 'Starý Výpadek', status: 'out' }], weaknesses: [{ area: 'Síla', text: 'a' }], lineup: LINEUP11 });
   const banik = part({ team: 'Baník Test', absences: [{ name: 'Cizí Hráč', status: 'out' }], weaknesses: [{ area: 'Odvaha', text: 'b' }] });

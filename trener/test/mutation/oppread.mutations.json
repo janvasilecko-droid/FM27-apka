@@ -1,0 +1,57 @@
+[
+[
+"strana z pozice se nenastaví",
+"if (side === null && Object.prototype.hasOwnProperty.call(SIDE_OF_FM, fm)) side = SIDE_OF_FM[fm];",
+""
+],
+[
+"jiný tým se míchá",
+"if (!sameTeam(old, b)) return JSON.parse(JSON.stringify(b));",
+""
+],
+[
+"sestava: úplné čtení už od jednoho místa",
+"if (!oldL.length || placed(newL) >= 10) {",
+"if (!oldL.length || placed(newL) >= 1) {"
+],
+[
+"sestava: úplné čtení až od jedenácti míst",
+"if (!oldL.length || placed(newL) >= 10) {",
+"if (!oldL.length || placed(newL) >= 11) {"
+],
+[
+"sestava: chybějící pole se nedoplní",
+"if (!out[k] && n[k]) out[k] = n[k];",
+""
+],
+[
+"výpadky se kumulují",
+"a.absences = byName(a.absences, b.absences, LIMITS.absences, true);",
+"a.absences = byName(a.absences, b.absences, LIMITS.absences, false);"
+],
+[
+"významní hráči se nenahrazují po druzích",
+"a.keyPlayers = (a.keyPlayers || []).filter((x) => !kinds.has(x.kind)).concat(b.keyPlayers || []).slice(0, LIMITS.keyPlayers);",
+"a.keyPlayers = (a.keyPlayers || []).concat(b.keyPlayers || []).slice(0, LIMITS.keyPlayers);"
+],
+[
+"skalár: platí první, ne novější",
+"for (const k of ['team', 'matchDate', 'summary', 'staffAnalysis', 'notes']) if (b[k]) a[k] = b[k];",
+"for (const k of ['team', 'matchDate', 'summary', 'staffAnalysis', 'notes']) if (!a[k] && b[k]) a[k] = b[k];"
+],
+[
+"pozice v tabulce: platí první",
+"if (b.leaguePosition !== null && b.leaguePosition !== undefined) a.leaguePosition = b.leaguePosition;",
+""
+],
+[
+"formace s míčem se nenahrazují",
+"if (b.formations && b.formations.ip && b.formations.ip.length) a.formations.ip = b.formations.ip.slice(0, LIMITS.formations);",
+""
+],
+[
+"delší tvar jména nevyhraje",
+"else if (n.name.length > out[i].name.length) out[i] = Object.assign({}, out[i], { name: n.name });",
+""
+]
+]

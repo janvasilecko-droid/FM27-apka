@@ -401,9 +401,9 @@
         'div',
         { class: 'books', id: 'loadList' },
         clubRow,
-        row('Taktika', 'Formace, mentalita, instrukce a role z obrazovky taktiky.', 'taktiky'),
-        row('Soupiska', 'Hráči a jejich atributy z obrazovky týmu.', 'tym'),
-        row('Soupeř', 'Taktika, rozestavení a zpráva skauta o soupeři.', 'soupere'),
+        row('Taktika', 'Tvar týmu a Týmové instrukce z obrazovky taktiky: formace z míst tabulky, role s míčem i bez míče, styl, mentalita a 27 instrukcí. Profily rolí (klíčové atributy) se čtou z profilu hráče.', 'taktiky'),
+        row('Soupiska', 'Hráči a jejich atributy z Sestava › A-tým (pohledy Technické, Psychika, Fyzické atributy, Brankářské); snímky se slučují podle jména hráče.', 'tym'),
+        row('Soupeř', 'Zpráva o týmu soupeře (Přehled, Analýza formace, Standardky), jeho předpokládaná sestava a atributy jeho hráčů; z toho se spočítá „Příprava na zápas“.', 'soupere'),
         row('Zápas', 'Statistiky a průběh zápasu (sledování obrazovky).', 'live'),
         row('Hráči z exportu nástroje', 'Tabulka hráčů uložená jiným nástrojem (CSV, TSV, webová stránka, JSON).', 'tym', true),
         row('Živá data a sestava z FMMatchLens', 'Zásuvný modul do hry, který nabízí data zápasu a sestavu na tomhle počítači (samostatná verze, Windows).', 'live', true)

@@ -1,0 +1,37 @@
+[
+[
+"rozpor ve věku se nehlídá",
+"if (p.age !== null && age !== null && p.age !== age) return `věk ${p.age} a ${age}`;",
+"if (false) return '';"
+],
+[
+"rozpor v pozicích se nehlídá",
+"if (p.positions.length && positions.length && !positions.some((c) => p.positions.includes(c)))",
+"if (false)"
+],
+[
+"zkratka na víc hráčů i nejednoznačné jméno se ignoruje",
+"const clash = matches.length > 1 ? 'zkratka sedí na víc hráčů' : matches[0].ambiguous ? 'jméno už je nejednoznačné' : clashBetween(same, age, positions);",
+"const clash = clashBetween(same, age, positions);"
+],
+[
+"nejednoznačné jméno se zase slévá",
+"matches[0].ambiguous ? 'jméno už je nejednoznačné' : ",
+""
+],
+[
+"první řádek se neoznačí za nejednoznačný",
+"for (const m of matches) m.ambiguous = true;",
+""
+],
+[
+"planWrites: nejednoznačný návrh se zapíše",
+"if (p.ambiguous) {",
+"if (false) {"
+],
+[
+"planWrites: víc shod v kádru bere první",
+"if (hits.length > 1) {",
+"if (false) {"
+]
+]

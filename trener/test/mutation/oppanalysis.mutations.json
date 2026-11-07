@@ -1,0 +1,127 @@
+[
+[
+"P01: slabina brankáře bez ohledu na větu (vzduch)",
+"...c.weak('goalkeeper').filter((w) => AERIAL_TEXT.test(plain(`${w.area} ${w.text}`))),",
+"...c.weak('goalkeeper'),"
+],
+[
+"P01: inkasované góly bez ohledu na centry",
+"...c.weak('goalsAgainst').filter((w) => AERIAL_TEXT.test(plain(`${w.area} ${w.text}`))),",
+"...c.weak('goalsAgainst'),"
+],
+[
+"P03: Agility mezi brankářskými zákroky",
+"const KEEPER_SHOT_ATTRS = new Set(['Reflexes', 'Handling', 'One On Ones']);",
+"const KEEPER_SHOT_ATTRS = new Set(['Reflexes', 'Handling', 'Agility', 'One On Ones']);"
+],
+[
+"P03: vzdušná věta brankáře se bere i za střely",
+" && !AERIAL_TEXT.test(plain(`${w.area} ${w.text}`)))];",
+")];"
+],
+[
+"P03: bez brankářových atributů „nic nenalezeno“",
+"return c.weaknesses.length || gkKnown ? NOTHING : undefined;",
+"return NOTHING;"
+],
+[
+"atributy soupeře i při nejednoznačné shodě jména",
+"const p = hits.length === 1 ? hits[0] : null;",
+"const p = hits[0] || null;"
+],
+[
+"P04: brankář ve špatné formě otevírá stranu",
+"if (f.l.fm === 'GK') {",
+"if (false) {"
+],
+[
+"P05: hlídá i hráče, který nehraje",
+"if (outNames.some((n) => CS.sameName(n, name))) return;",
+""
+],
+[
+"P05: bere nejednoznačnou shodu jména",
+"if (hits.length !== 1) return; // žádná nebo nejednoznačná shoda",
+"if (hits.length < 1) return;"
+],
+[
+"P05: nevyhodnoceno se mění na „nic nenalezeno“",
+"return kp.length || byAttributes ? NOTHING : undefined;",
+"return NOTHING;"
+],
+[
+"P06: prázdné výpadky jsou „nikdo nechybí“",
+"if (!ab.length) return undefined;",
+"if (!ab.length) return NOTHING;"
+],
+[
+"P06: dva stopeři jsou doporučeno",
+"sev: outBack.length >= 2 ? 'zvaz' : 'info'",
+"sev: outBack.length >= 2 ? 'doporuceno' : 'info'"
+],
+[
+"P06: stačí jeden stoper",
+"sev: outBack.length >= 2 ? 'zvaz' : 'info', basis: 'HRA', priority: outBack.length >= 2 ? 2 : 0,",
+"sev: outBack.length >= 1 ? 'zvaz' : 'info', basis: 'HRA', priority: outBack.length >= 1 ? 2 : 0,"
+],
+[
+"P07: záporné tvary pressingu platí za časté napadání",
+"const high = frequent && !rare;",
+"const high = frequent;"
+],
+[
+"P08: Aktivní je útočná mentalita",
+"const attacking = /\\b(?:utocn\\w*|attacking|dobrodruz\\w*|adventurous)\\b/.test(w);",
+"const attacking = /\\b(?:utocn\\w*|aktivn\\w*|positive|attacking|dobrodruz\\w*|adventurous)\\b/.test(w);"
+],
+[
+"P08: Protiútočný je útočná mentalita",
+"const attacking = /\\b(?:utocn\\w*|attacking|dobrodruz\\w*|adventurous)\\b/.test(w);",
+"const attacking = /(?:utocn\\w*|attacking|dobrodruz\\w*|adventurous)/.test(w);"
+],
+[
+"P09: počítá jména místo převedených pozic",
+"const placed = c.lineup.filter((l) => l.fm).length;",
+"const placed = c.lineup.length;"
+],
+[
+"P11: záporné věty o útoku standardek spouštějí pravidlo",
+"&& !/failed|ineffective|never/i.test(t) && !NEGATED.test(plain(t)));",
+"&& !/failed|ineffective|never/i.test(t));"
+],
+[
+"P11: Rohy nejsou hrozba",
+"...c.strong('freeKicks'), ...c.strong('corners')];",
+"...c.strong('freeKicks')];"
+],
+[
+"P14: stačí libovolné atributy",
+"const known = back.filter((l) => ['Composure', 'Passing', 'First Touch'].some((n) => c.attr(l, n) !== null));",
+"const known = back.filter((l) => l.attrs);"
+],
+[
+"rozpočet: totéž nastavení se počítá znovu",
+"const fresh = r.changes.filter((x) => !x.already && !usedIds.has(x.id)).map((x) => x.id);",
+"const fresh = r.changes.filter((x) => !x.already).map((x) => x.id);"
+],
+[
+"rozpočet: o jedno přísnější",
+"if (fresh.length && usedIds.size + fresh.length > th.maxChanges) r.optional = true;",
+"if (fresh.length && usedIds.size + fresh.length >= th.maxChanges) r.optional = true;"
+],
+[
+"rozpočet: o jedno volnější",
+"if (fresh.length && usedIds.size + fresh.length > th.maxChanges) r.optional = true;",
+"if (fresh.length && usedIds.size + fresh.length > th.maxChanges + 1) r.optional = true;"
+],
+[
+"jedna změna: všechna nastavení",
+"${changeText(todoOfTop[0])}.${",
+"${todoOfTop.map(changeText).join(', ')}.${"
+],
+[
+"P10: záporné věty o obraně standardek spouštějí pravidlo",
+"conceded from|neubránil|inkasuj/i.test(t) && !NEGATED.test(plain(t)));",
+"conceded from|neubránil|inkasuj/i.test(t));"
+]
+]

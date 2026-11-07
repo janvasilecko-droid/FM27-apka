@@ -118,3 +118,14 @@ test('modul je čistý, nezná skryté údaje a závisí jen na fm27cs.js', () =
   assert.doesNotMatch(withoutComments, /\brequire\((?!'\.\/fm27cs\.js'\))/);
   assert.deepEqual(JSON.parse(JSON.stringify(TE.analyze({ levels: { understanding: 'low' } }))), JSON.parse(JSON.stringify(TE.analyze({ levels: { understanding: 'low' } }))));
 });
+
+test('složitost taktiky: hranice 7 a 12 platí na instrukci přesně, při úplném i neúplném čtení (doplněno podle mutační zkoušky)', () => {
+  const lvl = (n) => TE.analyze({ tacticAnalysis: taWith(n) }).complexity.level;
+  assert.deepEqual([lvl(6), lvl(7), lvl(11), lvl(12)], ['neznámá', 'aspoň střední', 'aspoň střední', 'vysoká']);
+  const full = (n) => {
+    const t = T.makeTactic({ formation: '4-3-3', name: 'Plná', careerId: 'c' });
+    t.teamInstructions = K.TEAM_INSTRUCTIONS.filter((x) => !K.THIRD_PARTY_ONLY.includes(x.id)).map((x, i) => `${x.name}: ${i < n ? x.values.find((v) => v !== x.default) : x.default}`);
+    return TE.analyze({ tacticAnalysis: TA.analyze(t, {}) }).complexity.level;
+  };
+  assert.deepEqual([full(6), full(7), full(11), full(12)], ['nízká', 'střední', 'střední', 'vysoká']);
+});

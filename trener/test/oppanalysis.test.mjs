@@ -456,3 +456,33 @@ test('rozpočet změn počítá každé nastavení jednou, i když ho chtějí d
   assert.match(bare2.oneChange.text, /Šířka při útočení → Širší/, 'druhé nastavení je jen zmíněno jako pozdější');
   assert.match(bare2.oneChange.text, /až potom/);
 });
+
+// ---------------------------------------------------------------- doplněno podle mutační zkoušky (7. 11. 2026)
+test('zkratka v sestavě, která sedí na víc hráčů soupisky soupeře, nedostane atributy žádného z nich (neznámé, ne první shoda)', () => {
+  const two = [player('x1', 'João Silva', ['DC'], { Pace: 3, Acceleration: 3, Heading: 3, 'Jumping Reach': 3 }), player('x2', 'Jorge Silva', ['DC'], { Pace: 19, Acceleration: 19, Heading: 19, 'Jumping Reach': 19 })];
+  const lineup = [{ slot: 'OSP', name: 'J. Silva' }, { slot: 'OSL', name: 'Jiný Stoper' }];
+  const r = run(mini({ lineup }), { oppPlayers: two });
+  assert.equal(r.inputs.lineupWithAttributes, 0, 'J. Silva sedí na dva hráče, takže jeho atributy neznáme');
+  const one = run(mini({ lineup }), { oppPlayers: [two[0]] });
+  assert.equal(one.inputs.lineupWithAttributes, 1, 'jedna shoda se použije');
+});
+
+test('věta o zákrocích při centrech je o vzduchu (P01), ne o střelách (P03)', () => {
+  const r = run(mini({ weaknesses: [{ area: 'Brankář', text: 'Brankář má slabé zákroky při centrech.' }] }));
+  assert.ok(recOf(r, 'P01'));
+  assert.equal(recOf(r, 'P03'), undefined);
+  const shots = run(mini({ weaknesses: [{ area: 'Brankář', text: 'Brankář má slabé zákroky po střelách.' }] }));
+  assert.ok(recOf(shots, 'P03'));
+  assert.equal(recOf(shots, 'P01'), undefined);
+});
+
+test('rozpočet změn: totéž nastavení, které už rozpočet obsahuje, žádné další místo nezabere (ani při stropu jedné změny)', () => {
+  const both = run(mini({ manager: { mentality: 'Opatrný' }, weaknesses: [{ area: 'Dovednost ve vzduchu', text: 'Slabý vzduch.' }] }), { thresholds: { maxChanges: 1 } });
+  const p01 = recOf(both, 'P01');
+  const p08 = recOf(both, 'P08');
+  assert.ok(p01 && p08);
+  assert.equal(p01.optional, false);
+  assert.equal(p08.optional, false, 'Šířka při útočení je v rozpočtu už z P01');
+  assert.equal(both.budget.settings, 1);
+  assert.equal(both.budget.offered, 1);
+});

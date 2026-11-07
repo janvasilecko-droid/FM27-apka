@@ -75,7 +75,10 @@ Jiná relace Claude prošla českou hru FM27 na počítači majitele (podrobně 
 
 Hra u každé role zvýrazňuje jiné atributy a liší se **role od role i fáze od fáze**. Ověřili jsme jen šest rolí (z desítek), proto aplikace **nemá vestavěnou tabulku všech rolí**:
 vybírá jedenáctku (a) podle **skupinového modelu pozic** z příruček (odstavec 6.2) a (b) podle **profilů rolí, které si načteš ze hry** (Moje taktiky › Profily rolí), kde ke každé roli patří
-seznam klíčových a žádoucích atributů jen tak, jak je hra ukazuje. Seznamy níž jsou **pro kontrolu a jako příklad**; hodnoty konkrétních hráčů se nepřebírají.
+seznam klíčových a žádoucích atributů jen tak, jak je hra ukazuje. Seznamy níž jsou **ověřené ve hře**; hodnoty konkrétních hráčů se nepřebírají. Stejnou tabulku má kód (`rolefit.js`, `VERIFIED_PROFILES`; zkouška hlídá shodu s dokumentem) a v kartě
+Profily rolí (Moje taktiky) je tlačítko **„Přidat ověřené profily ze hry (6 rolí)“**: přidá je jedním kliknutím, profil téhož klíče a fáze se nepřepíše a u ostatních rolí si profil čteš ze hry.
+Role se s taktikou páruje **podle kanonického názvu**: česky („Rozehrávající stoper“), anglicky („Ball-Playing Centre-Back“) i ověřenou zkratkou ze štítku („BCB“) je to táž role.
+Výběr sestavy podle rolí používá **roli s míčem** u místa v taktice; profily rolí bez míče se ukládají a ukazují, ale do výběru sestavy zatím nevstupují.
 
 | Fáze | Role (česky ve hře) | Kanonicky | Klíčové atributy | Žádoucí atributy |
 |---|---|---|---|---|
@@ -252,7 +255,9 @@ záložka Šířka kádru; co ukazuje zpráva o soupeři při slabé znalosti t�
 | Rozbor sestavy | `squadcheck.js`, `posattrs.js` | `test/squadcheck.test.mjs`, scénář 24 |
 | Příprava na zápas | `oppanalysis.js`, `screens/oppprep.js` | `test/oppanalysis.test.mjs`, scénář 26 |
 | Tactical Effectiveness | `tacteff.js`, `screens/teffect.js` | `test/tacteff.test.mjs`, scénář 27 |
+| Profily rolí, ověřené profily a výběr sestavy podle rolí | `rolefit.js`, `squadopt.js`, `screens/rolefit.js` | `test/rolefit.test.mjs`, `test/squadopt.test.mjs`, scénáře 18, 20 a 25 |
 
 Nezávislá revize nových modulů (7. 11. 2026) a co se podle ní opravilo: `docs/REVIZE_PRIPRAVA_NA_ZAPAS_2026-11-07.md`.
 
 Pravidla jsou čisté funkce: zkoušky ověřují, že stejný vstup dá stejný výstup, že se vstupy nemění, že moduly nesahají na DOM ani na síť a že chybějící vstup pravidlo nevyhodnotí.
+Mutační zkoušky (kontrola, že zkoušky chytí chybu vloženou do kódu) jsou pro moduly přípravy na zápas a čtení české hry v `trener/test/mutation/` (69 mutací, všechny se chytí; návod v `README.md` tamtéž).

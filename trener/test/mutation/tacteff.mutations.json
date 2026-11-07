@@ -1,0 +1,37 @@
+[
+[
+"úplné čtení se předpokládá vždy",
+"const complete = known !== null && all !== null && known >= all;",
+"const complete = true;"
+],
+[
+"úplné čtení: vysoká až od 13",
+"if (complete) level = total >= 12 ? 'vysoká' : total >= 7 ? 'střední' : 'nízká';",
+"if (complete) level = total >= 13 ? 'vysoká' : total >= 7 ? 'střední' : 'nízká';"
+],
+[
+"úplné čtení: střední až od 8",
+"if (complete) level = total >= 12 ? 'vysoká' : total >= 7 ? 'střední' : 'nízká';",
+"if (complete) level = total >= 12 ? 'vysoká' : total >= 8 ? 'střední' : 'nízká';"
+],
+[
+"dolní odhad: vysoká až od 13",
+"else if (total >= 12) level = 'vysoká';",
+"else if (total >= 13) level = 'vysoká';"
+],
+[
+"dolní odhad: aspoň střední až od 8",
+"else if (total >= 7) level = 'aspoň střední';",
+"else if (total >= 8) level = 'aspoň střední';"
+],
+[
+"dolní odhad: nízká místo neznámé",
+"else level = 'neznámá';",
+"else level = 'nízká';"
+],
+[
+"poznámka o nezadaných pokynech k soupeři chybí",
+"${opp === null ? ' Počet pokynů k soupeři jsi nezadal, nepočítá se.' : ''}",
+""
+]
+]

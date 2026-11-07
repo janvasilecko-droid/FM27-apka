@@ -1,0 +1,32 @@
+[
+[
+"role: zkratka ze štítku se nepřekládá",
+"if (CS.roleFromChip) for (const p of order) {",
+"if (false) for (const p of order) {"
+],
+[
+"role: jen sada s míčem",
+"const order = phaseOf(phase) === 'out' ? ['out', 'in'] : ['in', 'out'];",
+"const order = ['in'];"
+],
+[
+"úprava profilu: fáze se nepřenáší",
+"return makeProfile(Object.assign({ phase: e.phase, duty: e.duty, source: 'user', note: e.note }, f), opts);",
+"return makeProfile(Object.assign({ source: 'user', note: e.note }, f), opts);"
+],
+[
+"ověřené profily mají zdroj uživatel",
+"source: 'game', note: 'ověřeno ve hře 7. 11. 2026'",
+"source: 'user', note: 'ověřeno ve hře 7. 11. 2026'"
+],
+[
+"zdroj game není povolený",
+"const SOURCES = Object.freeze(['screenshot', 'user', 'game']);",
+"const SOURCES = Object.freeze(['screenshot', 'user']);"
+],
+[
+"canonRoleOf: vždy surový název",
+"if (!raw || !CS || !CS.canonRole) return raw;",
+"return raw;"
+]
+]

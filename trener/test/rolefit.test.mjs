@@ -427,3 +427,82 @@ test('úprava profilu role bez míče nepřepíše profil téhož jména s míč
   // bez upravovaného profilu je to obyčejné makeProfile
   assert.equal(RF.editProfile(null, { name: 'Nový', key: ['Pace'], pref: [] }, { now: 7 }).ok, true);
 });
+
+// ---------------------------------------------------------------- kanonické klíče rolí (7. 11. 2026): česky, anglicky i zkratka ze štítku
+test('klíč role je kanonický: český název, anglický název i ověřená zkratka ze štítku dají týž klíč; neznámá role zůstane sama sebou', () => {
+  const bcb = RF.roleKey('Rozehrávající stoper');
+  assert.equal(RF.roleKey('Ball-Playing Centre-Back'), bcb);
+  assert.equal(RF.roleKey('ball playing centre back'), bcb);
+  assert.equal(RF.roleKey('BCB'), bcb, 'ověřená zkratka ze štítku (s míčem)');
+  const cb = RF.roleKey('Střední obránce');
+  assert.notEqual(cb, bcb);
+  assert.equal(RF.roleKey('Centre-Back'), cb);
+  assert.equal(RF.roleKey('CB'), cb);
+  assert.equal(RF.roleKey('GK'), RF.roleKey('Goalkeeper'));
+  // role bez míče se pozná i podle českého názvu sady bez míče
+  assert.equal(RF.roleKey('Zajišťující stoper', 'out'), RF.roleKey('Covering Centre-Back'));
+  assert.equal(RF.roleKey('Zajišťující stoper'), RF.roleKey('Covering Centre-Back'), 'i bez udané fáze');
+  // neznámé zkratky a role se nehádají
+  assert.equal(RF.roleKey('Moje role A'), RF.roleKey('moje  role a'));
+  assert.notEqual(RF.roleKey('Moje role A'), RF.roleKey('Moje role B'));
+  assert.equal(RF.roleKey('ZTH'), RF.roleKey('zth'), 'neověřená zkratka zůstane, jak je');
+  assert.notEqual(RF.roleKey('ZTH'), RF.roleKey('Deep-Lying Playmaker'), 'neověřená zkratka se na roli nepřekládá');
+  assert.equal(RF.profileKey('Střední obránce', 'out'), 'out:' + cb);
+});
+
+test('assignBest: role místa v taktice zadaná česky, anglicky nebo zkratkou najde profil zadaný pod kterýmkoli z těch názvů', () => {
+  const players = [{ id: 'p1', name: 'Stoper', positions: ['DC'], attributes: { Heading: 15, Passing: 14 } }];
+  const named = (name) => RF.makeProfile({ name, key: ['Heading', 'Passing'], pref: [], phase: 'in' }, { now: 1 }).profile;
+  for (const profileName of ['Rozehrávající stoper', 'Ball-Playing Centre-Back']) {
+    for (const role of ['Rozehrávající stoper', 'Ball-Playing Centre-Back', 'BCB']) {
+      const r = RF.assignBest({ slots: [{ key: 's1', pos: 'CB', role }], players, profiles: [named(profileName)] });
+      assert.equal(r.filled, 1, `role „${role}“ × profil „${profileName}“`);
+    }
+  }
+  // jiná role se na cizí profil nespáruje
+  const other = RF.assignBest({ slots: [{ key: 's1', pos: 'CB', role: 'Jednoduchý stoper' }], players, profiles: [named('Rozehrávající stoper')] });
+  assert.equal(other.filled, 0);
+  // profil bez míče nevstupuje do výběru podle rolí s míčem (zatím se používají jen role s míčem)
+  const out = RF.makeProfile({ name: 'Rozehrávající stoper', key: ['Heading'], pref: [], phase: 'out' }, { now: 1 }).profile;
+  assert.equal(RF.assignBest({ slots: [{ key: 's1', pos: 'CB', role: 'Rozehrávající stoper' }], players, profiles: [out] }).filled, 0);
+});
+
+// ---------------------------------------------------------------- ověřené profily šesti rolí ze hry (7. 11. 2026)
+test('ověřené profily: šest rolí (tři s míčem, tři bez míče) s českými názvy rolí i atributů ze hry, každý atribut je známý a nikdy není zároveň klíčový i žádoucí', () => {
+  const V = RF.VERIFIED_PROFILES;
+  assert.equal(V.length, 6);
+  assert.deepEqual(V.map((p) => `${p.phase}:${p.name}`), ['in:Rozehrávající stoper', 'in:Zatažený tvůrce hry', 'in:Zatažený útočník', 'out:Střední obránce', 'out:Defenzivní záložník', 'out:Střední útočník']);
+  const CS = require('../src/fm27cs.js');
+  for (const p of V) {
+    assert.ok(p.key.length >= 3 && p.pref.length >= 3, p.name);
+    for (const a of [...p.key, ...p.pref]) assert.ok(CS.isKnownAttr(a), `${p.name}: „${a}“ není známý atribut`);
+    const all = [...p.key, ...p.pref].map((a) => RF.attrKey(a));
+    assert.equal(new Set(all).size, all.length, `${p.name}: atribut je dvakrát nebo zároveň klíčový a žádoucí`);
+    assert.notEqual(CS.canonRole(p.name, p.phase), p.name, `${p.name}: role je ve slovníku české hry`);
+  }
+  assert.ok(Object.isFrozen(V) && Object.isFrozen(V[0]) && Object.isFrozen(V[0].key));
+  // klíčové atributy rolí se v konkrétních případech liší (zatažený útočník potřebuje Technika a Zpracování, střední útočník bez míče Nasazení a Předvídavost)
+  const dlf = V.find((p) => p.name === 'Zatažený útočník');
+  assert.ok(dlf.key.includes('Zakončování') && dlf.key.includes('Bez míče'));
+  const cf = V.find((p) => p.name === 'Střední útočník');
+  assert.deepEqual(cf.key, ['Nasazení', 'Předvídavost', 'Rozhodování']);
+});
+
+test('verifiedProfiles: z tabulky vzniknou platné profily se zdrojem „ověřeno ve hře“, s odlišnými id a fází; profil téhož klíče a fáze se pozná i pod anglickým názvem', () => {
+  const made = RF.verifiedProfiles({ now: 5 });
+  assert.equal(made.length, 6);
+  assert.equal(new Set(made.map((p) => p.id)).size, 6);
+  assert.ok(made.every((p) => p.source === 'game' && p.at === 5));
+  assert.ok(RF.SOURCES.includes('game') && /ověřeno ve hře/.test(RF.SOURCE_CS.game));
+  assert.deepEqual(made.map((p) => p.phase), ['in', 'in', 'in', 'out', 'out', 'out']);
+  const idx = RF.profilesIndex(made);
+  assert.equal(idx.get(RF.roleKey('Ball-Playing Centre-Back')).name, 'Rozehrávající stoper');
+  assert.equal(idx.get(RF.roleKey('BCB')).name, 'Rozehrávající stoper');
+  assert.equal(idx.get('out:' + RF.roleKey('Centre-Back')).name, 'Střední obránce');
+  assert.equal(idx.get(RF.roleKey('Centre-Back')), undefined, 'střední obránce s míčem ověřený není');
+  // hráč z české obrazovky se na ověřený profil ohodnotí (české názvy atributů se převádějí na kanonické)
+  const stoper = { attributes: { Hlavičky: 15, 'Obranné zákroky': 16, Obsazování: 16, Přihrávky: 12, Koncentrace: 13, Nasazení: 15, Odhodlání: 15, Odvaha: 17, 'Poziční hra': 16, Předvídavost: 15, 'Týmová hra': 16, Vyrovnanost: 13, Rovnováha: 14, Síla: 15, Výdrž: 15, Výskok: 16, Technika: 13, Zpracování: 13, Agresivita: 10, Rozhodování: 14, Rychlost: 13 } };
+  const fit = RF.roleFit(stoper, idx.get(RF.roleKey('BCB')));
+  assert.equal(fit.missing.length, 0);
+  assert.ok(fit.score > 60 && fit.score <= 100, String(fit.score));
+});

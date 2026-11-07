@@ -316,6 +316,14 @@ test('parsePositions: dlouhý řetězec mezer nebo písmen netrvá věčnost a o
   const long = CS.parsePositions('O' + ' '.repeat(5000) + '(S)');
   assert.deepEqual(long.codes, [], 'příliš dlouhý údaj o pozici se nečte');
   assert.equal(long.unknown.length, 1);
+  // každá mez zvlášť: jedna pozice nad 60 znaků se nečte, i když celý text je krátký; celý text nad 400 znaků se nečte, i když je z krátkých pozic
+  const onePart = CS.parsePositions('O' + ' '.repeat(100) + '(S)');
+  assert.deepEqual(onePart.codes, []);
+  assert.equal(onePart.unknown.length, 1);
+  const manyParts = CS.parsePositions(Array(100).fill('O (S)').join(', '));
+  assert.deepEqual(manyParts.codes, []);
+  assert.equal(manyParts.unknown.length, 1);
+  assert.deepEqual(CS.parsePositions(Array(8).fill('O (S)').join(', ')).codes, ['DC'], 'obvyklý seznam pozic se čte');
 });
 
 test('normalizeAttributes: jen atributy, které slovník zná; skryté údaje a cizí názvy se nepřevezmou ani neskončí v úložišti', () => {

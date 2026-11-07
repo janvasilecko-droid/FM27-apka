@@ -23,7 +23,7 @@ Pravidla:
 Odpověz POUZE JSON objektem:
 {"role": "…"|null, "phase": "in"|"out"|null, "duty": null, "key": ["…"], "preferred": ["…"], "notes": "krátká poznámka o čitelnosti"}`;
 
-  const SOURCE_CHIP = { screenshot: ['observed', 'přečteno z obrazovky role ve hře, potvrzeno tebou'], user: ['user_entered', 'zadal uživatel'] };
+  const SOURCE_CHIP = { screenshot: ['observed', 'přečteno z obrazovky role ve hře, potvrzeno tebou'], user: ['user_entered', 'zadal uživatel'], game: ['observed', 'ověřeno ve hře FM27 (7. 11. 2026)'] };
   const LEVEL_CS = { key: 'klíčový', pref: 'žádoucí' };
   const fmt = (v) => String(v).replace('.', ',');
   const splitList = (txt) => String(txt || '').split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
@@ -181,7 +181,22 @@ Odpověz POUZE JSON objektem:
         out
       );
     } else card.append(h('p', { class: 'hint', text: 'Čtení obrázků tady není dostupné (potřebuje Claude s podporou obrázků). Profil můžeš zadat ručně.' }));
-    card.append(h('div', { class: 'actions' }, h('button', { class: 'btn', id: 'roleAddBtn', type: 'button', text: 'Přidat profil ručně', onclick: () => ui.openDrawer('Nový profil role', [profileForm(app, null, draw)]) })));
+    // šest rolí, které se ve hře ověřily (rolefit.js, VERIFIED_PROFILES): profil téhož klíče a fáze se nikdy nepřepíše
+    async function addVerified() {
+      const have = new Set(profilesOf(app).map((p) => RF().profileKey(p.name, p.phase)));
+      const fresh = RF().verifiedProfiles({ now: Date.now() });
+      const todo = fresh.filter((p) => !have.has(RF().profileKey(p.name, p.phase)));
+      for (const p of todo) await saveProfile(app, p);
+      const skipped = fresh.length - todo.length;
+      toast(todo.length ? `Přidáno ověřených profilů: ${todo.length}.${skipped ? ` ${skipped} už jsi měl, nepřepsalo se.` : ''}` : 'Všech šest ověřených profilů už máš, nic se nepřepsalo.', 5000);
+      draw();
+    }
+    card.append(
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn', id: 'roleAddBtn', type: 'button', text: 'Přidat profil ručně', onclick: () => ui.openDrawer('Nový profil role', [profileForm(app, null, draw)]) }),
+        h('button', { class: 'btn', id: 'roleSeed', type: 'button', text: 'Přidat ověřené profily ze hry (6 rolí)', onclick: addVerified })),
+      h('p', { class: 'hint', id: 'roleSeedHint', text: 'Šest rolí, jejichž klíčové a žádoucí atributy se ve hře ověřily 7. 11. 2026: Rozehrávající stoper, Zatažený tvůrce hry a Zatažený útočník (s míčem), Střední obránce, Defenzivní záložník a Střední útočník (bez míče). Profil, který už máš, se nepřepíše. U ostatních rolí si profil přečti ze hry: aplikace žádné role nevymýšlí.' })
+    );
     drawProposal();
     return card;
   }
@@ -221,8 +236,8 @@ Odpověz POUZE JSON objektem:
     const SO = window.TrenerSquadOpt;
     const st = stateOf(tactic.id);
     const leadText = () => (W && W.modelOf(app) === 'dwrs'
-      ? 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností (přesně, ne odhadem postupu). Model DWRS: atributy hráče jsou rozdělené do kategorií důležitosti pro skupinu pozic, role zdvihne své klíčové a žádoucí atributy a výsledek je 0 až 100. Tabulky kategorií jsou odhad aplikace (ESTIMATED), ne pravidlo FM27, a dají se upravit v Nastavení. Chybí-li hráči atribut, vhodnost je „nedostupná“, ne nula.'
-      : 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností na role (přesně, ne odhadem postupu). Vhodnost je heuristika aplikace: vážený průměr klíčových (váha 2) a žádoucích (váha 1) atributů role z profilu. Hra žádné takové číslo neuvádí. Chybí-li hráči atribut role, vhodnost je „nedostupná“, ne nula.');
+      ? 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností (přesně, ne odhadem postupu). Model DWRS: atributy hráče jsou rozdělené do kategorií důležitosti pro skupinu pozic, role zdvihne své klíčové a žádoucí atributy a výsledek je 0 až 100. Tabulky kategorií jsou odhad aplikace (ESTIMATED), ne pravidlo FM27, a dají se upravit v Nastavení. Chybí-li hráči atribut, vhodnost je „nedostupná“, ne nula. Role a profil se berou podle role s míčem u místa v taktice; profily rolí bez míče se ukládají, ale do výběru sestavy zatím nevstupují.'
+      : 'Pro vybranou taktiku najde přiřazení hráčů k místům s největší celkovou vhodností na role (přesně, ne odhadem postupu). Vhodnost je heuristika aplikace: vážený průměr klíčových (váha 2) a žádoucích (váha 1) atributů role z profilu. Hra žádné takové číslo neuvádí. Chybí-li hráči atribut role, vhodnost je „nedostupná“, ne nula. Role a profil se berou podle role s míčem u místa v taktice (česky, anglicky i ověřenou zkratkou ze štítku); profily rolí bez míče se ukládají, ale do výběru sestavy zatím nevstupují.');
     const lead = h('p', { class: 'lead', id: 'bestLead', text: leadText() });
     card.append(lead);
     if (!players.length) return (card.append(h('p', { class: 'hint', id: 'bestNoPlayers', text: 'Soupiska je prázdná. Přidej hráče (Můj tým) s atributy.' })), card);

@@ -16,8 +16,25 @@
   const MAX_LIST = 20;
   const MAX_NAME = 60;
   const MAX_ATTR_NAME = 30;
-  const SOURCES = Object.freeze(['screenshot', 'user']);
-  const SOURCE_CS = Object.freeze({ screenshot: 'přečteno z obrazovky role ve hře, potvrzeno tebou', user: 'zadal uživatel' });
+  const SOURCES = Object.freeze(['screenshot', 'user', 'game']);
+  const SOURCE_CS = Object.freeze({
+    screenshot: 'přečteno z obrazovky role ve hře, potvrzeno tebou',
+    user: 'zadal uživatel',
+    game: 'ověřeno ve hře FM27 (česká hra, 7. 11. 2026), přepsáno z profilu hráče',
+  });
+
+  /** Šest rolí, jejichž klíčové a žádoucí atributy se ve hře opravdu ověřily (jiná relace Claude je 7. 11. 2026 přepsala z profilu hráče: hra zvýrazňuje atributy
+      automaticky podle vybrané role a fáze, s míčem zelený klíčový a modrý žádoucí, bez míče růžový a fialový; docs/FM27_PRUZKUM_VE_HRE.md, řádek R1). Názvy rolí
+      a atributů jsou česky tak, jak je hra píše; pořadí je jako ve hře (technika, psychika, fyzička). Hodnoty atributů konkrétního hráče se sem nepřebírají.
+      Ostatní role ve hře se tady NEvymýšlejí: jejich profily si uživatel načte z obrazovky role. */
+  const VERIFIED_PROFILES = Object.freeze([
+    { name: 'Rozehrávající stoper', phase: 'in', key: ['Hlavičky', 'Obranné zákroky', 'Obsazování', 'Přihrávky', 'Koncentrace', 'Nasazení', 'Odhodlání', 'Odvaha', 'Poziční hra', 'Předvídavost', 'Týmová hra', 'Vyrovnanost', 'Rovnováha', 'Síla', 'Výdrž', 'Výskok'], pref: ['Technika', 'Zpracování', 'Agresivita', 'Rozhodování', 'Rychlost'] },
+    { name: 'Zatažený tvůrce hry', phase: 'in', key: ['Přihrávky', 'Technika', 'Zpracování', 'Koncentrace', 'Nasazení', 'Představivost', 'Rozhodování', 'Týmová hra', 'Vyrovnanost'], pref: ['Obranné zákroky', 'Obsazování', 'Bez míče', 'Poziční hra', 'Předvídavost', 'Rovnováha', 'Výdrž'] },
+    { name: 'Zatažený útočník', phase: 'in', key: ['Technika', 'Zakončování', 'Zpracování', 'Bez míče', 'Vyrovnanost', 'Síla'], pref: ['Přihrávky', 'Vedení míče', 'Koncentrace', 'Představivost', 'Předvídavost', 'Rovnováha'] },
+    { name: 'Střední obránce', phase: 'out', key: ['Hlavičky', 'Obranné zákroky', 'Obsazování', 'Poziční hra', 'Předvídavost', 'Síla', 'Výskok'], pref: ['Agresivita', 'Koncentrace', 'Odvaha', 'Vyrovnanost', 'Rychlost', 'Výdrž'] },
+    { name: 'Defenzivní záložník', phase: 'out', key: ['Obranné zákroky', 'Nasazení', 'Poziční hra', 'Předvídavost', 'Týmová hra', 'Síla'], pref: ['Obsazování', 'Agresivita', 'Bez míče', 'Koncentrace', 'Rozhodování', 'Výdrž'] },
+    { name: 'Střední útočník', phase: 'out', key: ['Nasazení', 'Předvídavost', 'Rozhodování'], pref: ['Obsazování', 'Agresivita', 'Bez míče', 'Koncentrace', 'Týmová hra', 'Výdrž'] },
+  ].map((p) => Object.freeze({ name: p.name, phase: p.phase, key: Object.freeze(p.key), pref: Object.freeze(p.pref) })));
 
   // Kódy míst v šablonách formací této aplikace → kódy pozic, jak je píše hra a nástroje kolem ní (GK, DL, DC, DR, WBL, WBR, DM, ML, MC, MR, AML, AMC, AMR, ST).
   // Jde o běžné pojmenování stran a řad ve FM, ne o údaj z FM27.
@@ -40,7 +57,24 @@
       sedí na profil role i na tabulky pozic zadané anglicky. */
   const plainKey = (s) => core.fold(String(s === null || s === undefined ? '' : s)).replace(/[^a-z0-9]/g, '');
   const attrKey = (s) => (CS ? CS.attrKey(s) : plainKey(s));
-  const roleKey = attrKey;
+  /** Kanonický název role: český název („Rozehrávající stoper“), anglický název („Ball-Playing Centre-Back“) i ověřená zkratka ze štítku v tabulce („BCB“) dají týž
+      anglický název ze slovníku (fm27cs.js); neznámý název nebo neověřená zkratka zůstane, jak je. Bez toho by se role místa v taktice nespárovala s profilem
+      role zadaným pod jiným názvem téže role. */
+  function canonRoleOf(name, phase) {
+    const raw = typeof name === 'string' ? name.trim() : name === null || name === undefined ? '' : String(name).trim();
+    if (!raw || !CS || !CS.canonRole) return raw;
+    const order = phaseOf(phase) === 'out' ? ['out', 'in'] : ['in', 'out'];
+    for (const p of order) {
+      const c = CS.canonRole(raw, p);
+      if (c !== raw) return c;
+    }
+    if (CS.roleFromChip) for (const p of order) {
+      const c = CS.roleFromChip(raw, p);
+      if (c) return c;
+    }
+    return raw;
+  }
+  const roleKey = (name, phase) => plainKey(canonRoleOf(name, phase));
   /** Fáze profilu role: 'in' (s míčem), 'out' (bez míče) nebo '' (neurčeno / starý profil). FM27 má dvě sady rolí a „Střední obránce“ existuje v obou. */
   function phaseOf(value) {
     const k = plainKey(value);
@@ -49,7 +83,7 @@
     return '';
   }
   /** Klíč profilu: název role, u rolí bez míče s předponou, aby se role téhož jména v obou fázích nepřepisovaly. */
-  const profileKey = (name, phase) => (phaseOf(phase) === 'out' ? 'out:' : '') + roleKey(name);
+  const profileKey = (name, phase) => (phaseOf(phase) === 'out' ? 'out:' : '') + roleKey(name, phase);
 
   // ---------------------------------------------------------------- profil role z obrazovky
   function cleanList(v, issues) {
@@ -108,7 +142,7 @@
     const issues = c.issues.slice();
     if (!c.name) return { ok: false, profile: null, issues: issues.concat('Chybí název role.') };
     if (!c.key.length && !c.pref.length) return { ok: false, profile: null, issues: issues.concat('Profil potřebuje aspoň jeden atribut.') };
-    const k = roleKey(c.name);
+    const k = roleKey(c.name, c.phase);
     if (!k) return { ok: false, profile: null, issues: issues.concat('Název role nemá žádné písmeno ani číslici.') };
     const profile = {
       id: ('r' + (phaseOf(c.phase) === 'out' ? 'o' : '') + k).slice(0, 40),
@@ -122,6 +156,12 @@
       at: isNum(o.now) ? o.now : null,
     };
     return { ok: true, profile, issues };
+  }
+
+  /** verifiedProfiles({now}) → šest platných profilů (zdroj „game“) z tabulky VERIFIED_PROFILES; nic se neukládá, ukládá obrazovka po kliknutí. */
+  function verifiedProfiles(opts) {
+    const o = isObj(opts) ? opts : {};
+    return VERIFIED_PROFILES.map((p) => makeProfile({ name: p.name, phase: p.phase, key: p.key.slice(), pref: p.pref.slice(), source: 'game', note: 'ověřeno ve hře 7. 11. 2026' }, { now: isNum(o.now) ? o.now : null }).profile).filter(Boolean);
   }
 
   /** editProfile(existing, fields, opts) → makeProfile(...) s fází a povinností převzatými z upravovaného profilu, pokud je `fields` neurčí.
@@ -260,7 +300,7 @@
     const index = profilesIndex(isObj(input) ? input.profiles : []);
     const slotInfo = slots.map((s) => {
       const hasRole = typeof s.role === 'string' && s.role.trim() !== '';
-      const profile = hasRole ? index.get(roleKey(s.role)) || null : null;
+      const profile = hasRole ? index.get(roleKey(s.role, 'in')) || null : null; // místo v taktice se posuzuje podle role s míčem
       return { slot: s, profile, hasRole };
     });
     // matice hodnocení: null = nelze (profil chybí, pozice nesedí, chybí atributy)
@@ -365,5 +405,5 @@
     return lines;
   }
 
-  return { DEFAULT_WEIGHTS, SOURCES, SOURCE_CS, SLOT_FM_POS, attrKey, roleKey, phaseOf, profileKey, normalizeRoleExtraction, makeProfile, editProfile, profilesIndex, roleFit, eligibility, hungarianMax, assignBest, weakSpots, summaryLines };
+  return { DEFAULT_WEIGHTS, SOURCES, SOURCE_CS, SLOT_FM_POS, attrKey, roleKey, phaseOf, profileKey, normalizeRoleExtraction, makeProfile, editProfile, VERIFIED_PROFILES, verifiedProfiles, profilesIndex, roleFit, eligibility, hungarianMax, assignBest, weakSpots, summaryLines };
 });

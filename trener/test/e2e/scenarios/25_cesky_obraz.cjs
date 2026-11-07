@@ -197,6 +197,20 @@ module.exports = async function run(env) {
   const after = await page.evaluate(() => window.FM27.app.store.list('roleprofile').map((p) => ({ id: p.id, phase: p.phase, key: p.key })));
   check('25 úprava profilu role bez míče zůstala u profilu bez míče; profil s míčem se nezměnil', after.length === 2 && after.find((p) => p.phase === 'out').key.length === 3 && after.find((p) => p.phase === 'in').key.length === 2 && after.find((p) => p.phase === 'in').key.join() === 'Hlavičky,Obranné zákroky', after);
 
+  // ověřené profily šesti rolí jedním tlačítkem; profil téhož klíče a fáze se nepřepíše
+  await page.click('#roleSeed');
+  await until(async () => (await page.evaluate(() => window.FM27.app.store.list('roleprofile').length)) === 7);
+  await until(async () => /Přidáno ověřených profilů/.test(await toast(page)));
+  const seedToast = await toast(page);
+  check('25 ověřené profily: přidalo se pět a jeden (upravený Střední obránce bez míče) se nepřepsal; řekne se to', /Přidáno ověřených profilů: 5/.test(seedToast) && /1 už jsi měl, nepřepsalo se/.test(seedToast), seedToast);
+  const seeded = await page.evaluate(() => window.FM27.app.store.list('roleprofile').map((p) => ({ name: p.name, phase: p.phase, source: p.source, keyLen: p.key.length })));
+  const mineOut = seeded.find((p) => p.name === 'Střední obránce' && p.phase === 'out');
+  check('25 upravený profil zůstal (3 klíčové, zdroj uživatel); ověřené mají zdroj „game“', mineOut.keyLen === 3 && mineOut.source === 'user' && seeded.filter((p) => p.source === 'game').length === 5, seeded);
+  check('25 seznam ukazuje původ „ověřeno ve hře“', /ověřeno ve hře FM27/.test(await text(page, '#roleList')));
+  await page.click('#roleSeed');
+  await until(async () => /Všech šest/.test(await toast(page)));
+  check('25 druhé kliknutí nic nepřidá (všech šest ověřených profilů už je)', (await page.evaluate(() => window.FM27.app.store.list('roleprofile').length)) === 7 && /Všech šest ověřených profilů už máš/.test(await toast(page)));
+
   const ovf = await h.overflow(page);
   check('25 na obrazovkách s českým čtením nic nepřetéká do šířky', ovf.sw <= ovf.cw + 1, ovf);
   await c.context.close();

@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 const TA = require('../src/tacticanalysis.js');
 const OA = require('../src/oppanalysis.js');
 const SC = require('../src/squadcheck.js');
+const RF = require('../src/rolefit.js');
 const TE = require('../src/tacteff.js');
 const CS = require('../src/fm27cs.js');
 
@@ -111,6 +112,7 @@ test('Tactical Effectiveness: čtyři pilíře, jejich názvy a 17 klíčových 
 test('tabulka rolí: názvy rolí i atributů jsou názvy ze slovníku hry; fáze, kanonický název a sloupce sedí', () => {
   const table = rows.filter((r) => (r[0] === 's míčem' || r[0] === 'bez míče') && r.length === 5);
   assert.equal(table.length, 6, 'šest ověřených rolí');
+  assert.equal(RF.VERIFIED_PROFILES.length, 6);
   assert.equal(table.filter((r) => r[0] === 's míčem').length, 3);
   assert.equal(table.filter((r) => r[0] === 'bez míče').length, 3);
   const canonical = new Set(CS.ATTR_PAIRS.map((p) => p[1]));
@@ -122,6 +124,11 @@ test('tabulka rolí: názvy rolí i atributů jsou názvy ze slovníku hry; fáz
     assert.ok(k.length >= 3 && p.length >= 3, `${cs}: málo atributů`);
     for (const a of [...k, ...p]) assert.ok(canonical.has(a), `${cs} (${phase}): „${a}“ není kanonický název atributu`);
     assert.equal(new Set([...k, ...p]).size, k.length + p.length, `${cs}: atribut je zároveň klíčový a žádoucí, nebo je dvakrát`);
+    // tabulka v dokumentu je tabulka z kódu (rolefit.js, VERIFIED_PROFILES): tlačítko v aplikaci přidává právě tyto profily
+    const code = RF.VERIFIED_PROFILES.find((x) => x.name === cs && x.phase === (phase === 's míčem' ? 'in' : 'out'));
+    assert.ok(code, `${cs} (${phase}): chybí v kódu`);
+    assert.deepEqual(code.key.map((a) => CS.canonAttr(a)), k, `${cs}: klíčové atributy se liší od kódu`);
+    assert.deepEqual(code.pref.map((a) => CS.canonAttr(a)), p, `${cs}: žádoucí atributy se liší od kódu`);
   }
 });
 
