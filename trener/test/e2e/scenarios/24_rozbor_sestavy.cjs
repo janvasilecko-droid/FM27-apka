@@ -123,6 +123,34 @@ module.exports = async function run(env) {
   await page.click('#tacCheckBtn');
   await page.waitForSelector('#squadUnusable');
   check('24 bez hráčů aplikace řekne, že sestavu nejde posoudit, a nic nevymýšlí', /Soupiska je prázdná/.test(await text(page, '#squadUnusable')) && (await page.locator('#squadXi').count()) === 0);
+  check('24 bez hráčů je v „Co řešit jako první“ jediná položka o sestavě s důvodem, ne šest rad „doplň hráče“', (await page.locator('#tacCheckTop li[data-source="squad"]').count()) === 1 && /Sestavu nejde posoudit/.test(await text(page, '#tacCheckTop li[data-source="squad"]')) && /Soupiska je prázdná/.test(await text(page, '#tacCheckTop li[data-source="squad"]')), await text(page, '#tacCheckTop'));
+  check('24 u karty je věta, že se rozbor počítá z uložené taktiky (neuložené úpravy se nezapočítají)', /neuložil, se do něj nezapočítají/.test(await text(page, '#tacCheckSavedHint')));
+
+  // ====================================================== G) hráči bez atributů se nepletou s chybějícími hráči (revize č. 2)
+  await page.evaluate(async () => {
+    const app = window.FM27.app;
+    const D = window.TrenerDwrs;
+    const careerId = app.career().id;
+    const outfieldOnly = (v) => Object.fromEntries(D.OUTFIELD_ATTRIBUTES.map((a) => [a, v]));
+    const mk = (name, positions, age, attributes) => ({ careerId, name, positions, role: '', duty: '', foot: 'unknown', age, attributes, strengths: [], weaknesses: [], flags: { injury: false, fatigue: false } });
+    // brankář má jen outfield atributy (pohled Brankářské nenačtený), ostatním hráčům chybí všechno
+    const defs = [['Brankář bez dat', ['GK']], ['Stoper X', ['DC']], ['Stoper Y', ['DC']], ['Bek P', ['DR']], ['Bek L', ['DL']], ['Defenzivní', ['DM']], ['Střed 1', ['MC']], ['Střed 2', ['MC']], ['Křídlo P', ['AMR']], ['Křídlo L', ['AML']], ['Útočník', ['ST']]];
+    for (const [name, pos] of defs) await app.store.put('player', mk(name, pos, 27, outfieldOnly(13)));
+    const byName = Object.fromEntries(app.store.list('player').map((p) => [p.name, p.id]));
+    const t = app.store.draft(app.store.list('tactic')[0]);
+    const pick = { GK: 'Brankář bez dat', RB: 'Bek P', RCB: 'Stoper X', LCB: 'Stoper X', LB: 'Bek L', DM: 'Defenzivní', RCM: 'Střed 1', LCM: 'Střed 2', RW: 'Křídlo P', ST: 'Útočník', LW: 'Křídlo L' };
+    for (const sl of t.slots) sl.playerId = byName[pick[sl.pos]];
+    await app.store.put('tactic', t);
+  });
+  await nav(page, 'tym');
+  await nav(page, 'taktiky');
+  await page.waitForSelector('#tacCheckCard');
+  await page.click('#tacCheckBtn');
+  await page.waitForSelector('#squadSection');
+  check('24 brankář bez atributů brankáře: místo „doplň hráče“ je nález G5 s radou načíst pohled Brankářské atributy', (await page.locator('#squadFindings [data-rule="G5"]').count()) >= 1 && /Brankářské atributy/.test(await text(page, '#squadFindings [data-rule="G5"]')) && (await page.locator('#squadFindings [data-rule="G1"]').count()) === 0, await text(page, '#squadFindings'));
+  check('24 v tabulce hloubky má skupina brankáře stav „chybí atributy“', (await page.locator('#squadDepth tr[data-group="GK"][data-state="nodata"]').count()) === 1 && /chybí atributy/.test(await text(page, '#squadDepth tr[data-group="GK"]')));
+  check('24 jeden stoper na dvou místech: vážný nález D1 s radou, kdo ho na druhém místě nahradí, a tabulka označí místo doplněné modelem', (await page.locator('#squadFindings [data-rule="D1"][data-sev="error"]').count()) === 1 && /Stoper X je v taktice na 2 místech \(RCB, LCB\)/.test(await text(page, '#squadFindings [data-rule="D1"]')) && /tvůj hráč už hraje na jiném místě/.test(await page.$$eval('#squadXi tbody tr', (rows) => rows.map((r) => r.textContent).join(' '))), await text(page, '#squadFindings'));
+  check('24 průměr se u dvojitého hráče nepočítá a odstavec o průměru říká proč', /Jedenáctka se neporovnává s nejlepší podle modelu, protože jeden hráč je v taktice na víc místech/.test(await text(page, '#squadAvg')), await text(page, '#squadAvg'));
   check('24 bez chyb ve skriptu a v konzoli (kromě blokovaných zdrojů)', c.problems.page.length === 0 && c.problems.console.filter((m) => !/Failed to load resource|net::ERR/.test(m)).length === 0, { page: c.problems.page, console: c.problems.console });
   await c.context.close();
 };

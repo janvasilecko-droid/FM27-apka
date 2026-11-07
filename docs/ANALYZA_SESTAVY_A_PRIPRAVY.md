@@ -96,10 +96,17 @@ střední útočník bez míče hlavně Work Rate, Anticipation a Decisions); (2
 
 ### 6.1 Rozbor taktiky: 42 pravidel
 
-Pravidla hledají v **viditelném nastavení** (mentalita, týmové instrukce, role s míčem a bez míče, rozestavení) a v načtených atributech **rozpory, nedodělky a dobře sedící dvojice**. Vzniklo to z komunitních průvodců
-a z textů hry; každé pravidlo nese zdroj úsudku, závažnost a **shodu zdrojů** („3 zdroje“, „spor v přísnosti“, „spor s hrou“). Pravidla se posuzovala proti 10 stylům z veřejných zdrojů a 90 dvojicím formací,
-které dodává sama hra: **co hra sama používá, je jen upozornění nebo poznámka, ne chyba**. Jedenáctý styl (Čistý štít) s pravidly srovnán nebyl. Žádné pravidlo není pravidlem FM27
-a žádné nepotřebuje skrytá data (CA, PA, osobnost, reputace). Prahy atributů jsou komunitní a dají se posunout (`opts.attrShift`, například −2 pro nižší soutěž).
+Pravidla hledají v **viditelném nastavení** (mentalita, týmové instrukce, role s míčem a bez míče, rozestavení) a v načtených atributech **rozpory, nedodělky a dobře sedící dvojice**. Vzniklo to z komunitních průvodců,
+kteří přebírají i texty hry; každé pravidlo nese zdroj úsudku, závažnost a **shodu zdrojů** („3 zdroje“, „spor v přísnosti“, „spor s hrou“). Pravidla se posuzovala proti 10 stylům z veřejných zdrojů a 90 dvojicím formací
+(data nástroje FM Scout Tactic Creator): **co v nich je, je jen upozornění nebo poznámka, ne chyba**. Jedenáctý styl (Čistý štít) s pravidly srovnán nebyl. **Žádné pravidlo taktiky dnes nemá štítek HRA**: znění textů
+a přednastavení ve hře samotné nikdo neověřil (revize č. 2, 7. 11. 2026; čtyři pravidla, která HRA nesla, jsou KOMUNITA). Žádné pravidlo není pravidlem FM27 a žádné nepotřebuje skrytá data (CA, PA, osobnost, reputace).
+Prahy atributů jsou komunitní a dají se posunout (`opts.attrShift`, například −2 pro nižší soutěž).
+
+**Neúplné údaje:** výsledek „v pořádku“ se řekne jen tehdy, když by byl stejný při jakémkoli doplnění chybějících údajů (instrukcí, rolí, atributů). Podmínka z víc instrukcí se skládá tak, že neznámá část nikdy
+neznamená „neplatí“; pravidlo o atributech neřekne „v pořádku“, dokud nezná atributy všech hráčů, kterých se týká. Nález z přečtené části zůstává (u atributů je to dolní odhad: závažnost může s dalšími hráči jen
+vzrůst a nález na to upozorní). Hlídá to zkouška, která pravidla pouští s náhodně neúplnými údaji a porovnává je s náhodnými doplněními. **Rada „co změnit“ se upřesňuje podle toho, co nález spouští**
+(například u Counter-Pressu s nízkou linií se mění jen to, co nevyrobí další rozpor), a nikdy nenavrhne roli, kterou hra pro dané místo nenabízí. Pracuje se s hráči, ne s rolemi: jeden hráč se v pravidlu o opatrné mentalitě
+nepočítá dvakrát. Kopie rozboru nese u každého nálezu štítek původu a shodu zdrojů, seznam nevyhodnocených pravidel a poznámku, že jde o pomůcku.
 
 | Id | Oblast | Co hlídá | Zdroj úsudku | Závažnost | Shoda zdrojů |
 |---|---|---|---|---|---|
@@ -108,7 +115,7 @@ a žádné nepotřebuje skrytá data (CA, PA, osobnost, reputace). Prahy atribut
 | A03 | Obrana | Counter-Press s nízkou obrannou linií | KOMUNITA | Upozornění | spor s hrou |
 | A04 | Obrana | Counter-Press z nízkého bloku | KOMUNITA | Vážný rozpor | 3 zdroje |
 | A04b | Obrana | Regroup při vysokém presinku | ODHAD | Poznámka | 2 zdroje |
-| A05 | Obrana | Counter-Press se širokým týmem | HRA | Upozornění | 1 zdroj |
+| A05 | Obrana | Counter-Press se širokým týmem | KOMUNITA | Upozornění | 1 zdroj |
 | A06 | Obrana | Vysoká obrana, ale málo spuštěný presink | KOMUNITA | Upozornění | 1 zdroj + texty hry |
 | A07 | Obrana | Chování linie jde proti její výšce | KOMUNITA | Upozornění | 1 zdroj + texty hry |
 | A08 | Obrana | Vysoká obranná linie a pomalí stopeři | KOMUNITA | Vážný rozpor | 3+ zdroje |
@@ -125,7 +132,7 @@ a žádné nepotřebuje skrytá data (CA, PA, osobnost, reputace). Prahy atribut
 | C07 | Útok | Přesah nebo podběh bez hráče, který jej dělá | KOMUNITA | Upozornění | 3 zdroje |
 | C08 | Útok | Trpělivý útok se střelami z dálky | KOMUNITA | Upozornění | 2 zdroje |
 | C10 | Útok | Disciplína týmu proti rolím s pevnou tvořivostí | KOMUNITA | Poznámka | 1 zdroj |
-| C12 | Útok | Counter-Press s udržením tvaru po zisku míče | HRA | Silná stránka | 2 zdroje |
+| C12 | Útok | Counter-Press s udržením tvaru po zisku míče | KOMUNITA | Silná stránka | 2 zdroje |
 | C14 | Útok | Přihrávky do prostoru s krátkou nebo trpělivou hrou | KOMUNITA | Poznámka | 1 zdroj |
 | C15 | Útok | Rozehra přes presink s přímými přihrávkami | ODHAD | Poznámka | 1 zdroj |
 | D01 | Rozehra | Rozehra přes presink s dlouhými výkopy | KOMUNITA | Vážný rozpor | 2 zdroje |
@@ -136,14 +143,14 @@ a žádné nepotřebuje skrytá data (CA, PA, osobnost, reputace). Prahy atribut
 | E02 | Záloha | Dvojice záložníků se dvěma stejnými pracemi | KOMUNITA | Upozornění | 1 zdroj |
 | E03 | Záloha | Ve středu bez míče nikdo nečistí prostor | KOMUNITA | Poznámka | 2 zdroje |
 | F01 | Boky | Dva hráči běhají po stejné lajně | KOMUNITA | Upozornění | 2 zdroje |
-| F02 | Boky | Vnitřní křídelník s krajním obráncem u lajny | HRA | Silná stránka | 3 zdroje |
+| F02 | Boky | Vnitřní křídelník s krajním obráncem u lajny | KOMUNITA | Silná stránka | 3 zdroje |
 | F04 | Boky | Oba krajní obránci útočí za jediným defenzivním záložníkem | KOMUNITA | Upozornění | 2 zdroje |
 | F05 | Boky | Asymetrie na bocích | KOMUNITA | Silná stránka | 2 zdroje |
 | G01 | Útok | Dva útočníci se stejnou prací | KOMUNITA | Upozornění | 1–2 zdroje |
 | G02 | Útok | Osamělý útočník bez spojky za sebou | KOMUNITA | K vědomí | 1 zdroj |
 | G03 | Obrana | Dva stopeři s rolí Ball-Playing Centre-Back | KOMUNITA | Upozornění | 1 zdroj |
 | G06 | Obrana | Víc rolí Outlet, nebo Outlet s Counter-Pressem | ODHAD | Upozornění | 2 zdroje |
-| G07 | Obrana | Týmový Trigger Press proti rolím, které jej mají pevně | HRA | Poznámka | 2 zdroje |
+| G07 | Obrana | Týmový Trigger Press proti rolím, které jej mají pevně | KOMUNITA | Poznámka | 2 zdroje |
 | H01 | Mentalita | Opatrná mentalita, ale víc hráčů zůstává vysoko | ODHAD | Upozornění | 1 zdroj |
 
 ### 6.2 Rozbor sestavy
@@ -156,9 +163,11 @@ jedna podmínka** (princip tří podmínek je z veřejného popisu nástroje FM 
 | Id | Co hlásí | Zdroj úsudku |
 |---|---|---|
 | G1 | Pozice, kde chybí hráči i na základ (díra) | VÝPOČET |
+| G5 | Hráči na pozici jsou, ale chybí jim atributy (neohodnotí se; rada je načíst atributy, ne kupovat hráče) | VÝPOČET |
 | G2 | Skupina pozic bez zálohy (jediná možnost) | KOMUNITA (cíl 2 hráči na místo) |
 | G3 | Hloubka pod cílem | KOMUNITA |
 | G4 | Málo přirozených hráčů na skupinu pozic | KOMUNITA |
+| D1 | Jeden hráč je v taktice na víc místech (počítá se jen u prvního, jedenáctka se neporovnává) | VÝPOČET |
 | P1 | Hráč hraje mimo své pozice, nebo jeho pozice není známá | VÝPOČET |
 | Q1 | Základní hráč má slabé atributy, na kterých u pozice nejvíc záleží | KOMUNITA |
 | Q2 | Velký propad mezi základním hráčem a nejlepší zálohou | ODHAD |
@@ -168,6 +177,12 @@ jedna podmínka** (princip tří podmínek je z veřejného popisu nástroje FM 
 | S1 | Silná stránka: aspoň dva klíčové atributy skupiny na 15 a víc | KOMUNITA |
 | S2 | Hloubka skupiny pozic je v pořádku | KOMUNITA |
 | S3 | Průměrný věk jedenáctky (komunitní doporučení 25 až 28 let) | KOMUNITA |
+
+**Jak se počítá jedenáctka a hloubka** (revize č. 2, 7. 11. 2026): nejdřív se obsadí co nejvíc míst a pak se hledá nejlepší součet skóre; při rovnocenných řešeních vyhraje to, které se shoduje s tvou
+jedenáctkou (skóre závisí jen na skupině pozic, takže stopeři na levém a pravém místě jsou zaměnitelní a prohození mezi nimi není „výměna“). **Každý hráč se do hloubky počítá jen jednou**: hráč s víc pozicemi
+(třeba DM i MC) se rozdělí mezi skupiny tak, aby se nejdřív obsadila základní místa a pak zálohy. **Hráč, kterému chybí atributy, není chybějící hráč**: rozbor to rozliší (G5 místo G1), řekne, které hráče
+a jaké pohledy načíst, a u sestavy, kterou nejde posoudit vůbec, uvede přesný důvod. Hrany prahů se porovnávají v desetinách, to jest v číslech, která vidíš. Průměr tvé jedenáctky se porovnává
+s nejlepší jedenáctkou na týchž místech (hráč, kterého nejde ohodnotit, porovnání nezkreslí).
 
 **Prahy** (`squadcheck.js`, `DEFAULTS`, dají se posunout): `perSlot` 2 hráči na místo, `cliffGap` 12 bodů (stupnice 0 až 100), `weakValue` 9, `swapGain` 4 body pro návrh výměny, `veteranAge` 31,
 `successorMaxAge` 27, `minCoverage` 0,6 (hráč s menším pokrytím potřebných atributů se **neohodnotí**, nikdy se nedosadí nula), `topAttrs` 3. Hráč bez věku se do věkových pravidel nezapočítá a řekne se to.
@@ -257,7 +272,7 @@ záložka Šířka kádru; co ukazuje zpráva o soupeři při slabé znalosti t�
 | Tactical Effectiveness | `tacteff.js`, `screens/teffect.js` | `test/tacteff.test.mjs`, scénář 27 |
 | Profily rolí, ověřené profily a výběr sestavy podle rolí | `rolefit.js`, `squadopt.js`, `screens/rolefit.js` | `test/rolefit.test.mjs`, `test/squadopt.test.mjs`, scénáře 18, 20 a 25 |
 
-Nezávislá revize nových modulů (7. 11. 2026) a co se podle ní opravilo: `docs/REVIZE_PRIPRAVA_NA_ZAPAS_2026-11-07.md`.
+Nezávislá revize nových modulů (7. 11. 2026) a co se podle ní opravilo: `docs/REVIZE_PRIPRAVA_NA_ZAPAS_2026-11-07.md`. Druhá revize rozboru taktiky a sestavy (42 pravidel, `squadcheck.js`): `docs/REVIZE_ROZBOR_SESTAVY_A_TAKTIKY_2026-11-07.md`.
 
 Pravidla jsou čisté funkce: zkoušky ověřují, že stejný vstup dá stejný výstup, že se vstupy nemění, že moduly nesahají na DOM ani na síť a že chybějící vstup pravidlo nevyhodnotí.
 Mutační zkoušky (kontrola, že zkoušky chytí chybu vloženou do kódu) jsou pro moduly přípravy na zápas a čtení české hry v `trener/test/mutation/` (69 mutací, všechny se chytí; návod v `README.md` tamtéž).

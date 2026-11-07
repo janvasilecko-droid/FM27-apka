@@ -269,18 +269,37 @@
     for (const cand of candidates) {
       const k = norm(cand);
       if (!k) continue;
+      // Nejdelší název první; název, který v textu je, se z něj „spotřebuje“: „Defensive Line“ je i uvnitř „Defensive Line Behaviour“, takže když pro delší název
+      // hodnota nesedí („Defensive Line Behaviour: Higher“), kratší název nesmí převzít hodnotu, která patří jiné instrukci.
+      let work = k;
       for (const { t, key } of NAME_KEYS) {
-        if (!k.includes(key)) continue;
-        // „Defensive Line“ je i uvnitř „Defensive Line Behaviour“: delší název už přišel dřív, takže tu zbývá jen opravdová shoda
-        const rest = k.split(key).join('');
+        if (!work.includes(key)) continue;
+        const rest = work.split(key).join('');
         const probe = { values: t.values };
         const value = findValue(probe, rest) || findValue(probe, k);
         if (value) return { id: t.id, name: t.name, value, phase: t.phase };
+        work = rest;
       }
       const only = UNIQUE_VALUE.get(k);
-      if (only) return { id: only.t.id, name: only.t.name, value: only.value, phase: only.t.phase };
+      if (only) {
+        // Název před dvojtečkou, který patří jiné instrukci než hodnota („Tackling: Counter-Press“), je rozpor: nehádá se, o kterou z nich jde.
+        if (colon > 0 && namesIn(norm(raw.slice(0, colon))).some((id) => id !== only.t.id)) continue;
+        return { id: only.t.id, name: only.t.name, value: only.value, phase: only.t.phase };
+      }
     }
     return null;
+  }
+
+  /** Instrukce, jejichž název v (normalizovaném) textu je; nejdelší název první a nalezený název se z textu odebere. */
+  function namesIn(k) {
+    const found = [];
+    let work = k;
+    for (const { t, key } of NAME_KEYS) {
+      if (!work.includes(key)) continue;
+      found.push(t.id);
+      work = work.split(key).join('');
+    }
+    return found;
   }
 
   /** parseMentality(text) → název mentality | null. */

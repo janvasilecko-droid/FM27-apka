@@ -1,0 +1,112 @@
+[
+[
+"obsazení míst nemá přednost před součtem skóre",
+"const FILL = 20000;",
+"const FILL = 0;"
+],
+[
+"preference uživatelova hráče při shodě se nepoužije",
+" + (prefer && prefer.get(s.key) === p.id ? 1 : 0) : 0;",
+" + 0 : 0;"
+],
+[
+"měřítko preference je příliš malé",
+"const scale = free.length + 1;",
+"const scale = 1;"
+],
+[
+"výměna: hrana zisku je ostrá nerovnost",
+"if (gainT >= Math.round(o.swapGain * 10))",
+"if (gainT > Math.round(o.swapGain * 10))"
+],
+[
+"výměna: zisk v plovoucí čárce",
+"const gainT = Math.round((e.best.score || 0) * 10) - Math.round(e.user.score * 10);",
+"const gainT = ((e.best.score || 0) - e.user.score) * 10;"
+],
+[
+"Q2: hrana propadu je ostrá nerovnost",
+"if (dropT !== null && dropT >= Math.round(o.cliffGap * 10)) {",
+"if (dropT !== null && dropT > Math.round(o.cliffGap * 10)) {"
+],
+[
+"Q2: propad v plovoucí čárce",
+"Math.round(e.starter.score * 10) - Math.round(rest[0].v * 10) : null;",
+"(e.starter.score - rest[0].v) * 10 : null;"
+],
+[
+"hráč na víc místech se nehlásí",
+"if (p && firstSlot.has(p.id)) {",
+"if (false && p && firstSlot.has(p.id)) {"
+],
+[
+"průměr se počítá i s hráčem na víc místech",
+"!dupOf.size && both.length ? avgOf",
+"both.length ? avgOf"
+],
+[
+"výměny se navrhují i s hráčem na víc místech",
+"if (res.user.picked === res.xi.length && !dupOf.size) {",
+"if (res.user.picked === res.xi.length) {"
+],
+[
+"nejlepší jedenáctka se průměruje přes všechna místa",
+"res.user.bestAvg = res.user.avg !== null ? avgOf(both.map((e) => e.best)) : avgOf(res.xi.map((e) => e.best));",
+"res.user.bestAvg = avgOf(res.xi.map((e) => e.best));"
+],
+[
+"chybějící atributy se hlásí jako chybějící hráč",
+"state = unrated.length >= gs.length - assigned.length ? 'nodata' : 'gap';",
+"state = 'gap';"
+],
+[
+"chybí atributy už u jediného hráče stačí na „nodata“",
+"unrated.length >= gs.length - assigned.length ? 'nodata'",
+"unrated.length >= 1 ? 'nodata'"
+],
+[
+"hráči bez atributů se počítají i zranění",
+"const unrated = ctx.info.filter((p) => !p.injured && !eligible.includes(p)",
+"const unrated = ctx.info.filter((p) => !eligible.includes(p)"
+],
+[
+"rozdělení hráčů: záloha má váhu základu",
+"(u.starter ? 100000 : 1000)",
+"(u.starter ? 1000 : 1000)"
+],
+[
+"rozdělení hráčů se nepoužije (každá skupina bere všechny způsobilé)",
+"const assigned = given.get(g);",
+"const assigned = eligible;"
+],
+[
+"rozdělení hráčů: přirozená pozice nemá přednost",
+"(cs.some((c) => c.natural) ? 1 : 0)",
+"0"
+],
+[
+"zraněný se nahradí sám sebou",
+"const healthyXi = injuredPicked ? new Map(bestEleven(ctx, new Map([...locked].filter(([, p]) => !p.injured))).map((b) => [b.slot.key, b.player])) : xiMap;",
+"const healthyXi = xiMap;"
+],
+[
+"důvod u sestavy bez atributů je vždy obecný",
+"res.coverage.none === info.length ?",
+"false ?"
+],
+[
+"čeština: pět hráčů nemá",
+"noneN <= 4 ?",
+"noneN <= 5 ?"
+],
+[
+"čeština: U jednoho i tří hráče",
+"unknownAge === 1 ? 'hráče' : 'hráčů'",
+"'hráče'"
+],
+[
+"kopie: štítek původu bez shody zdrojů",
+"${f.basis}${f.agree ? `, ${f.agree}` : ''}]",
+"${f.basis}]"
+]
+]

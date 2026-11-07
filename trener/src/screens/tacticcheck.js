@@ -14,8 +14,8 @@
   const SEV_CHIP = { error: 'bad', warn: 'warn', note: 'neutral', info: 'neutral', good: 'good' };
   const SEV_RANK = { error: 0, warn: 1, note: 2, info: 3, good: 4 };
   const SEV_CS = { error: 'Vážný nález', warn: 'Upozornění', note: 'Poznámka', info: 'K vědomí', good: 'Silná stránka' };
-  const STATE_CS = { gap: 'díra', single: 'žádná záloha', thin: 'pod cílem', ok: 'v pořádku' };
-  const STATE_CHIP = { gap: 'bad', single: 'warn', thin: 'neutral', ok: 'good' };
+  const STATE_CS = { gap: 'díra', nodata: 'chybí atributy', single: 'žádná záloha', thin: 'pod cílem', ok: 'v pořádku' };
+  const STATE_CHIP = { gap: 'bad', nodata: 'warn', single: 'warn', thin: 'neutral', ok: 'good' };
   const cz = (v) => (v === null || v === undefined ? '–' : String(Math.round(v * 10) / 10).replace('.', ','));
 
   // poslední rozbor každé taktiky přežije překreslení, dokud se taktika nebo hráči nezmění (otisk)
@@ -41,7 +41,7 @@
         'div',
         { class: 'meta' },
         h('b', { text: f.title }),
-        h('span', { class: 'chips' }, ui.chip(SEV_CHIP[f.sev], SEV_CS[f.sev]), ui.chip('neutral', f.basisCs), f.agree ? ui.chip('neutral', 'shoda zdrojů: ' + f.agree) : null, places.length ? ui.chip('accent', places.join(', ')) : null),
+        h('span', { class: 'chips' }, ui.chip(SEV_CHIP[f.sev], SEV_CS[f.sev]), ui.chip('neutral', f.basisCs), f.agree ? ui.chip('neutral', (source === 'tactic' ? 'shoda zdrojů: ' : 'podklad: ') + f.agree) : null, places.length ? ui.chip('accent', places.join(', ')) : null),
         f.ev.length ? h('ul', { class: 'list' }, f.ev.map((e) => h('li', { text: e }))) : null,
         h('span', { text: f.why }),
         f.fix.length ? h('div', null, h('b', { text: 'Co změnit' }), h('ul', { class: 'list' }, f.fix.map((x) => h('li', { text: x })))) : null
@@ -81,11 +81,16 @@
     const c = r.coverage;
     out.append(h('p', { class: 'hint', id: 'squadCoverage', text: `Hráčů: ${c.players} (úplné atributy ${c.complete}, částečné ${c.partial}, žádné ${c.none}); zranění ${c.injured}. Model: ${r.model}. Role se tu nepopisují: počítá se podle skupiny pozic místa.` }));
     if (!r.usable) {
-      out.append(h('div', { class: 'banner warn', id: 'squadUnusable' }, h('b', { text: 'Sestavu nejde posoudit' }), h('span', { text: r.notes[0] || 'Chybí hráči nebo jejich atributy.' })));
+      out.append(h('div', { class: 'banner warn', id: 'squadUnusable' }, h('b', { text: 'Sestavu nejde posoudit' }), h('span', { text: r.reason || 'Chybí hráči nebo jejich atributy.' })));
       return out;
     }
     if (r.user.avg !== null) {
-      out.append(h('p', { id: 'squadAvg', text: `Průměr tvé jedenáctky ${cz(r.user.avg)} bodu na místo, nejlepší podle modelu ${cz(r.user.bestAvg)} (stupnice 0 až 100, odhad).` }));
+      const part = r.user.compared < r.xi.length ? ` Porovnáno na ${r.user.compared} z ${r.xi.length} míst: jen tam, kde jde tvého hráče ohodnotit.` : '';
+      out.append(h('p', { id: 'squadAvg', text: `Průměr tvé jedenáctky ${cz(r.user.avg)} bodu na místo, nejlepší podle modelu ${cz(r.user.bestAvg)} (stupnice 0 až 100, odhad).${part}` }));
+    } else if (r.findings.some((f) => f.id === 'D1')) {
+      out.append(h('p', { class: 'hint', id: 'squadAvg', text: 'Jedenáctka se neporovnává s nejlepší podle modelu, protože jeden hráč je v taktice na víc místech (viz nález D1); druhé místo doplnil model.' }));
+    } else if (r.user.picked === r.xi.length) {
+      out.append(h('p', { class: 'hint', id: 'squadAvg', text: 'Tvoji jedenáctku nejde porovnat s nejlepší podle modelu: žádného z tvých hráčů na zadaných místech nejde ohodnotit (chybí jim atributy).' }));
     } else if (r.user.picked) {
       out.append(h('p', { class: 'hint', id: 'squadAvg', text: `V taktice máš obsazeno ${r.user.picked} z ${r.xi.length} míst; zbytek doplnil model. Pro porovnání s nejlepší jedenáctkou obsaď všechna místa.` }));
     } else {
@@ -104,7 +109,7 @@
           null,
           r.xi.map((e) => {
             const st = e.starter;
-            const tag = e.source === 'user' ? '' : ' (doplnil model)';
+            const tag = e.source === 'user' ? '' : e.user && e.user.duplicate ? ' (doplnil model: tvůj hráč už hraje na jiném místě)' : ' (doplnil model)';
             const partial = (x) => (x && x.partial ? ' (částečné atributy)' : '');
             const keys = st && st.keys && st.keys.length ? st.keys.slice(0, 5).map((k) => `${k.attribute} ${k.value}`).join(' · ') : '–';
             return h('tr', { 'data-slot': e.slotKey, 'data-source': e.source }, h('td', { text: e.pos }), h('td', { text: st ? st.name + tag : 'nikdo' }), h('td', { text: st ? cz(st.score) + partial(st) : '–' }), h('td', { class: 'keys', text: keys }), h('td', { text: e.best ? e.best.name : 'nikdo' }), h('td', { text: e.best ? cz(e.best.score) + partial(e.best) : '–' }));
@@ -127,7 +132,7 @@
         'table',
         { class: 'tbl', id: 'squadDepth' },
         h('thead', null, h('tr', null, ['Skupina', 'Místa', 'Použitelných hráčů', 'Cíl', 'Stav'].map((t) => h('th', { text: t })))),
-        h('tbody', null, r.depth.map((d) => h('tr', { 'data-group': d.group, 'data-state': d.state }, h('td', { text: (window.TrenerDwrs && window.TrenerDwrs.GROUP_CS[d.group]) || d.group }), h('td', { text: [...new Set(d.positions)].join(', ') }), h('td', { text: `${d.eligible} (přirozených ${d.natural})` }), h('td', { text: String(d.target) }), h('td', null, ui.chip(STATE_CHIP[d.state], STATE_CS[d.state])))))
+        h('tbody', null, r.depth.map((d) => h('tr', { 'data-group': d.group, 'data-state': d.state }, h('td', { text: (window.TrenerDwrs && window.TrenerDwrs.GROUP_CS[d.group]) || d.group }), h('td', { text: [...new Set(d.positions)].join(', ') }), h('td', { text: `${d.assigned} (přirozených ${d.natural})${d.elsewhere ? `; ${d.elsewhere} započítaných v jiné skupině` : ''}${d.unrated ? `; bez atributů ${d.unrated}` : ''}` }), h('td', { text: String(d.target) }), h('td', null, ui.chip(STATE_CHIP[d.state], STATE_CS[d.state])))))
       )
       )
     );
@@ -189,7 +194,9 @@
   // ---------------------------------------------------------------- shrnutí „co řešit jako první“
   function topEl(tactic, sq, tr) {
     const items = [];
-    if (sq) for (const f of sq.findings) items.push({ f, source: 'squad', area: 'Sestava' });
+    // sestava, kterou nejde posoudit, je jediná položka (jeden důvod), ne šest „doplň hráče“ za každou skupinu pozic
+    if (sq && !sq.usable) items.push({ f: { id: 'SQ', sev: 'warn', title: 'Sestavu nejde posoudit', fix: sq.reason ? [sq.reason] : [] }, source: 'squad', area: 'Sestava' });
+    else if (sq) for (const f of sq.findings) items.push({ f, source: 'squad', area: 'Sestava' });
     if (tr) for (const f of tr.findings) items.push({ f, source: 'tactic', area: 'Taktika' });
     items.sort((a, b) => SEV_RANK[a.f.sev] - SEV_RANK[b.f.sev]);
     const top = items.filter((x) => x.f.sev === 'error' || x.f.sev === 'warn').slice(0, 6);
@@ -235,6 +242,7 @@
     };
     sec.append(
       h('p', { class: 'lead', text: 'Jedním kliknutím projde sestavu (podle atributů hráčů, bez ručního popisu rolí) i nastavení taktiky. U sestavy najde nejlepší jedenáctku, slabá místa podle pravidel (málo hráčů na pozici, žádná záloha, propad mezi základem a zálohou, slabé klíčové atributy, stárnoucí hráč bez nástupce) a navrhne výměny; u taktiky najde rozpory v instrukcích a rolích. Ke každému nálezu řekne, co přesně změnit. Počítá se v tomhle zařízení, bez AI. Je to pomůcka (tabulky vhodnosti jsou odhad, pravidla taktiky názor komunitních průvodců a texty hry), ne pravidlo FM27 a ne předpověď výsledku.' }),
+      h('p', { class: 'hint', id: 'tacCheckSavedHint', text: 'Rozbor se počítá z uložené taktiky: úpravy v editoru výš, které jsi ještě neuložil, se do něj nezapočítají.' }),
       h('div', { class: 'actions' }, h('button', { class: 'btn primary', id: 'tacCheckBtn', type: 'button', text: 'Analyzovat sestavu a taktiku', onclick: run })),
       slot
     );

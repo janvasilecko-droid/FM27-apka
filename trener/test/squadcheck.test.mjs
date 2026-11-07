@@ -358,3 +358,285 @@ test('zdroj neobsahuje neviditelné ani řídicí znaky kromě odřádkování',
   const bad = source.match(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu) || [];
   assert.deepEqual(bad.filter((ch) => ch !== '\n'), []);
 });
+
+// ================================================================ revize č. 2 (7. 11. 2026)
+// Nálezy nezávislého revizora k rozboru sestavy; každý se nejdřív ověřil zkouškou, která na starém kódu selhala (docs/REVIZE_ROZBOR_SESTAVY_A_TAKTIKY_2026-11-07.md).
+
+test('A1: rovnocenná jedenáctka se zaměněnými stopery a záložníky mezi levou a pravou stranou není „výměna“ (skóre závisí jen na skupině pozic)', () => {
+  const sq = fullSquad();
+  const base = S.analyze(tac(), sq);
+  const best = new Map(base.xi.map((e) => [e.pos, e.best]));
+  let seed = 11;
+  const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  let withSwap = 0;
+  for (let n = 0; n < 60; n++) {
+    const t = tac();
+    const cb = rnd() < 0.5;
+    const cm = rnd() < 0.5;
+    const to = { RCB: cb ? 'LCB' : 'RCB', LCB: cb ? 'RCB' : 'LCB', RCM: cm ? 'LCM' : 'RCM', LCM: cm ? 'RCM' : 'LCM' };
+    for (const s of t.slots) s.playerId = best.get(to[s.pos] || s.pos).id;
+    if (cb || cm) withSwap++;
+    const r = S.analyze(t, sq);
+    assert.deepEqual(r.swaps, [], `zaměněno stopeři ${cb}, záložníky ${cm}: ${JSON.stringify(r.swaps.map((x) => x.pos))}`);
+    assert.equal(r.user.avg, r.user.bestAvg);
+  }
+  assert.ok(withSwap > 30, 'zkouška opravdu zaměňuje');
+  // skutečná výměna zůstává: slabší hráč na místě, kde je lepší k dispozici
+  const t = tac();
+  for (const s of t.slots) s.playerId = best.get(s.pos).id;
+  t.slots.find((s) => s.pos === 'ST').playerId = sq.find((p) => p.name === 'ST2').id;
+  assert.deepEqual(S.analyze(t, sq).swaps.map((x) => x.pos), ['ST']);
+});
+
+test('I1: náhrada za zraněného hráče je zdravý hráč, ne zraněný sám', () => {
+  const sq = fullSquad();
+  const t = tac();
+  const hurt = sq.find((p) => p.name === 'CB1');
+  hurt.flags.injury = true;
+  t.slots.find((s) => s.pos === 'RCB').playerId = hurt.id;
+  const r = S.analyze(t, sq);
+  const i1 = r.findings.find((f) => f.id === 'I1');
+  assert.ok(i1);
+  assert.ok(!i1.fix[0].includes('CB1'), i1.fix[0]);
+  assert.match(i1.fix[0], /^Vyměnit za CB\d/);
+  assert.ok(S.summaryLines(r).some((l) => /Vyměnit za CB[2-4]/.test(l) && !/Vyměnit za CB1/.test(l)));
+  // bez zdravé náhrady se řekne obecně
+  const only = [P('Zraněný stoper', ['DC'], 27, 14, {}, { injury: true, fatigue: false })];
+  const t2 = { formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: only[0].id }] };
+  assert.equal(S.analyze(t2, only).findings.find((f) => f.id === 'I1').fix[0], 'Vyměnit za dostupného hráče');
+});
+
+test('G1 a G5: hráč, kterému chybí atributy, není „chybějící hráč“; rozbor to rozliší a řekne, co načíst', () => {
+  // dvanáct hráčů s úplnými pohledy Technické, Psychika, Fyzické; brankář bez pohledu Brankářské (podle dokumentace běžný stav)
+  const outfieldOnly = (name, pos) => ({ id: `q${++n}`, name, positions: [pos], age: 27, attributes: outfield(13), flags: {} });
+  const sq = [outfieldOnly('Brankář', 'GK'), ...['DC', 'DC', 'DC', 'DR', 'DL', 'DM', 'MC', 'MC', 'AMR', 'AML', 'ST'].map((p, i) => outfieldOnly('H' + i, p))];
+  const r = S.analyze(tac(), sq);
+  assert.ok(!r.findings.some((f) => f.id === 'G1' && /brankář/.test(f.title)), 'brankář tu je, jen nemá atributy');
+  const g5 = r.findings.find((f) => f.id === 'G5' && /brankář/.test(f.title));
+  assert.ok(g5, ids(r).join());
+  assert.equal(g5.sev, 'warn');
+  assert.match(g5.title, /hráči jsou, ale chybí jim atributy/);
+  assert.match(g5.fix[0], /^Načti atributy hráčů: Brankář \(pohled Brankářské atributy/);
+  assert.ok(!g5.fix.join(' ').includes('Doplnit hráče'), 'rada nesmí posílat kupovat brankáře');
+  assert.equal(r.depth.find((d) => d.group === 'GK').state, 'nodata');
+  assert.equal(r.depth.find((d) => d.group === 'GK').unrated, 1);
+  // opravdu chybějící hráč zůstává G1
+  const noKeeper = sq.filter((p) => p.name !== 'Brankář');
+  const g1 = S.analyze(tac(), noKeeper).findings.find((f) => f.id === 'G1' && /brankář/.test(f.title));
+  assert.ok(g1 && g1.fix[0].startsWith('Doplnit hráče'));
+  // sedmnáct hráčů jen s technickými atributy: sestavu nejde posoudit a důvod to říká (ne poznámka o smlouvách)
+  const tech = (name, pos) => ({ id: `q${++n}`, name, positions: [pos], age: 27, attributes: Object.fromEntries(D.OUTFIELD_ATTRIBUTES.slice(0, 14).map((a) => [a, 13])), flags: {} });
+  const sq2 = ['GK', 'DC', 'DC', 'DC', 'DR', 'DL', 'DM', 'MC', 'MC', 'AMR', 'AML', 'ST'].map((p, i) => tech('T' + i, p));
+  const r2 = S.analyze(tac(), sq2);
+  assert.equal(r2.usable, false);
+  assert.match(r2.reason, /Technické, Psychika a Fyzické atributy/);
+  assert.ok(!/Smlouvy/.test(r2.reason));
+  assert.ok(r2.notes.includes(r2.reason));
+  const none = S.analyze(tac(), [{ id: 'x1', name: 'Bez atributů', positions: ['GK'], attributes: {} }]);
+  assert.match(none.reason, /Žádný hráč nemá načtené atributy/);
+  assert.equal(S.analyze(tac(), []).reason, 'Soupiska je prázdná: přidej hráče v Můj tým nebo je načti ze snímku či tabulky.');
+  assert.equal(S.analyze(tac(), sq).reason, null);
+});
+
+test('G2 a G3: věta o hráčích bez atributů; rada načíst atributy je první', () => {
+  const sq = fullSquad().filter((p) => !['RW2', 'LW2'].includes(p.name));
+  sq.push({ id: 'z1', name: 'Bez dat', positions: ['AMR'], age: 22, attributes: {}, flags: {} });
+  const g = S.analyze(tac(), sq).findings.find((f) => f.id === 'G2' && /křídlo/.test(f.title));
+  assert.ok(g);
+  assert.match(g.why, /1 hráče s touhle pozicí nejde ohodnotit, protože jim chybí atributy \(Bez dat\)/);
+  assert.match(g.fix[0], /^Načti atributy hráčů: Bez dat/);
+});
+
+test('D1: jeden hráč na dvou místech je vážný nález, neporovnává se s nejlepší jedenáctkou a druhé místo doplní model', () => {
+  const sq = [P('Hvězda', ['DC'], 26, 17), P('Záloha 1', ['DC'], 26, 12), P('Záloha 2', ['DC'], 26, 11), P('Záloha 3', ['DC'], 26, 10)];
+  const t = { formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: sq[0].id }, { key: 'b', pos: 'LCB', playerId: sq[0].id }] };
+  const r = S.analyze(t, sq);
+  const d1 = r.findings.find((f) => f.id === 'D1');
+  assert.ok(d1 && d1.sev === 'error' && d1.basis === 'VYPOCET');
+  assert.match(d1.title, /Hvězda je v taktice na 2 místech \(RCB, LCB\)/);
+  assert.match(d1.fix[0], /^Na LCB dát jiného hráče \(podle modelu Záloha 1\)/);
+  assert.equal(r.user.avg, null, 'jedenáctka s dvojitým hráčem se neporovnává');
+  assert.deepEqual(r.swaps, []);
+  assert.deepEqual(r.xi.map((e) => e.starter.name), ['Hvězda', 'Záloha 1'], 'druhé místo doplnil model');
+  assert.equal(r.strengths.filter((f) => f.id === 'S1').length, 1, 'silná stránka Hvězdy jen jednou');
+  assert.equal(r.xi[1].user.duplicate, true);
+  // dva různí hráči: žádné D1
+  t.slots[1].playerId = sq[1].id;
+  assert.ok(!S.analyze(t, sq).findings.some((f) => f.id === 'D1'));
+  // slabý hráč na dvou místech a silnější k dispozici: žádná „výměna“, jedenáctka s dvojitým hráčem se neporovnává
+  const weak = [P('Slabý', ['DC'], 26, 8), P('Silný 1', ['DC'], 26, 16), P('Silný 2', ['DC'], 26, 15)];
+  const t2 = { formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: weak[0].id }, { key: 'b', pos: 'LCB', playerId: weak[0].id }] };
+  const r2 = S.analyze(t2, weak);
+  assert.ok(r2.findings.some((f) => f.id === 'D1'));
+  assert.deepEqual(r2.swaps, []);
+  const t3 = { formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: weak[0].id }, { key: 'b', pos: 'LCB', playerId: weak[1].id }] };
+  assert.ok(S.analyze(t3, weak).swaps.length >= 1, 'bez dvojitého hráče by se výměna navrhla');
+});
+
+/** Hledá dva hráče, jejichž skóre se v desetinách liší přesně o `tenths`; s `floatEdge` jen takové, kde je rozdíl v plovoucí čárce o něco menší (14,3 − 2,3 není 12). */
+function pairWithFloatEdge(tenths, floatEdge = true) {
+  let seed = 5;
+  const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const names = PA.entriesOf('CB').map((e) => e.attribute);
+  const byScore = new Map();
+  for (let i = 0; i < 20000; i++) {
+    const a = {};
+    const level = 1 + Math.floor(rnd() * 20); // různé úrovně hráčů, ať jsou vidět skóre od nuly po stovku
+    for (const nm of names) a[nm] = Math.max(1, Math.min(20, level + Math.floor(rnd() * 7) - 3));
+    const sc = PA.score(D.playerAttributes({ attributes: a }), 'CB').score;
+    if (!byScore.has(sc)) byScore.set(sc, a);
+  }
+  for (const [x, ax] of byScore) {
+    const y = Math.round((x - tenths / 10) * 10) / 10;
+    if (byScore.has(y) && Math.round(x * 10) - Math.round(y * 10) === tenths && (!floatEdge || x - y < tenths / 10)) return { hi: ax, lo: byScore.get(y), x, y };
+  }
+  return null;
+}
+
+test('B5: hrany prahů (propad zálohy 12, zisk výměny 4) se porovnávají v desetinách, ne v plovoucí čárce', () => {
+  const q2 = pairWithFloatEdge(120);
+  assert.ok(q2, 'pár hráčů se najde');
+  assert.ok(q2.x - q2.y < 12, 'v plovoucí čárce je rozdíl pod 12');
+  const mk = (id, attributes) => ({ id, name: id, positions: ['DC'], age: 25, attributes, flags: {} });
+  const r = S.analyze({ formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: 'S' }] }, [mk('S', q2.hi), mk('B', q2.lo)]);
+  assert.ok(r.findings.some((f) => f.id === 'Q2'), `rozdíl ${q2.x} − ${q2.y} je přesně 12,0 bodu: ${ids(r)}`);
+  const sw = pairWithFloatEdge(40);
+  assert.ok(sw);
+  const r2 = S.analyze({ formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: 'U' }] }, [mk('U', sw.lo), mk('A', sw.hi)]);
+  assert.equal(r2.swaps.length, 1, 'zisk 4,0 bodu už je výměna');
+  assert.equal(r2.swaps[0].gain, 4);
+});
+
+test('B6: hráč s víc pozicemi se do hloubky počítá jen v jedné skupině (čtyři univerzální záložníci nestačí na DM i CM)', () => {
+  const mid = Object.fromEntries(['Passing', 'Stamina', 'Work Rate', 'Teamwork', 'First Touch', 'Composure', 'Vision', 'Dribbling', 'Decisions', 'Off The Ball', 'Technique', 'Anticipation', 'Positioning', 'Tackling', 'Concentration', 'Marking', 'Strength'].map((a) => [a, 14]));
+  const sq = Array.from({ length: 4 }, (_, i) => ({ id: `m${i}`, name: 'Záložník ' + i, positions: ['DM', 'MC'], age: 26, attributes: mid, flags: {} }));
+  const r = S.analyze(tac(), sq);
+  const dm = r.depth.find((d) => d.group === 'DM');
+  const cm = r.depth.find((d) => d.group === 'CM');
+  assert.equal(dm.eligible + 0, 4);
+  assert.equal(dm.assigned + cm.assigned, 4, 'čtyři hráči, každý započítaný jednou');
+  assert.ok(dm.assigned + cm.assigned <= 4);
+  assert.notEqual(cm.state, 'ok');
+  assert.ok(!r.strengths.some((f) => f.id === 'S2' && /střední záložník/.test(f.title)), 'hloubka středu není „v pořádku“');
+  const g = r.findings.find((f) => (f.id === 'G2' || f.id === 'G3') && /střední záložník/.test(f.title));
+  assert.ok(g && /hrají víc pozic a započítávají se v jiné skupině/.test(g.why), g && g.why);
+  // bez překryvu zůstává počítání jako dřív: každý hráč jen v jedné skupině
+  const plain = S.analyze(tac(), fullSquad());
+  for (const d of plain.depth) assert.equal(d.assigned, Math.min(d.eligible, d.target), d.group);
+});
+
+test('B9: průměr tvé jedenáctky a nejlepší jedenáctka se porovnávají na týchž místech (hráč, kterého nejde ohodnotit, porovnání nezkreslí)', () => {
+  const sq = fullSquad();
+  const t = tac();
+  const best = S.analyze(t, sq).xi;
+  for (const e of best) t.slots.find((s) => s.key === e.slotKey).playerId = e.best.id;
+  const noAttrs = { id: 'nic', name: 'Bez atributů', positions: ['AML'], age: 24, attributes: {}, flags: {} };
+  sq.push(noAttrs);
+  t.slots.find((s) => s.pos === 'LW').playerId = noAttrs.id;
+  const r = S.analyze(t, sq);
+  assert.equal(r.user.picked, 11);
+  assert.equal(r.user.rated, 10);
+  assert.equal(r.user.compared, 10);
+  const same = r.xi.filter((e) => e.pos !== 'LW');
+  const avg = (v) => Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10;
+  assert.equal(r.user.avg, avg(same.map((e) => e.user.score)));
+  assert.equal(r.user.bestAvg, avg(same.map((e) => e.best.score)), 'nejlepší jedenáctka jen na deseti místech, kde jde porovnat');
+  assert.equal(r.user.avg, r.user.bestAvg, 'tvá jedenáctka je tam nejlepší možná');
+  assert.ok(r.swaps.some((x) => x.pos === 'LW' && x.gain === null), 'neohodnotitelný hráč se hlásí jako výměna bez čísla');
+  assert.ok(S.summaryLines(r).some((l) => /porovnáno na 10 z 11 míst/.test(l)));
+});
+
+test('C4: správná čeština v poznámkách (2 hráči nemají, U 3 hráčů chybí věk, 4 přirozené hráče)', () => {
+  const mk = (count) => {
+    const sq = fullSquad();
+    for (let i = 0; i < count; i++) sq.push({ id: `nb${count}_${i}`, name: 'Bez ' + i, positions: ['ST'], age: 25, attributes: {}, flags: {} });
+    return S.analyze(tac(), sq).notes.find((x) => /atributy, takže se neohodnotí/.test(x));
+  };
+  assert.equal(mk(1), '1 hráč nemá žádné atributy, takže se neohodnotí.');
+  assert.equal(mk(2), '2 hráči nemají žádné atributy, takže se neohodnotí.');
+  assert.equal(mk(5), '5 hráčů nemá žádné atributy, takže se neohodnotí.');
+  const ages = (count) => {
+    const sq = fullSquad();
+    const t = tac();
+    const r0 = S.analyze(t, sq);
+    for (const e of r0.xi.slice(0, count)) sq.find((p) => p.id === e.best.id).age = null;
+    return S.analyze(t, sq).notes.find((x) => /chybí věk/.test(x));
+  };
+  assert.equal(ages(1), 'U 1 hráče v jedenáctce chybí věk, věkové kontroly je nezahrnují.');
+  assert.equal(ages(3), 'U 3 hráčů v jedenáctce chybí věk, věkové kontroly je nezahrnují.');
+  const s2 = S.analyze(tac(), fullSquad()).strengths.find((f) => f.id === 'S2' && /střední obránce/.test(f.title));
+  assert.match(s2.why, /máš 4 přirozené hráče \(cíl 4\)/);
+});
+
+test('C6: obsadí se co nejvíc míst (univerzál, který na jedné pozici zazáří a na druhé je slabý, nezabere místo, aby druhé zůstalo prázdné)', () => {
+  const base = (v) => Object.fromEntries(D.OUTFIELD_ATTRIBUTES.map((a) => [a, v]));
+  const st = PA.entriesOf('ST').map((e) => e.attribute);
+  const dm = PA.entriesOf('DM').map((e) => e.attribute);
+  const uni = base(1);
+  for (const a of dm) uni[a] = 1;
+  for (const a of st) uni[a] = 20;
+  const players = [
+    { id: 'u1', name: 'Útočník', positions: ['ST'], age: 25, attributes: base(7), flags: {} },
+    { id: 'u2', name: 'Univerzál', positions: ['ST', 'DM'], age: 25, attributes: uni, flags: {} },
+  ];
+  const r = S.analyze({ formation: 'x', slots: [{ key: 'a', pos: 'ST' }, { key: 'b', pos: 'DM' }] }, players);
+  assert.deepEqual(r.xi.map((e) => e.best && e.best.name), ['Útočník', 'Univerzál'], 'obě místa obsazená');
+});
+
+test('summaryLines: nálezy nesou štítek původu a shodu zdrojů, na konci je věta, že jde o odhad', () => {
+  const sq = fullSquad().filter((p) => !['RW2', 'LW2'].includes(p.name));
+  const lines = S.summaryLines(S.analyze(tac(), sq));
+  assert.ok(lines.some((l) => /\[G2, KOMUNITA, komunitní cíl 2 hráči na místo\]/.test(l)));
+  assert.ok(lines.every((l) => !/^(Vážný nález|Upozornění|Poznámka|K vědomí|Silná stránka) \[[A-Z]\d\]/.test(l)), 'žádný nález bez štítku původu');
+  assert.match(lines[lines.length - 1], /Rozbor sestavy je odhad podle komunitních příruček .* ne pravidlo FM27 a ne předpověď/);
+  assert.ok(lines.some((l) => /Smlouvy, morálku ani formu aplikace zatím nezná/.test(l)), 'poznámky se kopírují taky');
+});
+
+test('A1: preference uživatelova hráče jen rozhoduje při shodě; o desetinu lepšího hráče nikdy nepřebije', () => {
+  const pair = pairWithFloatEdge(1, false);
+  assert.ok(pair);
+  const mk = (id, attributes) => ({ id, name: id, positions: ['DC'], age: 25, attributes, flags: {} });
+  const r = S.analyze({ formation: 'x', slots: [{ key: 'a', pos: 'RCB', playerId: 'U' }] }, [mk('U', pair.lo), mk('A', pair.hi)]);
+  assert.equal(r.xi[0].best.id, 'A', 'nejlepší podle modelu je hráč o 0,1 bodu lepší, ne ten, kterého zadal uživatel');
+  assert.deepEqual(r.swaps, [], '0,1 bodu není výměna');
+});
+
+test('G1 a G5: chybějící atributy nahrazují hráče jen tehdy, když by jejich doplnění místa opravdu zaplnilo (zraněný bez atributů se nepočítá)', () => {
+  const noData = (id, over) => Object.assign({ id, name: id, positions: ['DC'], age: 25, attributes: {}, flags: {} }, over || {});
+  // dvě místa, jediný stoper a bez atributů: i s doplněním by jedno místo zůstalo prázdné
+  const two = { formation: 'x', slots: [{ key: 'a', pos: 'RCB' }, { key: 'b', pos: 'LCB' }] };
+  const r = S.analyze(two, [noData('jediny')]);
+  assert.ok(r.findings.some((f) => f.id === 'G1'), ids(r).join());
+  assert.ok(!r.findings.some((f) => f.id === 'G5'));
+  // dva stopeři bez atributů na dvě místa: jde o chybějící údaje, ne hráče
+  const r2 = S.analyze(two, [noData('a1'), noData('a2')]);
+  assert.ok(r2.findings.some((f) => f.id === 'G5') && !r2.findings.some((f) => f.id === 'G1'), ids(r2).join());
+  // zraněný stoper bez atributů se do „chybí atributy“ nepočítá
+  const one = { formation: 'x', slots: [{ key: 'a', pos: 'RCB' }] };
+  const r3 = S.analyze(one, [noData('zraneny', { flags: { injury: true } })]);
+  assert.ok(r3.findings.some((f) => f.id === 'G1') && !r3.findings.some((f) => f.id === 'G5'), ids(r3).join());
+});
+
+test('B6: nejdřív se obsadí základní místa všech skupin, teprve potom zálohy (univerzál nezůstane jako záloha, když druhá skupina nemá nikoho)', () => {
+  const mid = Object.fromEntries(['Passing', 'Stamina', 'Work Rate', 'Teamwork', 'First Touch', 'Composure', 'Vision', 'Dribbling', 'Decisions', 'Off The Ball', 'Technique', 'Anticipation', 'Positioning', 'Tackling', 'Concentration', 'Marking', 'Strength'].map((a) => [a, 14]));
+  const sq = [
+    { id: 'jen', name: 'Jen DM', positions: ['DM'], age: 26, attributes: mid, flags: {} },
+    { id: 'uni', name: 'Univerzál', positions: ['DM', 'MC'], age: 26, attributes: mid, flags: {} },
+  ];
+  const r = S.analyze({ formation: 'x', slots: [{ key: 'a', pos: 'DM' }, { key: 'b', pos: 'RCM' }] }, sq);
+  const dm = r.depth.find((d) => d.group === 'DM');
+  const cm = r.depth.find((d) => d.group === 'CM');
+  assert.equal(dm.assigned, 1, 'Jen DM drží defenzivní místo');
+  assert.equal(cm.assigned, 1, 'univerzál hraje střed, kde jinak nikdo není');
+  assert.equal(cm.state, 'single');
+});
+
+test('B6: při rozdělení hráčů mezi skupiny mají přednost přirozené pozice (hráč bez známé pozice nevytlačí přirozeného)', () => {
+  const base = Object.fromEntries(D.OUTFIELD_ATTRIBUTES.map((a) => [a, 13]));
+  const mk = (id, positions) => ({ id, name: id, positions, age: 25, attributes: base, flags: {} });
+  const sq = [mk('u1', []), mk('u2', []), mk('u3', []), mk('prirozeny', ['ST'])];
+  const r = S.analyze({ formation: 'x', slots: [{ key: 'a', pos: 'ST' }] }, sq);
+  const st = r.depth.find((d) => d.group === 'ST');
+  assert.equal(st.assigned, 2);
+  assert.equal(st.natural, 1, 'mezi přidělenými je přirozený útočník');
+});

@@ -1,0 +1,12 @@
+[
+[
+"parseInstruction: kratší název po neshodě delšího převezme hodnotu",
+"        work = rest;\n      }",
+"      }"
+],
+[
+"parseInstruction: rozpor názvu a hodnoty se nehlídá",
+"namesIn(norm(raw.slice(0, colon))).some((id) => id !== only.t.id)",
+"false"
+]
+]

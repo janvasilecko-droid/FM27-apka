@@ -289,12 +289,18 @@ test('odolnost: náhodné taktiky a zmatené texty nikdy nehodí výjimku a výs
   }
 });
 
-test('summaryLines: souhrn pro kopírování a pro Osobního trenéra má pokrytí, nálezy a počty kontrol', () => {
+test('summaryLines: souhrn pro kopírování a pro Osobního trenéra má pokrytí, nálezy se štítkem původu, počty kontrol, nevyhodnocená pravidla a poznámku', () => {
   const r = A.analyze(tac('4-3-3', { ti: ['Defensive Line: Lower', 'Line of Engagement: High Press'], mentality: 'Balanced' }), {});
   const lines = A.summaryLines(r);
   assert.match(lines[0], /Rozbor taktiky 4-3-3: mentalita Balanced, instrukcí rozpoznáno 2 z 27/);
-  assert.ok(lines.some((l) => /\[A01\]/.test(l) && /Defensive Line → Standard/.test(l)));
-  assert.match(lines[lines.length - 1], /Kontroly: vyhodnoceno \d+ z 42 \(bez nálezu \d+, nález 1\)/);
+  assert.ok(lines.some((l) => /\[A01, KOMUNITA, 3 zdroje\]/.test(l) && /Defensive Line → Standard/.test(l)), 'nález nese id, druh zdroje a shodu zdrojů (revize č. 2, B7)');
+  assert.ok(lines.every((l) => !/^(Vážný rozpor|Upozornění|Poznámka|K vědomí|Silná stránka) \[[A-Z]\d+b?\]/.test(l)), 'žádný nález bez štítku původu');
+  assert.match(lines.find((l) => /^Kontroly:/.test(l)), /Kontroly: vyhodnoceno \d+ z 42 \(bez nálezu \d+, nález \d+, silných stránek \d+\)/);
+  const miss = lines.find((l) => /^Nevyhodnoceno/.test(l));
+  assert.ok(miss && r.checks.notEvaluated.every((x) => miss.includes(x.id)), 'všechna nevyhodnocená pravidla jsou vypsaná');
+  assert.equal(lines[lines.length - 1], r.note, 'poslední řádek říká, že jde o pomůcku, ne o pravidlo FM27 a ne o předpověď');
+  const full = A.analyze(tac('4-3-3', { roles: withIn({}) }), {});
+  assert.equal(full.checks.evaluated, full.checks.passed + full.checks.fired + full.checks.strengths, 'vyhodnoceno = bez nálezu + nález + silné stránky (revize č. 2, B9)');
 });
 
 test('modul je čisté UMD: v prohlížeči se přihlásí do globálního objektu, když jsou závislosti načtené', () => {
@@ -308,4 +314,362 @@ test('modul je čisté UMD: v prohlížeči se přihlásí do globálního objek
 test('zdroj neobsahuje neviditelné ani řídicí znaky kromě odřádkování', () => {
   const bad = source.match(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu) || [];
   assert.deepEqual(bad.filter((ch) => ch !== '\n'), []);
+});
+
+// ================================================================ revize č. 2 (7. 11. 2026)
+// Nezávislý revizor prošel 42 pravidel; každý nález se nejdřív ověřil zkouškou, která na starém kódu selhala (docs/REVIZE_ROZBOR_SESTAVY_A_TAKTIKY_2026-11-07.md).
+
+const verdictOf = (id, t, players) => {
+  const rule = A.RULE_BY_ID.get(id);
+  const v = rule.test(A.buildContext(t, { players: players || [] }));
+  return v === undefined ? 'U' : v === A.NA ? 'NA' : v === null ? 'P' : 'F:' + (v.sev || rule.sev);
+};
+const unevaluated = (r, id) => r.checks.notEvaluated.some((x) => x.id === id);
+
+test('správné částečné vyhodnocení: výsledek při neúplných údajích je stejný při každém doplnění chybějících údajů (nález nezmizí, „v pořádku“ nevznikne z neznámého)', () => {
+  const ATTRS = ['Pace', 'Acceleration', 'Stamina', 'Work Rate', 'Passing', 'Composure', 'First Touch'];
+  const formations = ['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '5-3-2', '4-1-2-1-2', '4-4-1-1', '4-3-2-1', '4-1-4-1', '3-4-3'].filter((f) => T.FORMATIONS.some((x) => x.id === f));
+  assert.ok(formations.length >= 8, 'zkouší se víc rozestavení');
+  const RANK = { error: 0, warn: 1, note: 2, info: 3, good: 4 };
+  let checked = 0;
+  for (const startSeed of [7, 2026, 90210]) {
+    let seed = startSeed;
+    const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+    const ri = (n) => Math.floor(rnd() * n);
+    const pick = (a) => a[ri(a.length)];
+    const fullSpec = (formation) => {
+      const t = T.makeTactic({ formation, name: 'z' });
+      const instr = {};
+      for (const i of K.TEAM_INSTRUCTIONS) if (!i.gameOnly) instr[i.id] = pick(i.values);
+      return {
+        formation,
+        mentality: pick(K.MENTALITIES),
+        instr,
+        roles: t.slots.map((s) => {
+          const g = K.groupOfPos(s.pos);
+          return { inn: g ? pick(K.ROLES_IN[g]) : null, out: g ? pick(K.ROLES_OUT[g]) : null };
+        }),
+        attrs: t.slots.map(() => Object.fromEntries(ATTRS.map((a) => [a, 1 + ri(20)]))),
+      };
+    };
+    const build = (spec, known) => {
+      const t = T.makeTactic({ formation: spec.formation, name: 'z' });
+      t.mentality = known.mentality ? spec.mentality : '';
+      t.teamInstructions = Object.entries(spec.instr).filter(([id]) => known.instr[id]).map(([id, v]) => `${K.TEAM_BY_ID.get(id).name}: ${v}`);
+      const players = [];
+      t.slots.forEach((s, i) => {
+        if (known.roleIn[i] && spec.roles[i].inn) s.role = spec.roles[i].inn;
+        if (known.roleOut[i] && spec.roles[i].out) s.oopRole = spec.roles[i].out;
+        if (known.attr[i]) {
+          players.push({ id: 'p' + i, name: 'p' + i, positions: [], age: 26, attributes: Object.fromEntries(ATTRS.filter((n) => known.names[i][n]).map((n) => [n, spec.attrs[i][n]])) });
+          s.playerId = 'p' + i;
+        }
+      });
+      return A.buildContext(t, { players });
+    };
+    const verdicts = (ctx) => Object.fromEntries(A.RULES.map((r) => {
+      const v = r.test(ctx);
+      return [r.id, v === undefined ? 'U' : v === A.NA ? 'NA' : v === null ? 'P' : 'F:' + (v.sev || r.sev)];
+    }));
+    const everything = (spec) => ({ mentality: true, instr: Object.fromEntries(Object.keys(spec.instr).map((id) => [id, true])), roleIn: spec.roles.map(() => true), roleOut: spec.roles.map(() => true), attr: spec.roles.map(() => true), names: spec.roles.map(() => Object.fromEntries(ATTRS.map((a) => [a, true]))) });
+    for (let n = 0; n < 150; n++) {
+      const spec = fullSpec(pick(formations));
+      const p = 0.25 + rnd() * 0.7;
+      const known = { mentality: rnd() < p, instr: Object.fromEntries(Object.keys(spec.instr).map((k) => [k, rnd() < p])), roleIn: spec.roles.map(() => rnd() < p), roleOut: spec.roles.map(() => rnd() < p), attr: spec.roles.map(() => rnd() < p), names: spec.roles.map(() => Object.fromEntries(ATTRS.map((a) => [a, rnd() < p]))) };
+      const partial = verdicts(build(spec, known));
+      for (let k = 0; k < 8; k++) {
+        const other = fullSpec(spec.formation);
+        const comp = {
+          formation: spec.formation,
+          mentality: known.mentality ? spec.mentality : other.mentality,
+          instr: Object.fromEntries(Object.keys(spec.instr).map((id) => [id, known.instr[id] ? spec.instr[id] : other.instr[id]])),
+          roles: spec.roles.map((r, i) => ({ inn: known.roleIn[i] ? r.inn : other.roles[i].inn, out: known.roleOut[i] ? r.out : other.roles[i].out })),
+          attrs: spec.attrs.map((a, i) => Object.fromEntries(ATTRS.map((x) => [x, known.attr[i] && known.names[i][x] ? a[x] : other.attrs[i][x]]))),
+        };
+        const full = verdicts(build(comp, everything(comp)));
+        for (const id of Object.keys(partial)) {
+          if (partial[id] === 'U') continue;
+          checked++;
+          // přísnost nálezu z atributů smí s dalšími údaji jen vzrůst (nález z přečtených hráčů je dolní odhad); jinak musí výsledek zůstat
+          const escalates = partial[id].startsWith('F:') && full[id].startsWith('F:') && RANK[full[id].slice(2)] <= RANK[partial[id].slice(2)];
+          assert.ok(partial[id] === full[id] || escalates, `${id}: s neúplnými údaji ${partial[id]}, po doplnění ${full[id]} (${spec.formation})`);
+        }
+      }
+    }
+  }
+  assert.ok(checked > 20000, `zkoušelo se jen ${checked} výsledků`);
+});
+
+test('B01, D03: „v pořádku“ jen při známém presinku a při známých atributech celého středu a obrany; z neznámého se nic nehádá', () => {
+  const t = tac('4-3-3', { ti: ['Defensive Transition: Standard'] });
+  const weak = pl(t, { RCM: { Stamina: 6, 'Work Rate': 6 }, LCM: { Stamina: 15, 'Work Rate': 15 }, DM: { Stamina: 15, 'Work Rate': 15 } });
+  assert.equal(verdictOf('B01', t, weak), 'U', 'presink neznáme (jen Defensive Transition: Standard), slabý střed: nevyhodnoceno, ne „prošlo“');
+  t.teamInstructions.push('Line of Engagement: High Press');
+  assert.equal(verdictOf('B01', t, weak), 'F:error');
+  const half = tac('4-3-3', { ti: ['Line of Engagement: High Press'] });
+  assert.equal(verdictOf('B01', half, pl(half, { RCM: { Stamina: 17, 'Work Rate': 17 } })), 'U', 'atributy známe jen u jednoho záložníka: dobrý stav jednoho nic neříká o ostatních');
+  // D03: jen Balanced bez výkopů a rozehry brankáře; stopeři Passing 6
+  const d = tac('4-3-3', { ti: ['Build-Up Strategy: Balanced'] });
+  const weakCb = pl(d, { RCB: { Passing: 6, Composure: 15, 'First Touch': 15 }, LCB: { Passing: 15, Composure: 15, 'First Touch': 15 }, DM: { Passing: 15, Composure: 15, 'First Touch': 15 } });
+  assert.equal(verdictOf('D03', d, weakCb), 'U', 'výkopy a rozehra brankáře nejsou načtené: nevyhodnoceno');
+  d.teamInstructions.push('Goal Kicks: Short');
+  assert.equal(verdictOf('D03', d, weakCb), 'F:error');
+  const dm2 = tac('4-2-3-1', { ti: ['Build-Up Strategy: Play Through Press'] });
+  const weakLdm = pl(dm2, { RCB: { Passing: 15, Composure: 15, 'First Touch': 15 }, LCB: { Passing: 15, Composure: 15, 'First Touch': 15 }, RDM: { Passing: 15, Composure: 15, 'First Touch': 15 }, LDM: { Passing: 5, Composure: 5, 'First Touch': 5 } });
+  const f = A.analyze(dm2, { players: weakLdm }).findings.find((x) => x.id === 'D03');
+  assert.ok(f && f.sev === 'error', 'revize č. 2, B3: slabý druhý defenzivní záložník se posuzuje stejně jako první');
+  assert.deepEqual(f.slots, [dm2.slots.find((s) => s.pos === 'LDM').key]);
+});
+
+test('A08: viníkem je místo, jehož atribut opravdu vadí (Acceleration druhého stopera, ne Pace prvního); neúplná znalost atributů se řekne', () => {
+  const t = tac('4-3-3', { ti: ['Defensive Line: Higher'] });
+  const f = A.analyze(t, { players: pl(t, { RCB: { Pace: 14, Acceleration: 16 }, LCB: { Pace: 15, Acceleration: 8 } }) }).findings.find((x) => x.id === 'A08');
+  assert.ok(f && f.sev === 'warn');
+  assert.deepEqual(f.slots, [t.slots.find((s) => s.pos === 'LCB').key]);
+  assert.ok(f.ev.some((e) => /LCB: Acceleration 8/.test(e)) && !f.ev.some((e) => /RCB: Pace/.test(e)), f.ev.join(' | '));
+  const one = tac('4-3-3', { ti: ['Defensive Line: Higher'] });
+  const g = A.analyze(one, { players: pl(one, { RCB: { Pace: 5, Acceleration: 6 } }) }).findings.find((x) => x.id === 'A08');
+  assert.ok(g && g.sev === 'error' && g.ev.some((e) => /Pozor: atributy znám jen u některých hráčů/.test(e)), 'jistý nález z jednoho stopera nese upozornění, že druhý stoper není načtený');
+  const ok = tac('4-3-3', { ti: ['Defensive Line: Higher'] });
+  assert.equal(verdictOf('A08', ok, pl(ok, { RCB: { Pace: 17, Acceleration: 17 } })), 'U', 'jediný rychlý stoper z dvou nestačí na „v pořádku“');
+});
+
+test('A12: spouští se jen bez vysokého presinku (nízká linie při High Press je věc pravidla A01) a rada nevyrobí rozpor', () => {
+  const t = tac('4-3-3', { ti: ['Short Goalkeeper Distribution: Yes', 'Line of Engagement: High Press', 'Defensive Line: Lower'] });
+  const r = A.analyze(t, {});
+  assert.ok(!ids(r).includes('A12'), 'titulek říká „bez vysokého presinku“');
+  const mid = tac('4-3-3', { ti: ['Short Goalkeeper Distribution: Yes', 'Line of Engagement: Mid Block', 'Defensive Line: Lower'] });
+  const f = find(A.analyze(mid, {}), 'A12');
+  assert.ok(f);
+  // rada: samotné „Line of Engagement → High Press“ by s nízkou linií vyrobilo A01; druhá rada proto říká i obrannou linii
+  assert.match(f.fix[1], /High Press spolu s Defensive Line → Higher/);
+  const fixed = tac('4-3-3', { ti: ['Short Goalkeeper Distribution: Yes', 'Line of Engagement: High Press', 'Defensive Line: Higher'] });
+  assert.deepEqual(ids(A.analyze(fixed, {})).filter((id) => ['A12', 'A01', 'A02'].includes(id)), []);
+  assert.equal(verdictOf('A12', tac('4-3-3', { ti: ['Short Goalkeeper Distribution: Yes'] })), 'U', 'linii zapojení neznáme');
+  assert.equal(verdictOf('A12', tac('4-3-3', { ti: ['Short Goalkeeper Distribution: Yes', 'Line of Engagement: Low Block'] })), 'F:note', 'i nízký blok je blok bez vysokého presinku');
+});
+
+test('B03: nízký blok s tvrdým nasazením jen při Low Block; Regroup při High Press není nízký blok', () => {
+  const t = tac('4-3-3', { ti: ['Line of Engagement: High Press', 'Defensive Transition: Regroup', 'Tackling: Get Stuck In'] });
+  assert.ok(!ids(A.analyze(t, {})).includes('B03'));
+  assert.equal(verdictOf('B03', tac('4-3-3', { ti: ['Tackling: Get Stuck In'] })), 'U');
+  assert.equal(verdictOf('B03', tac('4-3-3', { ti: ['Line of Engagement: Low Block', 'Tackling: Get Stuck In'] })), 'F:note');
+});
+
+test('C02, C03, C14, D01: jedno přečtené „v pořádku“ nestačí, když druhá větev podmínky zůstává neznámá', () => {
+  assert.equal(verdictOf('C02', tac('4-3-3', { ti: ['Attacking Transition: Counter-Attack', 'Patience: Standard'] })), 'U', 'Passing Directness neznáme');
+  assert.equal(verdictOf('C02', tac('4-3-3', { ti: ['Attacking Transition: Counter-Attack', 'Patience: Standard', 'Passing Directness: Standard'] })), 'P');
+  assert.equal(verdictOf('C03', tac('4-3-3', { ti: ['Tempo: Much Higher', 'Passing Directness: Standard'] })), 'U', 'Patience neznáme');
+  assert.equal(verdictOf('C14', tac('4-3-3', { ti: ['Pass Reception: Pass Into Space', 'Patience: Standard'] })), 'U');
+  assert.equal(verdictOf('D01', tac('4-3-3', { ti: ['Build-Up Strategy: Play Through Press', 'Goal Kicks: Mixed'] })), 'U', 'GK Distribution neznáme');
+  assert.equal(verdictOf('D01', tac('4-3-3', { ti: ['Build-Up Strategy: Play Through Press', 'Goal Kicks: Mixed', 'GK Distribution: Balanced'] })), 'P');
+});
+
+test('C03: rada vede k cíli, ne k dalšímu rozporu (Passing Directness → More Direct při Work Ball Into Box vyrobí C01)', () => {
+  const t = tac('4-3-3', { ti: ['Tempo: Much Higher', 'Patience: Work Ball Into Box', 'Passing Directness: Standard'] });
+  const f = find(A.analyze(t, {}), 'C03');
+  assert.ok(f);
+  assert.equal(f.fix[0], 'Tempo → Higher (ne Much Higher)');
+  assert.equal(f.fix[1], 'Nebo Patience → Standard', 'spouštěčem je trpělivost, ne krátké přihrávky');
+  assert.ok(!f.fix.join(' ').includes('More Direct'));
+  for (const ti of [['Tempo: Higher', 'Patience: Work Ball Into Box', 'Passing Directness: Standard'], ['Tempo: Much Higher', 'Patience: Standard', 'Passing Directness: Standard']]) {
+    const after = ids(A.analyze(tac('4-3-3', { ti }), {}));
+    assert.ok(!after.includes('C03') && !after.includes('C01'), after.join());
+  }
+  const both = find(A.analyze(tac('4-3-3', { ti: ['Tempo: Much Higher', 'Patience: Work Ball Into Box', 'Passing Directness: Shorter'] }), {}), 'C03');
+  assert.equal(both.fix[1], 'Nebo Passing Directness → Standard a Patience → Standard');
+  const shortOnly = find(A.analyze(tac('4-3-3', { ti: ['Tempo: Much Higher', 'Patience: Hit Early Crosses', 'Passing Directness: Shorter'] }), {}), 'C03');
+  assert.equal(shortOnly.fix[1], 'Nebo Passing Directness → Standard');
+});
+
+test('A03: rada o obranné linii nevyrobí rozpor s linií zapojení (u Low Block ji řeší Regroup, u High Press stačí Higher)', () => {
+  const low = find(A.analyze(tac('4-3-3', { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Lower', 'Line of Engagement: Low Block'] }), {}), 'A03');
+  assert.ok(low && /Regroup/.test(low.fix[0]) && !/Defensive Line → /.test(low.fix.join(' ')), low.fix.join(' | '));
+  const high = find(A.analyze(tac('4-3-3', { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Lower', 'Line of Engagement: High Press'] }), {}), 'A03');
+  assert.match(high.fix[0], /^Defensive Line → Higher/);
+  const after = ids(A.analyze(tac('4-3-3', { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Higher', 'Line of Engagement: High Press'] }), {}));
+  assert.ok(!after.includes('A03') && !after.includes('A01') && !after.includes('A02'), after.join());
+  const mid = find(A.analyze(tac('4-3-3', { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Lower', 'Line of Engagement: Mid Block'] }), {}), 'A03');
+  assert.match(mid.fix[0], /^Defensive Line → Standard/);
+  const unknown = find(A.analyze(tac('4-3-3', { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Lower'] }), {}), 'A03');
+  assert.deepEqual(unknown.fix, A.RULE_BY_ID.get('A03').fix, 'bez linie zapojení zůstává základní rada');
+});
+
+test('A08: rada nezmiňuje Line of Engagement, který pravidlo nečte', () => {
+  assert.ok(!A.RULE_BY_ID.get('A08').fix.join(' ').includes('Line of Engagement'));
+});
+
+test('D03: rada se týká toho, co nález opravdu spouští (GK Distribution: Centre-Backs)', () => {
+  const t = tac('4-3-3', { ti: ['Build-Up Strategy: Balanced', 'Goal Kicks: Mixed', 'GK Distribution: Centre-Backs'] });
+  const players = pl(t, { RCB: { Passing: 6, Composure: 15, 'First Touch': 15 }, LCB: { Passing: 15, Composure: 15, 'First Touch': 15 }, DM: { Passing: 15, Composure: 15, 'First Touch': 15 } });
+  const f = find(A.analyze(t, { players }), 'D03');
+  assert.ok(f);
+  assert.ok(f.ev.some((e) => /Centre-Backs/.test(e)));
+  assert.match(f.fix[0], /GK Distribution → Balanced/);
+  assert.ok(!/Bypass Press|Goal Kicks|Build-Up/.test(f.fix[0]), 'rada nezmiňuje instrukce, které nález nespouštějí: ' + f.fix[0]);
+  const after = tac('4-3-3', { ti: ['Build-Up Strategy: Balanced', 'Goal Kicks: Mixed', 'GK Distribution: Balanced'] });
+  assert.ok(!ids(A.analyze(after, { players: pl(after, { RCB: { Passing: 6, Composure: 15, 'First Touch': 15 }, LCB: { Passing: 15, Composure: 15, 'First Touch': 15 }, DM: { Passing: 15, Composure: 15, 'First Touch': 15 } }) })).includes('D03'));
+  const all3 = tac('4-3-3', { ti: ['Build-Up Strategy: Play Through Press', 'Goal Kicks: Short', 'GK Distribution: Centre-Backs'] });
+  const g = find(A.analyze(all3, { players: pl(all3, { RCB: { Passing: 6, Composure: 15, 'First Touch': 15 }, LCB: { Passing: 15, Composure: 15, 'First Touch': 15 }, DM: { Passing: 15, Composure: 15, 'First Touch': 15 } }) }), 'D03');
+  assert.equal(g.fix[0], 'Změnit všechno, co stahuje rozehru na stopery: Build-Up Strategy → Balanced, Goal Kicks → Mixed, GK Distribution → Balanced');
+});
+
+test('E01: pravidlo jde ve všech rozestavěních splnit (práci, kterou role pro místa středu nenabízejí, nežádá) a rada říká, kolik změn je potřeba', () => {
+  let checkedFormations = 0;
+  for (const fm of T.FORMATIONS) {
+    const t = T.makeTactic({ formation: fm.id, name: 'x' });
+    let mids = t.slots.filter((s) => ['DM', 'M (C)'].includes(K.groupOfPos(s.pos)));
+    if (mids.length === 2) mids = mids.concat(t.slots.filter((s) => K.groupOfPos(s.pos) === 'AM (C)'));
+    if (mids.length < 3) continue;
+    checkedFormations++;
+    const options = mids.map((s) => K.ROLES_IN[K.groupOfPos(s.pos)]);
+    let satisfiable = false;
+    const walk = (i, chosen) => {
+      if (satisfiable) return;
+      if (i === mids.length) {
+        mids.forEach((s, j) => { s.role = chosen[j]; });
+        if (A.RULE_BY_ID.get('E01').test(A.buildContext(t, {})) === null) satisfiable = true;
+        return;
+      }
+      for (const r of options[i]) walk(i + 1, chosen.concat(r));
+    };
+    walk(0, []);
+    assert.ok(satisfiable, `${fm.id}: žádné obsazení středu nezruší E01`);
+  }
+  assert.ok(checkedFormations >= 8, `ověřeno ${checkedFormations} rozestavení`);
+  // ve 4-4-1-1 role držáka pro střed neexistuje: chybějící držák se nežádá, ale běžec a tvůrce ano
+  const t = tac('4-4-1-1', { roles: { RCM: 'Central Midfielder', LCM: 'Central Midfielder', AM: 'Attacking Midfielder' } });
+  const f = find(A.analyze(t, {}), 'E01');
+  assert.ok(f && f.ev.some((e) => /chybí: běžec, tvůrce/.test(e)) && !f.ev.some((e) => /držák/.test(e)), f && f.ev.join(' | '));
+  assert.match(f.fix[0], /^Změnit DVĚ role .*jedna změna nestačí/);
+  assert.ok(!/Defensive Midfielder|Half Back/.test(f.fix[0]), 'rada nenabízí roli, kterou hra pro tato místa nemá');
+  const one = tac('4-3-3', { roles: withIn({ DM: 'Defensive Midfielder', RCM: 'Channel Midfielder', LCM: 'Central Midfielder' }) });
+  assert.match(find(A.analyze(one, {}), 'E01').fix[0], /^Změnit JEDNU roli ve středu na chybějící práci \(tvůrce: /);
+  assert.equal(verdictOf('E01', tac('4-4-1-1', { roles: { RCM: 'Channel Midfielder', LCM: 'Advanced Playmaker', AM: 'Attacking Midfielder' } })), 'P');
+  assert.equal(verdictOf('E01', tac('4-4-1-1', { roles: { RCM: 'Central Midfielder' } })), 'U', 'další role by mohly práci dodat');
+});
+
+test('H01: jeden hráč s Outlet rolí bez míče i rolí s míčem, která běhá dopředu, je jeden hráč, ne dva', () => {
+  const base = mergeRoles(withIn({ RW: 'Wide Forward' }), { ...FULL_433_OUT, RW: [null, 'Wide Outlet Winger'] });
+  const one = tac('4-3-3', { mentality: 'Cautious', ti: ['Defensive Line: Lower'], roles: base });
+  assert.ok(!ids(A.analyze(one, {})).includes('H01'));
+  assert.equal(verdictOf('H01', one), 'P');
+  const two = tac('4-3-3', { mentality: 'Cautious', ti: ['Defensive Line: Lower'], roles: mergeRoles(withIn({ RW: 'Wide Forward' }), { ...FULL_433_OUT, RW: [null, 'Wide Outlet Winger'], LW: [null, 'Wide Outlet Winger'] }) });
+  const f = find(A.analyze(two, {}), 'H01');
+  assert.ok(f);
+  assert.deepEqual([...new Set(f.slots)].sort(), f.slots.slice().sort(), 'místo se v nálezu neopakuje');
+  assert.equal(f.slots.length, 2);
+});
+
+test('H01, G07: vyšší linie a Trigger Press „Standard“ jsou vyhodnocené „v pořádku“ (nevztahuje se), bez přečtených rolí se nevyhodnotí', () => {
+  assert.equal(verdictOf('H01', tac('4-3-3', { mentality: 'Cautious', ti: ['Defensive Line: Higher'] })), 'P', 'revize č. 2, B1: dřív „nevyhodnoceno“ i při úplných údajích');
+  assert.equal(verdictOf('H01', tac('4-3-3', { mentality: 'Cautious', ti: ['Defensive Line: Lower'] })), 'U', 'bez jediné role se nedá říct, že víc hráčů nezůstává vysoko');
+  assert.equal(verdictOf('G07', tac('4-3-3', { ti: ['Trigger Press: Less Often'] })), 'U', 'bez jediné role bez míče se nedá říct, že žádná nepresuje');
+  assert.equal(verdictOf('G07', tac('4-3-3', { ti: ['Trigger Press: Standard'] })), 'P');
+});
+
+test('G06: s jedinou přečtenou Outlet rolí a nepřečtenými zbylými rolemi se „v pořádku“ neříká', () => {
+  const t = tac('4-3-3', { roles: { RW: [null, 'Wide Outlet Winger'] } });
+  assert.equal(verdictOf('G06', t), 'U');
+  const full = tac('4-3-3', { roles: mergeRoles(FULL_433, { ...FULL_433_OUT, RW: [null, 'Wide Outlet Winger'] }) });
+  assert.equal(verdictOf('G06', full), 'U', 'Defensive Transition neznáme: Counter-Press by s jednou Outlet rolí byl nález');
+  const known = tac('4-3-3', { ti: ['Defensive Transition: Regroup'], roles: mergeRoles(FULL_433, { ...FULL_433_OUT, RW: [null, 'Wide Outlet Winger'] }) });
+  assert.equal(verdictOf('G06', known), 'P');
+  assert.ok(!/až dvě/.test(A.RULE_BY_ID.get('G06').fix.join(' ')), 'rada nesmí dovolit dvě Outlet role, když nález začíná od dvou');
+});
+
+test('C06, E02, F01, F02: bok s nepřečtenou rolí se nevyhodnotí jako „v pořádku“; nález z přečtené části zůstává', () => {
+  // pravé křídlo drží lajnu, levé nečitelné
+  const half = tac('4-3-3', { roles: { RB: 'Full-Back', RW: 'Winger', LB: 'Ball Playing Defender', LW: 'Ball Playing Defender' } });
+  assert.equal(verdictOf('C06', half), 'U');
+  // levé křídlo celé vnitřní (nález z přečtené části), pravé nečitelné
+  const bad = tac('4-3-3', { roles: { LB: 'Inside Full-Back', LW: 'Inside Winger', RB: 'Ball Playing Defender' } });
+  assert.equal(verdictOf('C06', bad), 'F:error');
+  // E02: dva držáci a role před nimi nečitelná
+  const e2 = tac('4-2-3-1', { roles: { RDM: 'Defensive Midfielder', LDM: 'Half Back', AM: 'Ball Playing Defender' } });
+  assert.equal(verdictOf('E02', e2), 'U');
+  assert.equal(verdictOf('E02', tac('4-2-3-1', { roles: { RDM: 'Defensive Midfielder', LDM: 'Half Back', AM: 'Attacking Midfielder' } })), 'F:warn');
+  // F01 a F02: jedno přečtené křídlo nestačí na „žádný souběh“ ani na „žádná dobře sedící dvojice“
+  const f1 = tac('4-3-3', { roles: { RB: 'Full-Back', RW: 'Winger', LB: 'Ball Playing Defender' } });
+  assert.equal(verdictOf('F01', f1), 'U');
+  assert.equal(verdictOf('F02', f1), 'U');
+});
+
+test('F01, F02: u rozestavení, kde na jedné lajně nestojí dva hráči (3-5-2, 5-3-2, 4-1-2-1-2), se pravidla nevztahují (ne „vyhodnoceno“)', () => {
+  for (const f of ['3-5-2', '5-3-2', '4-1-2-1-2']) {
+    const t = T.makeTactic({ formation: f, name: 'x' });
+    assert.equal(verdictOf('F01', t), 'NA', f);
+    assert.equal(verdictOf('F02', t), 'NA', f);
+  }
+  assert.notEqual(verdictOf('F01', T.makeTactic({ formation: '4-3-3', name: 'x' })), 'NA');
+});
+
+test('F04: rada nabízí jen role s míčem (Holding Wing-Back je role bez míče a pravidlo ji nečte)', () => {
+  const f = find(A.analyze(tac('4-3-3', { roles: withIn({ RB: 'Wing-Back', LB: 'Wing-Back' }) }), {}), 'F04');
+  assert.ok(f && !/Holding Wing-Back/.test(f.fix.join(' ')));
+  for (const role of ['Full-Back', 'Inside Full-Back', 'Inside Wing-Back', 'Playmaking Wing-Back']) {
+    assert.ok(f.fix[0].includes(role), role);
+    assert.equal(verdictOf('F04', tac('4-3-3', { roles: withIn({ RB: 'Wing-Back', LB: role === 'Full-Back' || role === 'Inside Full-Back' ? role : 'Wing-Back' }) })), role === 'Full-Back' || role === 'Inside Full-Back' ? 'P' : 'F:warn');
+  }
+});
+
+test('C07: podběh jedním bokem potřebuje běžce na té straně nebo ve středu a nález ukazuje na boční místa; nepřečtená instrukce nebo role se nevyhodnotí', () => {
+  const t = tac('4-3-3', { ti: ['Underlap: Left', 'Overlap: Balanced'], roles: withIn({ RCM: 'Channel Midfielder' }) });
+  const f = find(A.analyze(t, {}), 'C07');
+  assert.ok(f, 'jediný běžec je vpravo, podběh míří vlevo');
+  assert.ok(f.slots.length > 0 && f.slots.every((k) => ['LB', 'LW'].includes(t.slots.find((s) => s.key === k).pos)));
+  const ok = tac('4-3-3', { ti: ['Underlap: Left', 'Overlap: Balanced'], roles: withIn({ LCM: 'Channel Midfielder' }) });
+  assert.ok(!ids(A.analyze(ok, {})).includes('C07'));
+  assert.equal(verdictOf('C07', tac('4-3-3', { ti: ['Overlap: Both Flanks'], roles: withIn({ RB: 'Wing-Back', LB: 'Advanced Wing-Back' }) })), 'U', 'Underlap neznáme');
+  assert.equal(verdictOf('C07', tac('4-3-3', { ti: ['Overlap: Both Flanks', 'Underlap: Balanced'], roles: { RB: 'Wing-Back', LB: 'Ball Playing Defender' } })), 'U', 'levý bok nečitelný');
+});
+
+test('počty a pokrytí: hráč bez atributů se nepočítá do pokrytí atributy; vyhodnoceno = bez nálezu + nález + silné stránky; odolnost proti prázdným místům', () => {
+  const t = tac('4-3-3', { ti: ['Defensive Line: Higher'] });
+  t.slots.forEach((s) => { s.playerId = 'e' + s.key; });
+  const empty = t.slots.map((s) => ({ id: 'e' + s.key, name: 'x', attributes: {} }));
+  const r = A.analyze(t, { players: empty });
+  assert.equal(r.coverage.withAttributes, 0);
+  t.slots.slice(0, 3).forEach((s, i) => { empty[i].attributes = { Pace: 10 }; });
+  assert.equal(A.analyze(t, { players: empty }).coverage.withAttributes, 3);
+  assert.doesNotThrow(() => A.analyze({ formation: '4-3-3', slots: [null, { key: 'a', pos: 'ST' }, 5] }, {}), 'null a nesmysl v seznamu míst nesmí shodit rozbor');
+  const gkOnly = { formation: 'x', slots: [{ key: 'g', pos: 'GK', role: 'Goalkeeper', oopRole: 'Goalkeeper' }] };
+  for (const id of ['C07', 'C10', 'G06', 'G07', 'H01']) assert.notEqual(verdictOf(id, Object.assign({ mentality: 'Cautious', teamInstructions: ['Creative Freedom: More Disciplined', 'Trigger Press: Less Often', 'Defensive Line: Lower', 'Overlap: Both Flanks', 'Underlap: Both Flanks'] }, gkOnly)), 'P', `${id} bez hráčů v poli nic neposoudí`);
+});
+
+test('parseInstruction: rozpor mezi názvem a hodnotou se nehádá (název instrukce neodpovídá hodnotě → nerozpoznáno)', () => {
+  assert.equal(K.parseInstruction('Tackling: Counter-Press'), null);
+  assert.equal(K.parseInstruction('Defensive Line Behaviour: Higher'), null);
+  assert.equal(K.parseInstruction('Passing Directness: Narrower'), null);
+  // běžné zápisy zůstávají: celé hodnoty bez názvu i s názvem
+  assert.equal(K.parseInstruction('Counter-Press').id, 'defensiveTransition');
+  assert.equal(K.parseInstruction('Out of Possession: Counter-Press').id, 'defensiveTransition');
+  assert.equal(K.parseInstruction('Defensive Transition: Counter-Press').value, 'Counter-Press');
+  assert.equal(K.parseInstruction('Defensive Line Behaviour: Step Up More').id, 'defensiveLineBehaviour');
+  assert.equal(K.parseInstruction('Defensive Line: Higher').id, 'defensiveLine');
+  assert.equal(K.parseInstruction('Attacking Width: Narrower').id, 'attackingWidth');
+});
+
+test('všechny rady (statické i upřesněné podle nálezu) používají jen skutečné instrukce a hodnoty slovníku', () => {
+  const check = (fix, label) => {
+    for (const t of K.TEAM_INSTRUCTIONS) {
+      let from = 0;
+      for (;;) {
+        const i = fix.indexOf(`${t.name} → `, from);
+        if (i < 0) break;
+        from = i + 1;
+        const rest = fix.slice(i + t.name.length + 3);
+        assert.ok(t.values.some((v) => rest.startsWith(v)), `${label}: „${t.name} → ${rest.slice(0, 25)}“ není hodnota instrukce`);
+      }
+    }
+  };
+  const cases = [
+    { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Lower', 'Line of Engagement: Low Block'] },
+    { ti: ['Defensive Transition: Counter-Press', 'Defensive Line: Lower', 'Line of Engagement: High Press'] },
+    { ti: ['Tempo: Much Higher', 'Patience: Work Ball Into Box', 'Passing Directness: Shorter'] },
+    { ti: ['Tempo: Much Higher', 'Patience: Work Ball Into Box'] },
+    { ti: ['Tempo: Much Higher', 'Passing Directness: Shorter'] },
+    { f: '4-4-1-1', roles: { RCM: 'Central Midfielder', LCM: 'Central Midfielder', AM: 'Attacking Midfielder' } },
+  ];
+  for (const o of cases) for (const f of A.analyze(tac(o.f || '4-3-3', o), {}).findings) f.fix.forEach((x) => check(x, f.id));
 });

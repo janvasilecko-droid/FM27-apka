@@ -63,9 +63,9 @@ module.exports = async function run(env) {
     const sorted = order.every((v, i) => i === 0 || order[i - 1] <= v);
     return items.length > 0 && sorted && items.every((e) => /Co změnit/.test(e.textContent) && /(textu|názor|odhad)/.test(e.textContent) && e.querySelectorAll('ul.list li').length >= 2);
   }));
-  const a01 = await text(page, '[data-rule="A01"]');
+  const a01 = await text(page, '#tacCheckFindings [data-rule="A01"]'); // nález v sekci Taktika, ne řádek ze seznamu „Co řešit jako první“ (ten důkaz nemá)
   check('23 nález A01 ukazuje přesné nastavení a přesnou změnu (název instrukce → hodnota)', /Defensive Line: Much Higher/.test(a01) && /Line of Engagement: Low Block/.test(a01) && /Defensive Line → Standard/.test(a01), a01.slice(0, 300));
-  const a08 = await text(page, '[data-rule="A08"]');
+  const a08 = await text(page, '#tacCheckFindings [data-rule="A08"]');
   check('23 nález A08 ukazuje atribut nejpomalejšího stopera a místo', /Pace 10/.test(a08) && /RCB/.test(a08), a08.slice(0, 300));
   check('23 rozbor říká, že nevyhodnocené kontroly se nehádají, a vypisuje je zvlášť', /nevyhodnoceno kvůli chybějícím údajům \d+/.test(await text(page, '#tacCheckCounts')) && /Nevyhodnocené kontroly/.test(await text(page, '#tacCheckMissing')));
   check('23 u složitosti taktiky se uvede počet instrukcí jiných než výchozích a kolik jich je přečteno (úroveň se neodhaduje z nepřečtených)', /Instrukcí jiných než výchozích mezi přečtenými: 5 \(přečteno 5 z 27;/.test(await text(page, '#tacCheckCounts')) && !/undefined/.test(await text(page, '#tacCheckCounts')), await text(page, '#tacCheckCounts'));

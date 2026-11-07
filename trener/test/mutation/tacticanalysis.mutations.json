@@ -1,0 +1,127 @@
+[
+[
+"neznámá část konjunkce je „neplatí“",
+"(v.includes(false) ? false : v.includes(undefined) ? undefined : true)",
+"(v.includes(false) ? false : v.includes(undefined) ? false : true)"
+],
+[
+"neznámá část disjunkce je „neplatí“",
+"(v.includes(true) ? true : v.includes(undefined) ? undefined : false)",
+"(v.includes(true) ? true : v.includes(undefined) ? false : false)"
+],
+[
+"neznámá podmínka je „v pořádku“",
+"(t === undefined ? undefined : t ? finding() : null)",
+"(!t ? null : finding())"
+],
+[
+"atributy se berou jako úplné vždy",
+"const hasAttrs = (list, names) => list.length > 0 && list.every((s) => names.every((n) => s.attrs && s.attrs.has(K.norm(n))));",
+"const hasAttrs = () => true;"
+],
+[
+"A08: platí i pro střední linii",
+"if (c.step('defensiveLine') < 3) return null; // nízká nebo střední linie",
+"if (c.step('defensiveLine') < 2) return null; // nízká nebo střední linie"
+],
+[
+"A08: varování jen u Pace pod prahem",
+"else if (p !== null && p <= limPace + 1) warns.push",
+"else if (p !== null && p <= limPace) warns.push"
+],
+[
+"A12: jen Mid Block",
+"return c.v('lineOfEngagement') !== 'High Press' ?",
+"return c.v('lineOfEngagement') === 'Mid Block' ?"
+],
+[
+"B03: i High Press je nízký blok",
+"c.is('lineOfEngagement', 'Low Block'), c.is('tackling', 'Get Stuck In')",
+"c.is('lineOfEngagement', 'Low Block', 'High Press'), c.is('tackling', 'Get Stuck In')"
+],
+[
+"B01: neznámý presink s horším středem je nález",
+"if (pressing !== true) return undefined;",
+"if (pressing === false) return undefined;"
+],
+[
+"B01: neúplné atributy stačí na „v pořádku“",
+"if (worst >= lim) return complete ? null : undefined;\n        if (pressing !== true)",
+"if (worst >= lim) return null;\n        if (pressing !== true)"
+],
+[
+"C03: prohozená rada podle spouštěče",
+"short === true ? 'Passing Directness → Standard' : 'Patience → Standard'",
+"short === true ? 'Patience → Standard' : 'Passing Directness → Standard'"
+],
+[
+"D03: bez defenzivních záložníků",
+"const list = c.slots.filter((s) => s.grp === 'D (C)' || s.grp === 'DM');",
+"const list = c.slots.filter((s) => s.grp === 'D (C)');"
+],
+[
+"D03: rada nezmiňuje GK Distribution",
+"c.is('gkDistribution', 'Centre-Backs') === true && 'GK Distribution → Balanced'",
+"false"
+],
+[
+"E01: žádá se i práce, kterou role nenabízejí",
+"JOBS.filter(([t]) => offered(t) && !mids.some(",
+"JOBS.filter(([t]) => !mids.some("
+],
+[
+"E01: nepřečtená role se nevyhodnocuje jako nález",
+"if (!mids.every((s) => s.roleIn)) return undefined; // chybějící práci",
+"if (false) return undefined; // chybějící práci"
+],
+[
+"E02: nepřečtená role před dvojicí",
+"if (!am.every((s) => s.roleIn)) return undefined;",
+"if (false) return undefined;"
+],
+[
+"F01: bok s jediným místem se hodnotí",
+"const fl = c.flanks().filter((f) => f.list.length >= 2); // dva hráči na jedné lajně",
+"const fl = c.flanks().filter((f) => f.list.length >= 1); // dva hráči na jedné lajně"
+],
+[
+"G06: nepřečtené role nestačí na „nevyhodnoceno“",
+"const reachesTwo = out.length + more >= 2;",
+"const reachesTwo = out.length + more >= 3;"
+],
+[
+"G07: bez přečtených rolí je „v pořádku“",
+"return couldHave(c.outfield, 'out', 'pressing').length ? undefined : null; //",
+"return null; //"
+],
+[
+"H01: počítají se role místo hráčů",
+"if (hit.size >= 2) return low === true",
+"if (outl.length + run.length >= 2) return low === true"
+],
+[
+"H01: vyšší linie je nevyhodnoceno",
+"if (low === false) return null; // vyšší linie: pravidlo se nevztahuje",
+"if (low === false) return undefined; // vyšší linie: pravidlo se nevztahuje"
+],
+[
+"C06: nečitelný bok je „v pořádku“",
+"return flanks.every((f) => f.known || holds(f)) ? null : undefined;",
+"return null;"
+],
+[
+"C07: podběh jedním bokem hledá běžce všude",
+"const pool = side ? c.outfield.filter((s) => s.side === side || s.side === 'C') : c.outfield;",
+"const pool = c.outfield;"
+],
+[
+"rada upřesněná pravidlem se zahodí",
+"fix: Array.isArray(r.fix) && r.fix.length ? r.fix.slice() : rule.fix.slice(),",
+"fix: rule.fix.slice(),"
+],
+[
+"hráč bez atributů se počítá do pokrytí",
+"s.attrs && s.attrs.size > 0).length",
+"s.attrs).length"
+]
+]

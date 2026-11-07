@@ -25,6 +25,11 @@ node trener/test/mutation/mutate.mjs trener/src/squadread.js trener/test/mutatio
 node trener/test/mutation/mutate.mjs trener/src/oppread.js trener/test/mutation/oppread.mutations.json oppread.test.mjs,oppanalysis.test.mjs
 node trener/test/mutation/mutate.mjs trener/src/tacteff.js trener/test/mutation/tacteff.mutations.json tacteff.test.mjs
 node trener/test/mutation/mutate.mjs trener/src/rolefit.js trener/test/mutation/rolefit.mutations.json rolefit.test.mjs,squadopt.test.mjs
+
+# rozbor sestavy a taktiky po druhé nezávislé revizi (7. 11. 2026): 22 + 25 + 2 mutace, každá se chytí
+node trener/test/mutation/mutate.mjs trener/src/squadcheck.js trener/test/mutation/squadcheck.mutations.json squadcheck.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/tacticanalysis.js trener/test/mutation/tacticanalysis.mutations.json tacticanalysis.test.mjs
+node trener/test/mutation/mutate.mjs trener/src/fm27know.js trener/test/mutation/fm27know.mutations.json fm27know.test.mjs,tacticanalysis.test.mjs
 ```
 
 Seznamy pro poslední skupinu modulů vznikly z oprav po nezávislé revizi 7. 11. 2026: každá oprava, na kterou je zkouška, má mutaci, která ji vrací zpět. První běh nechal 19 mutací přežít (například meze délky pozic, hranice složitosti 7 a 12
