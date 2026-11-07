@@ -6,7 +6,7 @@ Zadání (doslova): [`docs/ZADANI_MASTER_PROMPT.md`](./docs/ZADANI_MASTER_PROMPT
 
 ## Stav k 6. 11. 2026
 
-Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (898 testů jádra, 143 + 11 v Pythonu, 908 kontrol v prohlížeči; **904 bez skutečných exportů z FM27, které v repozitáři nejsou**: 4 kontroly v prohlížeči a 2 testy jádra jedou jen s nimi). Část zkoušek se navíc přeskočí bez balíčků `zstandard` a `anthropic`. Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md); čtečka `.fmf` a vlastní dekodér zstd prošly ještě třemi koly revize (5. a 6. 11. 2026; revizoři i ověřovatelé jsou modely, ne lidé; opravy třetího kola prověřil už jen cílený průchod, ne další úplné kolo): [`docs/REVIZE_FMF_2026-11-05.md`](./docs/REVIZE_FMF_2026-11-05.md). **Z cloudu nejde ověřit
+Aplikace je implementovaná podle zadání (deset sekcí, sedm etap) a prochází přes tisíc automatických zkoušek (1081 testů jádra, 143 + 11 v Pythonu, 1015 kontrol v prohlížeči; **1011 bez skutečných exportů z FM27, které v repozitáři nejsou**: 4 kontroly v prohlížeči a 2 testy jádra jedou jen s nimi). Část zkoušek se navíc přeskočí bez balíčků `zstandard` a `anthropic`. Kód prošel nezávislou revizí dvou AI revizorů, jejich nálezy jsou opravené: [`docs/REVIZE_NEZAVISLA_2026-11-04.md`](./docs/REVIZE_NEZAVISLA_2026-11-04.md); čtečka `.fmf` a vlastní dekodér zstd prošly ještě třemi koly revize (5. a 6. 11. 2026; revizoři i ověřovatelé jsou modely, ne lidé; opravy třetího kola prověřil už jen cílený průchod, ne další úplné kolo): [`docs/REVIZE_FMF_2026-11-05.md`](./docs/REVIZE_FMF_2026-11-05.md). **Z cloudu nejde ověřit
 skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu zadání zvlášť napsáno, co je ověřené a co čeká na tebe:
 [`docs/AKCEPTACNI_MATICE.md`](./docs/AKCEPTACNI_MATICE.md).
 
@@ -17,6 +17,8 @@ skutečného Claude, skutečné FM27 ani okno hry**, proto je u každého bodu z
 | Popis aplikace, sestavení, zkoušky | [`trener/README.md`](./trener/README.md) |
 | Architektura a pravidla poctivosti | [`docs/ARCHITEKTURA_V2.md`](./docs/ARCHITEKTURA_V2.md) |
 | Rozšíření podle zadání majitele (6 referenčních projektů): analýza, metodika výpočtů, plán a rizika | [`docs/REFERENCE_ANALYSIS.md`](./docs/REFERENCE_ANALYSIS.md), [`docs/ANALYTICS_METHODOLOGY.md`](./docs/ANALYTICS_METHODOLOGY.md), [`docs/PLAN_ROZSIRENI.md`](./docs/PLAN_ROZSIRENI.md) |
+| Analýza sestavy a taktiky, příprava na zápas, Tactical Effectiveness: co aplikace dělá, na čem staví a čemu věřit (štítky HRA, KOMUNITA, ODHAD, tabulky pravidel) | [`docs/ANALYZA_SESTAVY_A_PRIPRAVY.md`](./docs/ANALYZA_SESTAVY_A_PRIPRAVY.md) |
+| Průzkum české hry FM27 (7. 11. 2026): co je ve hře ověřeno a co zůstává nezjištěno | [`docs/FM27_PRUZKUM_VE_HRE.md`](./docs/FM27_PRUZKUM_VE_HRE.md) |
 | Co dál a co potřebuju od tebe | [`POKRACOVANI.md`](./POKRACOVANI.md) |
 
 ## Co je v repozitáři
@@ -36,12 +38,12 @@ pokračování toho kódu. Kdyby se kód z Cursoru našel, porovná se s ní, ne
 ## Zkoušky
 
 ```bash
-node --test trener/test/*.test.mjs                     # 898 testů jádra, úložiště a barev vzhledu (bez Pythonu s balíčkem zstandard a bez skutečných exportů se část přeskočí)
+node --test trener/test/*.test.mjs                     # 1081 testů jádra, úložiště, barev vzhledu a shody dokumentace s pravidly v kódu (bez Pythonu s balíčkem zstandard a bez skutečných exportů se část přeskočí)
 python3 -m unittest discover -s ai_gateway/tests -t .  # 143 testů (16 se bez balíčku anthropic přeskočí) a hlídání klíčů v repu
 python3 -m unittest discover -s fmf_research/tests -t . # 11 testů, potřebují `pip install zstandard` (bez něj se všech 11 přeskočí)
 ```
 
-Zkoušky celé aplikace v Chromiu (908 kontrol, 22 scénářů; 904 bez skutečných exportů z FM27, které v repozitáři nejsou) a jejich spuštění: `trener/README.md`.
+Zkoušky celé aplikace v Chromiu (1015 kontrol, 27 scénářů; 1011 bez skutečných exportů z FM27, které v repozitáři nejsou) a jejich spuštění: `trener/README.md`.
 Skutečné exporty (testy jádra i scénář 21) se zadávají proměnnou `FMF_SAMPLES_DIR` (adresář se soubory `.fmf`); bez ní se příslušné zkoušky přeskočí.
 Zkoušky volají jen zkušební náhražky a zachycený přenos, žádné placené API.
 

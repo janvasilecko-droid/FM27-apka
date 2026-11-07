@@ -112,11 +112,15 @@ Do repozitáře jdou jen **názvy a rozložení**; snímky obrazovek a jména sk
 6. Co ukazuje zpráva o soupeři a profil jeho hráčů, když je znalost týmu slabá.
 7. Číslo verze hry.
 
-## Co z toho půjde do aplikace
+## Co z toho je v aplikaci (stav 7. 11. 2026; podrobně `docs/ANALYZA_SESTAVY_A_PRIPRAVY.md`)
 
-- T1 až T4, E1, E2: oprava čtení taktiky ze snímku (formace, role s míčem a bez míče, instrukce jako „Název: Hodnota“), karta Tactical Effectiveness s měřidly ze snímku.
-- R1, R2, R3: seznam klíčových atributů po rolích z hry místo komunitního odhadu; čtení soupisky ze snímku; kontroly pozic a smluv.
-- O1 až O3: strukturovaný profil soupeře a čtení zprávy o soupeři ze snímku; analýza slabých míst sestavy soupeře a seznam úprav tvé taktiky.
+- **T1 až T4, E1, E2:** čtení taktiky z české obrazovky (formace z kódů 11 míst, role s míčem i bez míče, styl, mentalita, 27 instrukcí; co se nepozná, zůstane prázdné) a karta
+  Tactical Effectiveness (čtyři pilíře a jejich faktory ze hry; úrovně pruhů zadává uživatel, protože hra čísla neukazuje).
+- **R1 až R3:** čtení soupisky ze snímků (šest pohledů atributů, slučování podle jména hráče) a profily rolí po fázích (s míčem a bez míče). Seznam klíčových atributů po rolích se
+  **nevkládá jako hotová tabulka**: ověřeno je jen šest rolí (tabulka v odstavci 5 dokumentu `ANALYZA_SESTAVY_A_PRIPRAVY.md`), takže si uživatel profil role načte ze hry sám a rozbor sestavy
+  jinak počítá ze skupinového modelu pozic podle příruček (označeno jako odhad). Kontroly smluv, formy a morálky se zatím nedělají (aplikace je nečte).
+- **O1 až O3:** strukturovaná zpráva o soupeři ze snímků, soupiska soupeře s atributy (jen když je hra ukazuje), rozbor soupeře (17 pravidel) se seznamem konkrétních úprav tvé taktiky
+  v českých názvech hry, pokyny k soupeři (sloupce Těsné obsazování a Napadání) a sezení Zápasové přípravy. Sloupce Obranné zákroky a Nutit hrát nohou aplikace nenavrhuje (jejich hodnoty nejsou zjištěné).
 
 ## Záložní cesta, když se k počítači nepůjde napojit
 

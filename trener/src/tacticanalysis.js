@@ -9,7 +9,7 @@
    ODKUD JSOU PRAVIDLA (průzkum 6. 11. 2026, docs/ANALYZA_SESTAVY_A_PRIPRAVY.md): komunitní průvodci (AssMan.AI, FM Scout, Passion4FM, Guide to
    Football) a texty hry; každé pravidlo nese druh (HRA = text nebo přednastavení hry, KOMUNITA = názor průvodců, ODHAD = závěr autora této
    aplikace), shodu zdrojů a závažnost. Pravidla byla posuzována proti 10 stylům a 90 dvojicím formací, které dodává samotná hra: co hra sama
-   používá, je jen upozornění nebo poznámka, ne chyba. ŽÁDNÉ pravidlo není pravidlem hry FM27 a žádné nepotřebuje skrytá data (CA, PA,
+   používá, je jen upozornění nebo poznámka, ne chyba. (Jedenáctý styl, „Čistý štít“ / Clean Sheet, který FM27 přidala, s pravidly srovnán nebyl.) ŽÁDNÉ pravidlo není pravidlem hry FM27 a žádné nepotřebuje skrytá data (CA, PA,
    osobnost, reputace). Prahy atributů jsou komunitní a dají se posunout (`opts.attrShift`, například −2 pro nižší soutěž). Rozbor
    nepředpovídá výsledek zápasu a neříká, že taktika „zabere“: říká, kde se nastavení vzájemně tluče nebo chybí práce. */
 (function (root, factory) {

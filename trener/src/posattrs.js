@@ -9,7 +9,7 @@
      AM  AssMan.AI „Reading FM Attributes for Tactical Fit“ (https://assman.ai/guides/reading-fm-attributes, 1. 5. 2026): vlastní minima autora pro obránce a záložníky;
      DW  odhad autora této aplikace (původní tabulky DWRS v dwrs.js) tam, kde se zdroje k atributu nevyjadřují.
    Klíčové atributy se ve výpočtu počítají třikrát a žádoucí jednou (veřejně popsaný princip FM Dossier); ostatní atributy výsledek neovlivní. To je skupinový
-   rozbor podle pozice místa, ne podle role: hra sama ukazuje klíčové atributy každé role tlačítkem „Zvýraznit klíčové atributy“ v profilu hráče, a to je
+   rozbor podle pozice místa, ne podle role: hra sama ukazuje klíčové atributy každé role v profilu hráče (zvýraznění řádků je automatické podle vybrané role a mění se podle fáze: s míčem zeleně a modře, bez míče růžově a fialově; ověřeno ve hře 7. 11. 2026), a to je
    spolehlivější než jakákoli tabulka. Zdroje se u pár atributů rozcházejí (u krajního obránce je Tackling a Positioning u jednoho klíčový, u druhého žádoucí):
    takové atributy jsou klíčové a u zdrojů je to poznamenané. ČÍSLA (váhy, prahy) jsou komunitní odhad, ne pravidlo FM27. Skryté údaje (CA, PA, osobnost) se nepoužívají. */
 (function (root, factory) {

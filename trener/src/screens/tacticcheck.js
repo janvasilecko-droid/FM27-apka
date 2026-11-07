@@ -67,7 +67,7 @@
       'details',
       { id: 'squadAttrs', style: 'margin-top:12px' },
       h('summary', { text: 'Podle čeho se vybírá: které atributy rozhodují na které pozici' }),
-      h('p', { class: 'hint', text: 'Každé místo se posuzuje podle klíčových atributů své pozice (počítají se třikrát) a žádoucích (jednou); ostatní atributy skóre neovlivní. Obránce tedy rozhoduje hlavně obrana (Heading, Marking, Tackling, Positioning, Strength) a slabší útok mu neškodí, útočníka naopak zakončení a pohyb. Seznamy jsou z komunitních příruček pro FM26 (slovník je shodný s FM27), ne pravidlo hry: spolehlivější je tlačítko Zvýraznit klíčové atributy v profilu hráče ve hře.' }),
+      h('p', { class: 'hint', text: 'Každé místo se posuzuje podle klíčových atributů své pozice (počítají se třikrát) a žádoucích (jednou); ostatní atributy skóre neovlivní. Obránce tedy rozhoduje hlavně obrana (Heading, Marking, Tackling, Positioning, Strength) a slabší útok mu neškodí, útočníka naopak zakončení a pohyb. Seznamy jsou z komunitních příruček pro FM26 (slovník je shodný s FM27), ne pravidlo hry. Spolehlivější je profil hráče ve hře: klíčové atributy tam zvýrazní hra sama podle vybrané role a fáze (s míčem zeleně a modře, bez míče růžově a fialově) a liší se role od role (například zatažený útočník s míčem: Technique, Finishing, First Touch, Off The Ball, Composure, Strength). Přečti si je v kartě Profily rolí níž.' }),
       h('div', { class: 'tblscroll' }, h('table', { class: 'tbl', id: 'squadAttrsTable' }, h('thead', null, h('tr', null, ['Pozice', 'Klíčové atributy (×3)', 'Žádoucí atributy (×1)'].map((t) => h('th', { text: t })))), h('tbody', null, rows))),
       h('p', { class: 'hint', text: 'Zdroje:' }),
       h('ul', { class: 'list' }, links),

@@ -13,7 +13,7 @@
    dvou hráčů na místo jsou z veřejného popisu nástroje FM Dossier (jen princip, žádný kód ani tabulka); komunitní prahy věku a atributů
    jsou odhady a dají se posunout (`opts`).
 
-   POCTIVOST: vhodnost je odhad podle komunitních příruček (ne pravidlo FM27; spolehlivější je tlačítko „Zvýraznit klíčové atributy“ ve hře); u hráče s neúplnými atributy se uvede pokrytí nebo se
+   POCTIVOST: vhodnost je odhad podle komunitních příruček (ne pravidlo FM27; spolehlivější je zvýraznění klíčových atributů v profilu hráče ve hře: řídí se vybranou rolí a fází); u hráče s neúplnými atributy se uvede pokrytí nebo se
    hráč neohodnotí (nikdy nula); hráč bez věku se nezapočítá do věkových pravidel a řekne se to; CA, PA, potenciál ani osobnost se nepoužívají.
    Rozbor neřadí hráče podle „kvality“ napříč pozicemi a nepředpovídá výsledek zápasu. */
 (function (root, factory) {
@@ -268,7 +268,7 @@
         const ext = weakKey.length > 0;
         F('Q1', ext ? 'warn' : 'note', 'Kvalita', 'KOMUNITA', 'komunitní příručky (Vortex Gaming, FM Dossier)',
           `${e.pos}: ${p.name} má slabé atributy, na kterých u téhle pozice nejvíc záleží`,
-          `Podle příruček (skupina pozic: ${gname(s.group)}) patří tyhle atributy mezi ${ext ? 'klíčové' : 'žádoucí'}; hráč má v nich nízkou hodnotu (${o.weakValue} a méně). Je to viditelná slabina, ne pravidlo hry; hra sama ukazuje klíčové atributy role tlačítkem Zvýraznit klíčové atributy.`,
+          `Podle příruček (skupina pozic: ${gname(s.group)}) patří tyhle atributy mezi ${ext ? 'klíčové' : 'žádoucí'}; hráč má v nich nízkou hodnotu (${o.weakValue} a méně). Je to viditelná slabina, ne pravidlo hry; hra sama zvýrazňuje klíčové atributy podle vybrané role a fáze v profilu hráče.`,
           [`Zlepšit individuálním tréninkem: ${(ext ? weakKey : weak).slice(0, o.topAttrs).map((x) => x.attribute).join(', ')}`, 'Nebo zvážit jiného hráče na toto místo (viz výměny níž a hloubka)', 'Při zápase kryjte slabinu taktikou (jiná role nebo instrukce)'],
           (ext ? weakKey : weak).slice(0, o.topAttrs).map((x) => `${x.attribute}: ${x.value}`), { slots: [s.key], players: [p.id] });
       }
