@@ -26,6 +26,7 @@
     understanding: { cs: 'Porozumění taktice', game: 'A player\'s ability to comprehend what is being asked of them tactically (at a team level).', csDesc: 'Jak dobře hráči chápou, co se po nich taktikou chce, na úrovni týmu. Zahrnuje taktické oblasti (tvar s míčem a bez míče, styl přihrávek, výstavbu, tvorbu šancí, linii napadání, intenzitu napadání a past) a taktickou složitost.' },
     ability: { cs: 'Schopnost hráčů', game: 'A combination of a player\'s capability and their ability relative to the tactical role being asked of them.', csDesc: 'Spojení toho, co hráč umí, a toho, jak dobře sedí na roli, kterou mu taktika dává (hvězdičky ve sloupci Taktická schopnost).' },
     buyIn: { cs: 'Ochota hráčů', game: 'A player\'s willingness, not ability, to carry out the manager\'s tactics.', csDesc: 'Ochota hráčů taktiku dělat, ne schopnost. Souvisí s podporou od manažera, vztahy v týmu a štábu a s tím, jak manažer taktiku mění.' },
+    // věta pilíře Next Match Info je ve hře (7. 11. 2026) opravdu stejná jako u Tactical Understanding bez dovětku; je to text hry, ne chyba přepisu, a v aplikaci se nezobrazuje
     nextMatch: { cs: 'Informace o příštím zápase', game: 'A player\'s ability to comprehend what is being asked of them tactically.', csDesc: 'Jak dobře tým ví, co ho čeká: kvalita zprávy o příštím soupeři a znalost jeho hráčů.' },
   });
 
@@ -87,13 +88,25 @@
     let complexity = null;
     if (ta && ta.complexity) {
       const total = ta.complexity.nonDefaultInstructions + (opp || 0);
+      const known = ta.coverage && Number.isInteger(ta.coverage.settingsKnown) ? ta.coverage.settingsKnown : null;
+      const all = ta.coverage && Number.isInteger(ta.coverage.settingsTotal) ? ta.coverage.settingsTotal : null;
+      const complete = known !== null && all !== null && known >= all;
+      // z nepřečtených instrukcí se nic nehádá: počet z přečtených je jen DOLNÍ odhad, takže „vysoká“ platí vždy, „střední“ jen jako „aspoň střední“, a „nízká“ se řekne, jen když je přečteno všech
+      let level;
+      if (complete) level = total >= 12 ? 'vysoká' : total >= 7 ? 'střední' : 'nízká';
+      else if (total >= 12) level = 'vysoká';
+      else if (total >= 7) level = 'aspoň střední';
+      else level = 'neznámá';
       complexity = {
         nonDefault: ta.complexity.nonDefaultInstructions,
         opposition: opp,
         total,
-        level: total >= 12 ? 'vysoká' : total >= 7 ? 'střední' : 'nízká',
+        known,
+        allInstructions: all,
+        complete,
+        level,
         basis: 'ODHAD',
-        note: 'Odhad aplikace: počet týmových instrukcí mimo výchozí hodnotu plus pokyny k soupeři. Vzorec hry neznáme; měřidlo Complexity ve hře je jen barevná ikona. Čím víc změn, tím hůř se taktice rozumí.',
+        note: `Odhad aplikace: počet týmových instrukcí mimo výchozí hodnotu plus pokyny k soupeři. Vzorec hry neznáme; měřidlo Complexity ve hře je jen barevná ikona. Čím víc změn, tím hůř se taktice rozumí.${complete ? '' : ` Přečteno je ${known === null ? 'jen část' : `${known} z ${all}`} instrukcí, takže je to jen dolní odhad (nepřečtené instrukce se nepočítají a nehádají).`}${opp === null ? ' Počet pokynů k soupeři jsi nezadal, nepočítá se.' : ''} Výchozí hodnoty instrukcí aplikace ve FM27 neověřila (bere je z veřejných průvodců), takže i počet „mimo výchozí“ je přibližný.`,
         nonDefaultList: (ta.settings || []).filter((s) => !s.isDefault).map((s) => `${(CS.labelCs && CS.labelCs(s.id)) || s.name}: ${CS.valueCs(s.id, s.value) || s.value}`),
       };
     }

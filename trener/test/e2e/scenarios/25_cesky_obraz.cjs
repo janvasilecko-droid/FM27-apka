@@ -126,6 +126,37 @@ module.exports = async function run(env) {
   check('25 hráči se doplnili a přidali s kanonickými názvy atributů a kódy pozic (Heading, Tackling, Positioning, AML)', sv.attributes.Heading === 8 && sv.attributes.Tackling === 15 && sv.attributes.Positioning === 13 && sv.attributes.Pace === 14 && nh.positions.join() === 'AML,AMC,ST' && nh.attributes['Finishing'] === 12 && nh.attributes['Off The Ball'] === 13 && nh.age === 19, { sv, nh });
   check('25 věk a pozice existujícího hráče se nepřepsaly (už byly), jen se doplnil věk, který chyběl', JSON.stringify(sv.positions) === '["DR"]' && sv.age === 24, sv);
 
+  // dva různí hráči téhož jména na snímku se nesloučí ani nezapíšou (nález revize A3)
+  await page.evaluate(() => {
+    window.__mock.squadReply = {
+      players: [
+        { name: 'J. Silva', positions: ['O (S)'], age: 25, attributes: { Rychlost: 12 } },
+        { name: 'J. Silva', positions: ['O (S)'], age: 31, attributes: { Síla: 14 } },
+        { name: 'Třetí Hráč', positions: ['B'], age: 28, attributes: {} },
+      ],
+      notes: 'čitelné',
+    };
+  });
+  await page.setInputFiles('#squadShot', fx('screenshot.png'));
+  await page.click('#squadRead');
+  await page.waitForSelector('#squadSkipped', { timeout: 15000 });
+  const skipTxt = await text(page, '#squadSkipped');
+  check('25 dva různí hráči téhož jména na snímku se nezapíšou a řekne se proč; nový hráč se nabídne', /J\. Silva/.test(skipTxt) && /stejným jménem/.test(skipTxt) && /Třetí Hráč/.test(await text(page, '#squadNew')) && !/J\. Silva/.test(await text(page, '#squadNew')), skipTxt);
+  await page.check('#squadConfirm');
+  await page.click('#squadAdd');
+  await until(async () => (await page.evaluate(() => window.FM27.context.players(window.FM27.app).length)) === 9);
+  check('25 zapsal se jen jeden hráč a J. Silva se do kádru nedostal', !(await page.evaluate(() => window.FM27.context.players(window.FM27.app).some((p) => /Silva/.test(p.name)))));
+
+  // skryté údaje se nedostanou do kontextu AI, ani když je dřívější verze aplikace uložila (nález revize B4)
+  await page.evaluate(async () => {
+    const app = window.FM27.app;
+    const p = app.store.draft(window.FM27.context.players(app).find((x) => x.name === 'Tomáš Svoboda'));
+    p.attributes = Object.assign({}, p.attributes, { Professionalism: 18, Potential: 17, 'Current Ability': 14, Reputation: 9, Personality: 11 });
+    await app.store.put('player', p);
+  });
+  const squadCtx = await page.evaluate(async () => (await window.FM27.context.observations(window.FM27.app, { tactic: false, memory: false })).find((o) => o.id === 'squad').text);
+  check('25 skryté údaje (CA, PA, osobnost, reputace, skryté atributy) se do kontextu AI nedostanou, známé atributy ano', /Heading/.test(squadCtx) && !/Professionalism|Potential|Current Ability|Reputation|Personality/.test(squadCtx), squadCtx.slice(0, 400));
+
   // ====================================================== C) role s míčem a bez míče se nepřepisují
   await nav(page, 'taktiky');
   await page.waitForSelector('#roleReadBtn');
@@ -152,6 +183,19 @@ module.exports = async function run(env) {
   await until(async () => (await page.evaluate(() => window.FM27.app.store.list('roleprofile').length)) === 2);
   const profs = await page.evaluate(() => window.FM27.app.store.list('roleprofile').map((p) => ({ id: p.id, name: p.name, phase: p.phase, key: p.key })));
   check('25 vznikly dva profily „Střední obránce“: s míčem a bez míče, s českými názvy atributů', profs.length === 2 && profs.some((p) => p.phase === 'in' && p.key.includes('Hlavičky')) && profs.some((p) => p.phase === 'out' && p.key.includes('Poziční hra')) && new Set(profs.map((p) => p.id)).size === 2, profs);
+
+  // úprava profilu role bez míče nepřepíše profil téhož jména s míčem (nález revize A4)
+  const outId = await page.evaluate(() => window.FM27.app.store.list('roleprofile').find((p) => p.phase === 'out').id);
+  await until(async () => (await page.locator('#roleList .book').count()) === 2); // seznam se překreslí až po zápisu do úložiště
+  check('25 seznam profilů rozlišuje fázi u profilů téhož jména', /\(s míčem\)/.test(await text(page, '#roleList')) && /\(bez míče\)/.test(await text(page, '#roleList')), await text(page, '#roleList'));
+  await page.click(`#roleList [data-role="${outId}"] [data-act="edit"]`);
+  await page.waitForSelector('#rpKey');
+  check('25 formulář profilu nabízí fázi a u profilu bez míče je předvybraná', (await page.inputValue('#rpPhase')) === 'out');
+  await page.fill('#rpKey', 'Hlavičky, Poziční hra, Předvídavost');
+  await page.click('#rpSave');
+  await until(async () => (await page.evaluate((id) => (window.FM27.app.store.get('roleprofile', id) || { key: [] }).key.length, outId)) === 3);
+  const after = await page.evaluate(() => window.FM27.app.store.list('roleprofile').map((p) => ({ id: p.id, phase: p.phase, key: p.key })));
+  check('25 úprava profilu role bez míče zůstala u profilu bez míče; profil s míčem se nezměnil', after.length === 2 && after.find((p) => p.phase === 'out').key.length === 3 && after.find((p) => p.phase === 'in').key.length === 2 && after.find((p) => p.phase === 'in').key.join() === 'Hlavičky,Obranné zákroky', after);
 
   const ovf = await h.overflow(page);
   check('25 na obrazovkách s českým čtením nic nepřetéká do šířky', ovf.sw <= ovf.cw + 1, ovf);

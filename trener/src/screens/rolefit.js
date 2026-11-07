@@ -43,10 +43,13 @@ Odpověz POUZE JSON objektem:
     key.value = existing ? existing.key.join(', ') : '';
     pref.value = existing ? existing.pref.join(', ') : '';
     const msg = h('p', { class: 'hint', id: 'rpMsg' });
+    // FM27 má dvě sady rolí (s míčem a bez míče) a „Střední obránce“ je v obou: fáze rozlišuje profily téhož jména
+    const phase = ui.select([['', 'neurčeno'], ['in', 's míčem'], ['out', 'bez míče']], existing ? RF().phaseOf(existing.phase) : '', { id: 'rpPhase', 'aria-label': 'Fáze role' });
     return h(
       'div',
       null,
       ui.field('Název role', name),
+      ui.field('Fáze', phase, { hint: 'Role s míčem a bez míče jsou ve hře dvě sady. Profily téhož jména se podle fáze nepřepisují.' }),
       ui.field('Klíčové atributy', key, { hint: 'Názvy piš tak, jak je ve hře vidíš, a stejně jako u hráčů (porovnává se bez ohledu na velikost písmen a mezery). Skryté údaje (CA, PA, Consistency a podobné) se nepřijmou.' }),
       ui.field('Žádoucí atributy', pref),
       msg,
@@ -56,7 +59,8 @@ Odpověz POUZE JSON objektem:
         type: 'button',
         text: existing ? 'Uložit úpravu' : 'Uložit profil',
         onclick: async () => {
-          const made = RF().makeProfile({ name: name.value, key: splitList(key.value), pref: splitList(pref.value), source: 'user', note: existing && existing.note }, { now: Date.now() });
+          const fields = { name: name.value, key: splitList(key.value), pref: splitList(pref.value), phase: phase.value };
+          const made = existing ? RF().editProfile(existing, fields, { now: Date.now() }) : RF().makeProfile(Object.assign({ source: 'user' }, fields), { now: Date.now() });
           if (!made.ok) return (msg.textContent = made.issues.join(' '));
           if (existing && made.profile.id !== existing.id) await app.store.remove('roleprofile', existing.id);
           await saveProfile(app, made.profile);
@@ -83,7 +87,7 @@ Odpověz POUZE JSON objektem:
         ? h('div', { class: 'books', id: 'roleList' }, list.map((p) => {
             const [tier, label] = SOURCE_CHIP[p.source] || SOURCE_CHIP.user;
             return h('div', { class: 'book', 'data-role': p.id },
-              h('div', { class: 'meta' }, h('b', { text: p.name }), h('span', { text: `Klíčové: ${p.key.join(', ') || '–'}` }), h('span', { text: `Žádoucí: ${p.pref.join(', ') || '–'}` }), h('span', { class: 'chips' }, ui.tierChip(tier, label))),
+              h('div', { class: 'meta' }, h('b', { text: p.name + ({ in: ' (s míčem)', out: ' (bez míče)' }[RF().phaseOf(p.phase)] || '') }), h('span', { text: `Klíčové: ${p.key.join(', ') || '–'}` }), h('span', { text: `Žádoucí: ${p.pref.join(', ') || '–'}` }), h('span', { class: 'chips' }, ui.tierChip(tier, label))),
               h('div', { class: 'row' },
                 h('button', { class: 'btn small', type: 'button', 'data-act': 'edit', text: 'Upravit', onclick: () => ui.openDrawer('Upravit profil role', [profileForm(app, p, draw)]) }),
                 ui.confirmButton('Smazat', 'Opravdu?', async () => { await app.store.remove('roleprofile', p.id); draw(); })));

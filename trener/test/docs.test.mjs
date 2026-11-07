@@ -67,7 +67,7 @@ test('prahy v dokumentu jsou prahy z kódu (rozbor sestavy i soupeře)', () => {
   for (const m of must) assert.ok(doc.replace(/\s+/g, ' ').includes(m.replace(/\s+/g, ' ')), `v dokumentu chybí: ${m}`);
   assert.equal(o.maxChanges, 3);
   assert.equal(o.maxOi, 3);
-  assert.ok(doc.replace(/\s+/g, ' ').includes('nejvýš tří změn nastavení'));
+  assert.ok(doc.replace(/\s+/g, ' ').includes('nejvýš tří různých změn nastavení'));
   assert.ok(doc.replace(/\s+/g, ' ').includes('nejvýš tří pokynů k soupeři'));
   const s = SC.DEFAULTS;
   const flat = doc.replace(/\s+/g, ' ');

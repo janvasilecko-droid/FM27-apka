@@ -33,9 +33,17 @@
   // poznámky) se zploští po jednom, takže žádný z nich nemůže do promptu vnést nový řádek ani sloupec.
   const one = (v, n) => C.oneLine(v, n || 80);
 
+  // Skryté údaje hry (CA, PA, osobnost, reputace, skryté atributy) se do kontextu AI nikdy neposílají, ani kdyby je starší verze aplikace uložila.
+  const HIDDEN_EXTRA = /^(potential|potencial|reputation|reputace|personality|osobnost|ability|schopnost\w*)$/;
+  function isHiddenAttr(name) {
+    const TI = window.TrenerTableImport;
+    const n = C.fold(String(name)).replace(/[^a-z0-9]+/g, ' ').trim();
+    return !!(TI && TI.isHiddenName && TI.isHiddenName(name)) || HIDDEN_EXTRA.test(n);
+  }
+
   function playerLine(p) {
     const attrs = Object.entries(p.attributes || {})
-      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .filter(([k, v]) => v !== null && v !== undefined && v !== '' && !isHiddenAttr(k))
       .map(([k, v]) => `${one(k, 40)} ${one(v, 20)}`)
       .slice(0, 8)
       .join(', ');

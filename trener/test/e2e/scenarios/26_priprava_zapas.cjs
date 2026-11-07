@@ -111,7 +111,7 @@ module.exports = async function run(env) {
   await page.evaluate(() => {
     window.__mock.squadReply = {
       players: [
-        { name: 'Adam Brankář', positions: ['B'], age: 27, attributes: { Přihrávky: 8, Zpracování: 9, Vyrovnanost: 12, Reflexy: 14 }, injured: null },
+        { name: 'Adam Brankář', positions: ['B'], age: 27, attributes: { Přihrávky: 8, Zpracování: 9, Vyrovnanost: 12 }, injured: null }, // české brankářské názvy (Reflexy…) hra zatím neukázala, takže se nečtou
         { name: 'Kenny Pravý', positions: ['O (P)'], age: 25, attributes: { Rychlost: 8, Zrychlení: 9 }, injured: null },
         { name: 'Karel Stoper', positions: ['O (S)'], age: 30, attributes: { Rychlost: 7, Zrychlení: 8, Hlavičky: 8, Výskok: 9, Vyrovnanost: 8 }, injured: null },
         { name: 'Calvin Střed', positions: ['O (S)'], age: 28, attributes: { Rychlost: 9, Zrychlení: 9, Hlavičky: 9, Výskok: 10 }, injured: null },
@@ -125,7 +125,7 @@ module.exports = async function run(env) {
   await page.setInputFiles('#oppSqShot', fx('screenshot.png'));
   await page.click('#oppSqRead');
   await page.waitForSelector('#oppSqNew', { timeout: 15000 });
-  check('26 soupiska soupeře: návrh ukáže sedm hráčů s převedenými pozicemi a počtem atributů, uloží se až po potvrzení', (await page.locator('#oppSqNew li').count()) === 7 && /DC · 5 atributů/.test(await text(page, '#oppSqNew')) && /GK · 4 atributů/.test(await text(page, '#oppSqNew')) && /jen návrh/.test(await text(page, '#oppSqStatus')), await text(page, '#oppSqNew'));
+  check('26 soupiska soupeře: návrh ukáže sedm hráčů s převedenými pozicemi a počtem atributů, uloží se až po potvrzení', (await page.locator('#oppSqNew li').count()) === 7 && /DC · 5 atributů/.test(await text(page, '#oppSqNew')) && /GK · 3 atributů/.test(await text(page, '#oppSqNew')) && /jen návrh/.test(await text(page, '#oppSqStatus')), await text(page, '#oppSqNew'));
   await page.click('#oppSqSave');
   check('26 bez potvrzení se soupiska soupeře neuloží', /Nejdřív potvrď/.test(await text(page, '#toast')) && (await page.locator('#oppSqStored').count()) === 0);
   await page.check('#oppSqConfirm');
@@ -147,6 +147,41 @@ module.exports = async function run(env) {
   check('26 pokyny k soupeři mají i Napadání: Vždy na slabého rozehrávače (brankář, místo B), celkem nejvýš tři', oi2.length <= 3 && oi2.some((t) => /Adam Brankář/.test(t) && /Napadání/.test(t) && /Vždy/.test(t)), oi2);
   check('26 počet načtených atributů je v přehledu (sestava 11, atributy u 7)', /atributy u 7/.test(await text(page, '#oppPrepInputs')), await text(page, '#oppPrepInputs'));
   check('26 souhrn jde zkopírovat jedním tlačítkem', (await page.locator('#oppPrepCopy').count()) === 1);
+
+  // ====================================================== E2) dva různí hráči téhož jména v soupisce soupeře se nezapíšou (nález revize A3)
+  await page.evaluate(() => {
+    window.__mock.squadReply = {
+      players: [
+        { name: 'J. Silva', positions: ['O (S)'], age: 25, attributes: { Rychlost: 12 } },
+        { name: 'J. Silva', positions: ['O (S)'], age: 31, attributes: { Síla: 14 } },
+        { name: 'Nový Hráč', positions: ['ÚT (S)'], age: 22, attributes: { Zakončování: 12 } },
+      ],
+      notes: 'čitelné',
+    };
+  });
+  await page.setInputFiles('#oppSqShot', fx('screenshot.png'));
+  await page.click('#oppSqRead');
+  await page.waitForSelector('#oppSqSkipped', { timeout: 15000 });
+  const sqSkip = await text(page, '#oppSqSkipped');
+  check('26 dva různí hráči téhož jména se v soupisce soupeře nezapíšou a řekne se proč; nový hráč se nabídne', /J\. Silva/.test(sqSkip) && /stejným jménem/.test(sqSkip) && /Nový Hráč/.test(await text(page, '#oppSqNew')) && !/J\. Silva/.test(await text(page, '#oppSqNew')), sqSkip);
+
+  // ====================================================== E3) zpráva o jiném týmu se nemíchá s uloženou (nález revize A5)
+  await page.evaluate(() => {
+    window.__mock.oppReportReply = { team: 'Baník Test', summary: 'Jiný soupeř.', weaknesses: [{ area: 'Síla', text: 'Jiný tým je slabý v síle.' }], absences: [{ name: 'Cizí Hráč', status: 'out' }] };
+  });
+  await page.setInputFiles('#oppRepShot', fx('screenshot.png'));
+  await page.click('#oppRepRead');
+  await page.waitForSelector('#oppRepTeamWarn', { timeout: 15000 });
+  const warn = await text(page, '#oppRepTeamWarn');
+  check('26 zpráva o jiném týmu ukáže varování: uložená zpráva se nahradí, nemíchá se', /Sparta Test/.test(warn) && /Baník Test/.test(warn) && /NAHRADÍ/.test(warn), warn);
+  await page.check('#oppRepConfirm');
+  await page.click('#oppRepSave');
+  check('26 bez výslovného souhlasu s nahrazením se zpráva o jiném týmu neuloží', /jiném týmu/.test(await text(page, '#toast')) && (await page.evaluate(() => window.FM27.app.store.list('opponent')[0].structured.report.team)) === 'Sparta Test');
+  await page.check('#oppRepReplace');
+  await page.click('#oppRepSave');
+  await page.waitForFunction(() => window.FM27.app.store.list('opponent')[0].structured.report.team === 'Baník Test', null, { timeout: 8000 });
+  const rep2 = await page.evaluate(() => window.FM27.app.store.list('opponent')[0].structured.report);
+  check('26 po souhlasu platí jen nová zpráva: slabiny, výpadky a sestava Sparty se do zprávy o Baníku nedostaly', rep2.weaknesses.length === 1 && rep2.absences.length === 1 && rep2.absences[0].name === 'Cizí Hráč' && rep2.lineup.length === 0, rep2);
 
   // ====================================================== F) mobil
   const ovfDesk = await h.overflow(page);

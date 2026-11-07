@@ -136,12 +136,12 @@ test('staré čtení rolí (zkratka pozice shodná s místem šablony) funguje d
 });
 
 test('sameName: iniciála a příjmení sedí, jiná jména ne', () => {
-  assert.equal(T.sameName('L. Horníček', 'Lukáš Horníček'), true);
-  assert.equal(T.sameName('Lukáš Horníček', 'L. Horníček'), true);
-  assert.equal(T.sameName('William Gomes', 'William Gomes'), true);
-  assert.equal(T.sameName('N. Paz', 'Nico Paz'), true);
-  assert.equal(T.sameName('G. Prestianni', 'Giovanni Prestianni'), true);
-  assert.equal(T.sameName('L. Horníček', 'Jan Horníček'), false, 'jiná iniciála');
+  assert.equal(T.sameName('L. Horáček', 'Lukáš Horáček'), true);
+  assert.equal(T.sameName('Lukáš Horáček', 'L. Horáček'), true);
+  assert.equal(T.sameName('William Gorman', 'William Gorman'), true);
+  assert.equal(T.sameName('N. Pax', 'Nico Pax'), true);
+  assert.equal(T.sameName('G. Pretoni', 'Giovanni Pretoni'), true);
+  assert.equal(T.sameName('L. Horáček', 'Jan Horáček'), false, 'jiná iniciála');
   assert.equal(T.sameName('Novák', 'Novotný'), false);
   assert.equal(T.sameName('J. N.', 'Jan Novák'), false, 'bez příjmení se nepárujeme');
   assert.equal(T.sameName('', 'Jan Novák'), false);

@@ -45,7 +45,17 @@
 
   const PHYSICAL = new Set(['Aggression', 'Bravery', 'Determination', 'Strength', 'Balance', 'Work Rate', 'Stamina', 'Natural Fitness']);
   const AERIAL_ATTRS = new Set(['Jumping Reach', 'Heading', 'Communication', 'Aerial Reach', 'Command Of Area', 'Punching', 'Eccentricity', 'Rushing Out']);
-  const KEEPER_SHOT_ATTRS = new Set(['Reflexes', 'Handling', 'Agility', 'One On Ones']);
+  // Agility tu není: je to i obecný atribut hráčů v poli, slabá „Hbitost“ týmu nemá nic společného s brankářem
+  const KEEPER_SHOT_ATTRS = new Set(['Reflexes', 'Handling', 'One On Ones']);
+
+  // text bez diakritiky, malými písmeny, slova oddělená mezerou: regulární výrazy pak hlídají hranice slov (\b)
+  const plain = (s) => CS.fold(s).replace(/[^a-z0-9]+/g, ' ').trim();
+  const wordsOf = (s) => plain(s).split(' ').filter(Boolean);
+  // brankářova hra do vzduchu a centry („centrální“ ani „centre-back“ to není) a střely a zákroky
+  const AERIAL_TEXT = /\b(?:vzduch\w*|aerial\w*|high balls?|crosses|crossing|cross|centr|centry|centru|centrech|centrem|centrovani|vyrazen\w*|punch\w*|hlavick\w*|header\w*)\b/;
+  const SHOT_TEXT = /\b(?:shots?|strel\w*|z dalky|from distance|long range|zakrok\w*|saves?)\b/;
+  // záporné a omezující tvary vět o standardkách: „not struggled“, „conceding from only 1“, „0 of“, „Neinkasují“, „žádné šance“
+  const NEGATED = /\b(?:not|never|no|none|nothing|without|hasn t|haven t|didn t|don t|doesn t|isn t|nikdy|zadn\w*|nema\w*|neinkasuj\w*|nevytvar\w*|nedostavaj\w*|solid|good when|well when|dobre brani)\b|\b0 (?:of|from|z)\b|\bonly \d/;
   const BACK = new Set(['DC', 'DR', 'DL', 'WBR', 'WBL']);
   const CENTRE_MID = new Set(['DM', 'MC', 'AMC']);
   const MID_AND_UP = new Set(['DM', 'MC', 'MR', 'ML', 'AMC', 'AMR', 'AML']);
@@ -66,7 +76,8 @@
     // hráči soupeře s atributy (ze soupisky soupeře) se párují s předpokládanou sestavou podle jména
     const oppPlayers = Array.isArray(o.oppPlayers) ? o.oppPlayers.filter((p) => isObj(p) && typeof p.name === 'string') : [];
     const lineup = (Array.isArray(report.lineup) ? report.lineup : []).map((l) => {
-      const p = oppPlayers.find((x) => CS.sameName(x.name, l.name)) || null;
+      const hits = oppPlayers.filter((x) => CS.sameName(x.name, l.name));
+      const p = hits.length === 1 ? hits[0] : null; // zkratka sedící na víc hráčů („J. Silva“) se nehádá: atributy zůstanou neznámé
       return Object.assign({}, l, { attrs: p ? D.playerAttributes(p) : null, age: p && Number.isInteger(p.age) ? p.age : null });
     });
     const weaknesses = Array.isArray(report.weaknesses) ? report.weaknesses : [];
@@ -139,6 +150,29 @@
   }
   const changeText = (ch) => `${ch.label} → ${ch.value}${ch.valueSeen || ch.value === ch.to ? '' : ` (${ch.to})`}`;
 
+  /** Hráči sestavy, které věta hry jmenuje: celé příjmení jako slovo (aspoň tři písmena). Víc shod rozliší slovo před příjmením (celé křestní jméno nebo iniciála);
+      když ani to nerozhodne, je výsledek prázdný (nejednoznačné se nehádá). */
+  function mentioned(lineup, text) {
+    const words = wordsOf(text);
+    const nameWords = (n) => wordsOf(n);
+    let hits = lineup.filter((l) => {
+      const t = nameWords(l.name);
+      const sn = t[t.length - 1] || '';
+      return sn.length >= 3 && words.includes(sn);
+    });
+    if (hits.length > 1) {
+      hits = hits.filter((l) => {
+        const t = nameWords(l.name);
+        if (t.length < 2) return false;
+        const sn = t[t.length - 1];
+        const first = t[0];
+        return words.some((w, i) => w === sn && i > 0 && (words[i - 1] === first || (words[i - 1].length === 1 && first.startsWith(words[i - 1])) || (first.length === 1 && words[i - 1].startsWith(first))));
+      });
+      if (hits.length !== 1) hits = [];
+    }
+    return hits;
+  }
+
   // ---------------------------------------------------------------- katalog pravidel
   const NOTHING = null; // pravidlo vyhodnoceno a nic nenašlo
   const R = (id, area, basis, title, test) => ({ id, area, basis, title, test });
@@ -146,7 +180,12 @@
 
   const RULES = [
     R('P01', 'Vzduch a centry', 'HRA', 'Soupeř je slabý ve vzduchu nebo v brankářově hře do vzduchu', (c) => {
-      const game = [...c.weak('aerial'), ...c.weakAttrs(AERIAL_ATTRS), ...c.weak('goalkeeper'), ...c.weak('goalsAgainst').filter((w) => /centr|cross/i.test(w.text))];
+      // slabina brankáře je „vzdušná“ jen tehdy, když o vzduchu nebo centrech píše její věta (o střelách z dálky je P03); inkasované góly po centrech se hledají v nadpisu i ve větě
+      const game = [
+        ...c.weak('aerial'), ...c.weakAttrs(AERIAL_ATTRS),
+        ...c.weak('goalkeeper').filter((w) => AERIAL_TEXT.test(plain(`${w.area} ${w.text}`))),
+        ...c.weak('goalsAgainst').filter((w) => AERIAL_TEXT.test(plain(`${w.area} ${w.text}`))),
+      ];
       const dcs = c.byFm(new Set(['DC']));
       const dcAvg = c.avgAttr(dcs, ['Heading', 'Jumping Reach']);
       const attrHit = dcAvg && dcAvg.value <= c.th.aerialLow;
@@ -187,10 +226,13 @@
     }),
 
     R('P03', 'Brankář', 'ODHAD', 'Soupeřův brankář je slabý v zákrocích', (c) => {
-      const hits = c.weakAttrs(KEEPER_SHOT_ATTRS);
+      // brankářské atributy ze zprávy hry, nebo slabina „Brankář“, jejíž věta mluví o střelách a zákrocích (ne o vzduchu)
+      const hits = [...c.weakAttrs(KEEPER_SHOT_ATTRS), ...c.weak('goalkeeper').filter((w) => SHOT_TEXT.test(plain(`${w.area} ${w.text}`)) && !AERIAL_TEXT.test(plain(`${w.area} ${w.text}`)))];
       const gk = c.byFm(new Set(['GK']))[0];
-      const low = gk ? ['Reflexes', 'Handling', 'Agility'].filter((n) => c.attr(gk, n) !== null && c.attr(gk, n) <= c.th.low) : [];
-      if (!hits.length && !low.length) return c.weaknesses.length || (gk && gk.attrs) ? NOTHING : undefined;
+      const GK_OWN = ['Reflexes', 'Handling', 'Agility'];
+      const low = gk ? GK_OWN.filter((n) => c.attr(gk, n) !== null && c.attr(gk, n) <= c.th.low) : [];
+      const gkKnown = !!(gk && GK_OWN.some((n) => c.attr(gk, n) !== null)); // atributy brankáře jsou načtené (ne jen Pace)
+      if (!hits.length && !low.length) return c.weaknesses.length || gkKnown ? NOTHING : undefined;
       const changes = [change(c, 'shotsFromDistance', 'Encourage', 'exact')];
       const shooters = c.bestOwn(['Long Shots', 'Finishing'], 2, MID_AND_UP);
       const ev = evGame(hits);
@@ -209,19 +251,18 @@
       if (!bad.length) return c.weaknesses.length ? NOTHING : undefined;
       const found = [];
       for (const w of bad) {
-        const hay = key(`${w.area} ${w.text}`);
-        // hráč se v textu hry pozná podle příjmení (poslední slovo jména, aspoň čtyři písmena): křestní jména se opakují
-        const l = c.lineup.find((x) => {
-          const parts = x.name.split(/\s+/).filter(Boolean);
-          const sn = key(parts[parts.length - 1] || '');
-          return sn.length >= 4 && hay.includes(sn);
-        });
-        if (l) found.push({ w, l });
+        // hráč se v textu hry pozná podle příjmení jako celého slova (aspoň tři písmena), jen z věty (nadpis oblasti jména neobsahuje); víc shod rozliší křestní jméno
+        // nebo iniciála před příjmením, jinak se o koho jde nehádá
+        const hits = mentioned(c.lineup, w.text || w.area);
+        if (hits.length === 1) found.push({ w, l: hits[0] });
       }
       if (!found.length) {
         return { sev: 'info', basis: 'HRA', priority: 0, text: 'Hra uvádí hráče soupeře ve špatné formě, ale v očekávané sestavě ho nenacházím: nevím, kterou stranu to otevírá.', changes: [], ev: evGame(bad), risks: [], watch: '', info: true };
       }
       const f = found[0];
+      if (f.l.fm === 'GK') {
+        return { sev: 'info', basis: 'HRA', priority: 0, text: `Hra uvádí ve špatné formě soupeřova brankáře (${f.l.name}): žádnou stranu útoku to neotevírá.`, changes: [], ev: evGame([f.w]), risks: [], watch: '', info: true };
+      }
       const theirs = theirSide(f.l);
       const ours = mine(theirs);
       const to = ours === 'L' ? 'Left' : ours === 'R' ? 'Right' : 'Middle';
@@ -237,15 +278,22 @@
 
     R('P05', 'Pokyny k soupeři', 'KOMUNITA', 'Hlavní hráči soupeře: těsné obsazování', (c) => {
       const kp = c.report.keyPlayers || [];
+      const outNames = (c.report.absences || []).filter((a) => a.status === 'out').map((a) => a.name); // hráč, který podle hry nehraje, se nehlídá
       const candidates = [];
-      const add = (name, why) => {
-        const l = c.lineup.find((x) => CS.sameName(x.name, name));
-        if (!l || l.fm === 'GK' || candidates.some((x) => CS.sameName(x.name, l.name))) return;
+      const add = (name, why, fm) => {
+        if (outNames.some((n) => CS.sameName(n, name))) return;
+        let hits = c.lineup.filter((x) => CS.sameName(x.name, name));
+        if (hits.length > 1 && fm) hits = hits.filter((x) => x.fm === fm); // dva Nováci: rozhodne pozice významného hráče ze zprávy
+        if (hits.length !== 1) return; // žádná nebo nejednoznačná shoda
+        const l = hits[0];
+        if (fm && l.fm && l.fm !== fm) return; // jiná pozice než ve zprávě: pravděpodobně jiný hráč téhož jména
+        if (l.fm === 'GK' || candidates.some((x) => CS.sameName(x.name, l.name))) return;
         candidates.push({ name: l.name, l, why });
       };
       const order = { topAssists: 0, topScorer: 1, topRating: 2 };
-      for (const k of kp.slice().sort((a, b) => order[a.kind] - order[b.kind])) add(k.name, { topAssists: 'hra ho uvádí s nejvíc asistencemi', topScorer: 'hra ho uvádí jako nejlepšího střelce', topRating: 'hra ho uvádí s nejlepším hodnocením' }[k.kind]);
+      for (const k of kp.slice().sort((a, b) => order[a.kind] - order[b.kind])) add(k.name, { topAssists: 'hra ho uvádí s nejvíc asistencemi', topScorer: 'hra ho uvádí jako nejlepšího střelce', topRating: 'hra ho uvádí s nejlepším hodnocením' }[k.kind], k.fm);
       let basis = 'HRA';
+      let byAttributes = false; // pravidlo se dalo vyhodnotit i podle atributů (aspoň minKnown záložníků je má)
       if (!candidates.length) {
         // bez významných hráčů v sestavě: tvůrce hry podle atributů (jen když je máme načtené)
         const mids = c.byFm(new Set(['DM', 'MC', 'AMC', 'AMR', 'AML']));
@@ -253,12 +301,13 @@
           const v = ['Passing', 'Vision', 'Technique'].map((n) => c.attr(l, n));
           return v.every((x) => x !== null) ? { l, v: v.reduce((a, b) => a + b, 0) / 3 } : null;
         }).filter(Boolean).sort((a, b) => b.v - a.v);
-        if (scored.length >= c.th.minKnown && scored[0].v >= c.th.playmaker) {
+        byAttributes = scored.length >= c.th.minKnown;
+        if (byAttributes && scored[0].v >= c.th.playmaker) {
           candidates.push({ name: scored[0].l.name, l: scored[0].l, why: `tvůrce hry podle atributů: průměr Passing, Vision a Technique ${r1(scored[0].v)} (práh ${c.th.playmaker})` });
           basis = 'ODHAD';
         }
       }
-      if (!candidates.length) return kp.length || c.lineup.length ? NOTHING : undefined;
+      if (!candidates.length) return kp.length || byAttributes ? NOTHING : undefined;
       const picked = candidates.slice(0, Math.min(2, c.th.maxOi));
       const absent = kp.filter((k) => !c.lineup.some((x) => CS.sameName(x.name, k.name)) && c.lineup.length).map((k) => k.name);
       const oi = picked.map((p) => ({ code: p.l.code || null, slot: p.l.slot || null, hint: p.l.code || p.l.position || p.l.fm, name: p.name, column: 'Těsné obsazování', value: 'Vždy', why: p.why }));
@@ -275,7 +324,7 @@
 
     R('P06', 'Výpadky', 'HRA', 'Soupeř nebude mít některé hráče', (c) => {
       const ab = c.report.absences || [];
-      if (!ab.length) return c.report.team || c.lineup.length ? NOTHING : undefined;
+      if (!ab.length) return undefined; // prázdný seznam může znamenat, že se část zprávy s výpadky nenačetla: nevyhodnoceno, ne „nikdo nechybí“
       const out = ab.filter((a) => a.status === 'out');
       const doubt = ab.filter((a) => a.status === 'doubt');
       const posOf = (name) => {
@@ -290,8 +339,8 @@
       const risks = ['Očekávaná sestava se do dne zápasu může změnit: pokyny k soupeři zadávej až na konci.'];
       if (doubt.length) risks.push(`Nejistý start: ${doubt.map((a) => a.name).join(', ')}. Před zápasem znovu otevři Předpokládanou sestavu.`);
       return {
-        sev: outBack.length >= 2 ? 'doporuceno' : 'info', basis: 'HRA', priority: outBack.length >= 2 ? 2 : 0,
-        text: outBack.length >= 2 ? 'Soupeři chybí oba hlavní stopeři: zkus hru do prostoru za obranou a do vzduchu (úvaha z komunitních rad, ne pravidlo).' : `Soupeř nebude mít: ${out.map((a) => a.name).join(', ') || 'nikdo jistě nechybí'}. Nehlídej ani nenastavuj pokyny na hráče, který nehraje.`,
+        sev: outBack.length >= 2 ? 'zvaz' : 'info', basis: 'HRA', priority: outBack.length >= 2 ? 2 : 0,
+        text: outBack.length >= 2 ? `Soupeři chybí dva stopeři (${outBack.map((a) => a.name).join(', ')}): zkus hru do prostoru za obranou a do vzduchu (úvaha z komunitních rad, ne pravidlo; zpráva neříká, jak důležití byli).` : `Soupeř nebude mít: ${out.map((a) => a.name).join(', ') || 'nikdo jistě nechybí'}. Nehlídej ani nenastavuj pokyny na hráče, který nehraje.`,
         changes: [], ev, risks, watch: '', info: outBack.length < 2,
       };
     }),
@@ -299,8 +348,11 @@
     R('P07', 'Presink soupeře', 'KOMUNITA', 'Soupeř napadá často: bezpečná rozehrávka', (c) => {
       const p = txt(c.report.manager && c.report.manager.pressing);
       if (!p) return undefined;
-      const k = key(p);
-      const high = /castej|vzdy|vysok|often|always|high/.test(k) && !/mene|less|zridka/.test(k);
+      const w = plain(p);
+      // „Často“, „Častěji“, „Vždy“, „Vysoký“, „Often“, „Always“, „High“; záporné a slabší tvary („Not often“, „Zřídka“, „Méně často“, „Nikdy“) ne
+      const frequent = /\b(?:casto|castej\w*|vzdy|vysok\w*|often|always|high)\b/.test(w);
+      const rare = /\b(?:not|never|nikdy|zridka|mene|less|rarely|sometimes|obcas|ne)\b/.test(w);
+      const high = frequent && !rare;
       if (!high) return NOTHING;
       const bu = c.own('buildUpStrategy');
       const changes = [change(c, 'buildUpStrategy', 'Bypass Press', 'exact')];
@@ -322,9 +374,10 @@
     R('P08', 'Styl soupeře', 'KOMUNITA', 'Mentalita soupeřova trenéra: jak na něj', (c) => {
       const m = txt(c.report.manager && c.report.manager.mentality);
       if (!m) return undefined;
-      const k = key(m);
-      const cautious = /opatrn|obran|defen|cautious/.test(k) && !/dobrodruz/.test(k);
-      const attacking = /dobrodruz|utocn|aktivn|attack|positive|adventur/.test(k);
+      // sedm mentalit ve hře: Velmi defenzivní, Obranný, Opatrný, Vyvážený, Aktivní (Positive), Útočný, Velmi útočný; Aktivní ani Vyvážený zvláštní radu nemá
+      const w = plain(m);
+      const cautious = /\b(?:opatrn\w*|obran\w*|defenziv\w*|defensive|cautious)\b/.test(w);
+      const attacking = /\b(?:utocn\w*|attacking|dobrodruz\w*|adventurous)\b/.test(w);
       const ev = [`mentalita soupeřova trenéra: „${m}“`];
       if (cautious) {
         const changes = [change(c, 'attackingWidth', 'Wider', 'up')];
@@ -343,7 +396,8 @@
     }),
 
     R('P09', 'Střed zálohy', 'ODHAD', 'Přesila ve středu zálohy', (c) => {
-      if (c.lineup.length < 10 || !c.ours) return undefined;
+      const placed = c.lineup.filter((l) => l.fm).length; // pozice, které se podařilo převést (ne jen počet jmen)
+      if (placed < 10 || !c.ours) return undefined;
       const theirs = c.lineup.filter((l) => l.fm && CENTRE_MID.has(l.fm)).length;
       const own = c.ours.slots.filter((s) => s.pos && CS.fmOfSlot(s.pos) && CENTRE_MID.has(CS.fmOfSlot(s.pos))).length;
       const diff = theirs - own;
@@ -356,7 +410,7 @@
 
     R('P10', 'Standardky', 'HRA', 'Soupeř je zranitelný při obraně standardek', (c) => {
       const defend = (c.report.setPieces && c.report.setPieces.defence) || [];
-      const weakDef = defend.filter((t) => /struggled to defend|conceding from|conceded from|neubránil|inkasuj/i.test(t) && !/none of the previous|good when defending|dobře brán/i.test(t));
+      const weakDef = defend.filter((t) => /struggled to defend|conceding from|conceded from|neubránil|inkasuj/i.test(t) && !NEGATED.test(plain(t)));
       if (!defend.length) return undefined;
       if (!weakDef.length) return NOTHING;
       const zone = weakDef.some((t) => /far post|zadní tyč/i.test(t)) ? 'zadní tyč' : weakDef.some((t) => /near post|přední tyč/i.test(t)) ? 'přední tyč' : null;
@@ -372,8 +426,8 @@
     }),
 
     R('P11', 'Standardky', 'HRA', 'Soupeř je nebezpečný na standardky', (c) => {
-      const threat = [...c.strong('setPieceChances'), ...c.strong('freeKicks')];
-      const att = ((c.report.setPieces && c.report.setPieces.attack) || []).filter((t) => /scored from|goals from|delivered .* (good|well)|vytvář/i.test(t) && !/failed|ineffective|never/i.test(t));
+      const threat = [...c.strong('setPieceChances'), ...c.strong('freeKicks'), ...c.strong('corners')];
+      const att = ((c.report.setPieces && c.report.setPieces.attack) || []).filter((t) => /scored from|goals from|delivered .* (good|well)|vytvář/i.test(t) && !/failed|ineffective|never/i.test(t) && !NEGATED.test(plain(t)));
       if (!threat.length && !att.length) return c.strengths.length || (c.report.setPieces && (c.report.setPieces.attack || []).length) ? NOTHING : undefined;
       return {
         sev: 'zvaz', basis: 'HRA', priority: 1,
@@ -396,7 +450,7 @@
         text: 'Obrana soupeře je pomalá: hraj míče za obranu rychlým útočníkům.',
         changes, who: fastOwn.map((p) => ({ name: p.name, why: `rychlost: ${p.detail}` })),
         ev: [`obránci soupeře: průměr Pace a Acceleration ${r1(avg.value)} (načteno u ${avg.known}; práh ${c.th.slowDefence})`],
-        risks: ['Proti hluboké obraně není prostor za ní. Ve FM27 SI píše, že obránci už nedoběhnou „nereálně rychle“, takže starší rady o dobíhání nemusí platit.'],
+        risks: ['Proti hluboké obraně není prostor za ní. Autoři hry u FM27 píší, že rychlost a zrychlení se přepočítaly podle dat Hawk-Eye a obránci už nedoběhnou „nerealisticky rychle“, takže starší rady o dobíhání nemusí platit (zdroj: https://www.footballmanager.com/fm27/features/fm27-tactical-tweaks-and-match-engine-upgrades).'],
         watch: 'Kolik míčů za obranu skončí šancí a kolikrát jsi v ofsajdu.',
       };
     }),
@@ -427,7 +481,7 @@
         const bad = ['Composure', 'Passing', 'First Touch'].filter((n) => c.attr(l, n) !== null && c.attr(l, n) <= c.th.weakPasser);
         if (bad.length) weak.push({ l, bad });
       }
-      const known = back.filter((l) => l.attrs);
+      const known = back.filter((l) => ['Composure', 'Passing', 'First Touch'].some((n) => c.attr(l, n) !== null)); // hráči, o kterých je co posoudit
       if (known.length < 2) return undefined;
       if (!weak.length) return NOTHING;
       const w = weak.sort((a, b) => b.bad.length - a.bad.length)[0];
@@ -521,15 +575,17 @@
     }
     recs.sort((a, b) => b.priority - a.priority || SEV_RANK[a.sev] - SEV_RANK[b.sev] || a.id.localeCompare(b.id));
 
-    // rozpočet změn: nejvýš maxChanges nastavení najednou, ostatní je volitelné
-    let used = 0;
+    // rozpočet změn: nejvýš maxChanges RŮZNÝCH nastavení najednou, ostatní je volitelné; totéž nastavení, které chtějí dvě pravidla, se počítá jednou
+    const usedIds = new Set();
     for (const r of recs) {
       if (r.info || (!r.cost.settings && !r.cost.oi)) continue;
-      if (r.cost.settings && used + r.cost.settings > th.maxChanges) r.optional = true;
-      else used += r.cost.settings;
+      const fresh = r.changes.filter((x) => !x.already && !usedIds.has(x.id)).map((x) => x.id);
+      if (fresh.length && usedIds.size + fresh.length > th.maxChanges) r.optional = true;
+      else for (const id of fresh) usedIds.add(id);
     }
-    const total = recs.filter((r) => !r.info).reduce((s, r) => s + r.cost.settings, 0);
-    const budget = { settings: used, offered: total, max: th.maxChanges, over: total > th.maxChanges };
+    const offeredIds = new Set();
+    for (const r of recs) if (!r.info) for (const x of r.changes) if (!x.already) offeredIds.add(x.id);
+    const budget = { settings: usedIds.size, offered: offeredIds.size, max: th.maxChanges, over: offeredIds.size > th.maxChanges };
 
     // pokyny k soupeři (nejvýš maxOi, hlavní hráči přednostně)
     const oi = [];
@@ -550,10 +606,12 @@
     const changeable = recs.filter((r) => !r.info && !r.optional && r.changes.some((x) => !x.already));
     changeable.sort((a, b) => b.priority - a.priority || a.cost.settings - b.cost.settings || a.id.localeCompare(b.id));
     const top = changeable[0] || null;
+    // jedna testovatelná změna je JEDNO nastavení (první z doporučení); zbytek téhož doporučení se zmíní jako pozdější krok
+    const todoOfTop = top ? top.changes.filter((x) => !x.already) : [];
     const oneChange = top
       ? {
           recId: top.id,
-          text: `Zkus jen tohle: ${top.changes.filter((x) => !x.already).map(changeText).join(', ')}.`,
+          text: `Zkus jen tohle: ${changeText(todoOfTop[0])}.${todoOfTop.length > 1 ? ` Zbytek tohoto doporučení (${todoOfTop.slice(1).map(changeText).join(', ')}) přidej až potom, co uvidíš, jak se projevila první změna.` : ''}`,
           watch: top.watch || 'Sleduj prvních 15 až 20 minut.',
           revert: 'Když se do 20 až 25 minut nic nezlepší, vrať původní hodnotu. Změna chvíli drží staré hodnoty (štítek „Tactical Tweak Pending“) a každá změna snižuje porozumění taktice.',
         }

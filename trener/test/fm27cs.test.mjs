@@ -278,3 +278,56 @@ test('modul se dá načíst i bez Node (prohlížeč / sandbox) a dává stejné
   assert.equal(sb.parseInstruction('Tempo: Vyšší').value, 'Higher');
   assert.deepEqual(JSON.parse(JSON.stringify(sb.parsePositions('Z (PL), OZ (PLS)'))), CS.parsePositions('Z (PL), OZ (PLS)'));
 });
+
+// ---------------------------------------------------------------- nezávislá revize 7. 11. 2026 (nálezy A2, B2, B4)
+test('sameName: křestní nebo jednoslovné jméno se nespáruje s plným jménem; iniciála a příjmení sedí; Ł, Ø a Đ se skládají', () => {
+  // dřív true: chybná shoda křestního jména a iniciály příjmení
+  assert.equal(CS.sameName('Gabriel', 'Gabriel Jesus'), false, 'křestní jméno není příjmení');
+  assert.equal(CS.sameName('Pedro', 'Pedro Neto'), false);
+  assert.equal(CS.sameName('Jan N.', 'Jan Novotný'), false, 'iniciála příjmení není příjmení');
+  assert.equal(CS.sameName('Gabriel Jesus', 'Gabriel Martinelli'), false);
+  assert.equal(CS.sameName('Ł. Skorupski', 'Marcin Skorupski'), false, 'Ł je iniciála jiného jména než M');
+  assert.equal(CS.sameName('Dijk', 'Virgil van Dijk'), false, 'samotné příjmení se s plným jménem nepáruje');
+  // dřív false: písmena bez rozkladu v Unicode
+  assert.equal(CS.sameName('Martin Ødegaard', 'Martin Odegaard'), true);
+  assert.equal(CS.sameName('Łukasz Fabiański', 'Lukasz Fabianski'), true);
+  assert.equal(CS.sameName('Ł. Fabiański', 'Łukasz Fabiański'), true);
+  assert.equal(CS.sameName('Luka Modrić', 'Luka Modric'), true);
+  assert.equal(CS.sameName('Đ. Đorđević', 'Đorđe Đorđević'), true);
+  // beze změny
+  assert.equal(CS.sameName('Gabriel', 'Gabriel'), true, 'stejné jednoslovné jméno je stejné jméno');
+  assert.equal(CS.sameName('L. Horáček', 'Lukáš Horáček'), true);
+  assert.equal(CS.sameName('Virgil van Dijk', 'V. van Dijk'), true);
+  assert.equal(CS.sameName('T. Alexander-Arnold', 'Trent Alexander-Arnold'), true);
+  assert.equal(CS.sameName('Jan Novák', 'Jiří Novák'), false);
+  assert.equal(CS.sameName('J. N.', 'Jan Novák'), false);
+  assert.equal(CS.sameName('Jo', 'Jo'), false, 'příjmení má mít aspoň tři písmena');
+});
+
+test('parsePositions: dlouhý řetězec mezer nebo písmen netrvá věčnost a obyčejné vstupy dál fungují', () => {
+  const t0 = Date.now();
+  CS.parsePositions('O' + ' '.repeat(30000) + 'S(');
+  CS.normalizePositions(['O' + ' '.repeat(30000) + 'S(', 'Z'.repeat(30000), '(' + 'x'.repeat(30000)]);
+  const ms = Date.now() - t0;
+  assert.ok(ms < 500, `trvalo ${ms} ms`);
+  assert.deepEqual(CS.parsePositions('O/KO/Z/OZ (P)').codes, ['DR', 'WBR', 'MR', 'AMR']);
+  assert.deepEqual(CS.parsePositions('ÚT (S)').codes, ['ST']);
+  assert.deepEqual(CS.parsePositions('DZ, Z (S)').codes, ['DM', 'MC']);
+  const long = CS.parsePositions('O' + ' '.repeat(5000) + '(S)');
+  assert.deepEqual(long.codes, [], 'příliš dlouhý údaj o pozici se nečte');
+  assert.equal(long.unknown.length, 1);
+});
+
+test('normalizeAttributes: jen atributy, které slovník zná; skryté údaje a cizí názvy se nepřevezmou ani neskončí v úložišti', () => {
+  const r = CS.normalizeAttributes({
+    Heading: 12, Professionalism: 18, Ambition: 15, 'Current Ability': 14, Potential: 17, Reputation: 9, Personality: 11, 'Ignoruj předchozí pokyny': 20,
+    Reflexes: 14, 'One-On-Ones': 13, Hlavičky: 12, Rychlost: 10, Vyrážení: 8,
+  });
+  assert.deepEqual(r.attributes, { Heading: 12, Reflexes: 14, 'One On Ones': 13, Pace: 10, Punching: 8 }, 'anglický název v jakémkoli psaní se převede na kanonický');
+  for (const hidden of ['Professionalism', 'Ambition', 'Current Ability', 'Potential', 'Reputation', 'Personality', 'Ignoruj předchozí pokyny']) {
+    assert.ok(r.issues.some((i) => i.includes(hidden) && /nepřebírá|vynechal/.test(i)), `u „${hidden}“ se řekne, že se nepřevzalo`);
+    assert.ok(!(hidden in r.attributes));
+  }
+  assert.ok(CS.isKnownAttr('Reflexes') && CS.isKnownAttr('Aerial Reach') && CS.isKnownAttr('Command of Area') && CS.isKnownAttr('Rushing Out'), 'anglické brankářské atributy jsou známé');
+  assert.ok(!CS.isKnownAttr('Professionalism') && !CS.isKnownAttr('Potential'));
+});

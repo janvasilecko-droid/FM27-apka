@@ -67,19 +67,41 @@ test('sezení: oblast, kterou asistent jmenuje ve hře, se převede na sezení T
   assert.deepEqual(TE.analyze({ levels: { understanding: 'high', nextMatch: 'high' } }).sessions, []);
 });
 
-test('složitost taktiky je odhad: instrukce mimo výchozí hodnotu plus pokyny k soupeři, s výpisem těch instrukcí', () => {
+test('složitost taktiky je odhad z PŘEČTENÝCH instrukcí: při neúplném čtení je to dolní odhad (neznámá, aspoň střední, vysoká), nízká jen když je přečteno všech 27', () => {
   const low = TE.analyze({ tacticAnalysis: taWith(3) });
   assert.equal(low.complexity.nonDefault, 3);
-  assert.equal(low.complexity.level, 'nízká');
+  assert.equal(low.complexity.level, 'neznámá', 'tři instrukce ze 27 nestačí na tvrzení „nízká“');
+  assert.equal(low.complexity.complete, false);
+  assert.equal(low.complexity.known, 3);
+  assert.equal(low.complexity.allInstructions, 27);
+  assert.match(low.complexity.note, /Přečteno je 3 z 27 instrukcí/);
   assert.equal(low.complexity.basis, 'ODHAD');
   const mid = TE.analyze({ tacticAnalysis: taWith(8) });
-  assert.equal(mid.complexity.level, 'střední');
+  assert.equal(mid.complexity.level, 'aspoň střední');
   const withOpp = TE.analyze({ tacticAnalysis: taWith(8), oppositionInstructions: 5 });
   assert.equal(withOpp.complexity.total, 13);
-  assert.equal(withOpp.complexity.level, 'vysoká');
+  assert.equal(withOpp.complexity.level, 'vysoká', 'dolní odhad 13 stačí na „vysoká“');
   assert.ok(withOpp.complexity.nonDefaultList.some((l) => /^Tempo: Vyšší$/.test(l)), withOpp.complexity.nonDefaultList.join(' | '));
   assert.match(withOpp.complexity.note, /Vzorec hry neznáme/);
+  assert.match(withOpp.complexity.note, /Výchozí hodnoty instrukcí aplikace ve FM27 neověřila/);
   assert.equal(TE.analyze({ tacticAnalysis: taWith(2), oppositionInstructions: -1 }).complexity.opposition, null);
+  assert.match(TE.analyze({ tacticAnalysis: taWith(2) }).complexity.note, /pokynů k soupeři jsi nezadal/);
+  // bez přečtených instrukcí vůbec: neznámá, ne „nízká“
+  const none = TE.analyze({ tacticAnalysis: taWith(0) });
+  assert.equal(none.complexity.level, 'neznámá');
+  assert.equal(none.complexity.total, 0);
+  // všech 27 instrukcí přečteno: úrovně podle počtu mimo výchozí
+  const full = (n) => {
+    const t = T.makeTactic({ formation: '4-3-3', name: 'Plná', careerId: 'c' });
+    t.teamInstructions = K.TEAM_INSTRUCTIONS.filter((x) => !K.THIRD_PARTY_ONLY.includes(x.id)).map((x, i) => `${x.name}: ${i < n ? x.values.find((v) => v !== x.default) : x.default}`);
+    return TE.analyze({ tacticAnalysis: TA.analyze(t, {}) }).complexity;
+  };
+  assert.equal(full(0).complete, true);
+  assert.equal(full(0).known, 27);
+  assert.equal(full(2).level, 'nízká');
+  assert.equal(full(8).level, 'střední');
+  assert.equal(full(12).level, 'vysoká');
+  assert.doesNotMatch(full(2).note, /Přečteno je/, 'u úplného čtení není co omlouvat');
 });
 
 test('názvy pilířů a faktorů jsou přesně ty ze hry a každý faktor má radu', () => {

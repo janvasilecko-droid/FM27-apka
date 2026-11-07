@@ -27,13 +27,15 @@ ne model. Rozbory (pravidla) jsou čistý kód bez sítě a bez AI: stejný vstu
 1. **Můj tým:** na obrazovce hry otevři Sestava › A-tým, vlevo nahoře rozbal pohledy a vyfoť **Atributy › Technické, Psychika, Fyzické atributy** (u brankářů Brankářské). Pohled Technické má jen
    12 ze 14 technických atributů (chybí Vedení míče a Obsazování; nejspíš jsou v pohledech Obrana a Útok, ve hře to ale není ověřené). Hra nikdy neukáže všechny atributy najednou, proto se snímky
    **slučují podle jména hráče** (jeden hráč se nikdy nezaloží dvakrát) a atribut, který na žádném snímku nebyl, zůstane neznámý.
-   Aplikace ukáže návrh (nový, doplněný, beze změny) a **zapíše jen to, co potvrdíš**.
+   Aplikace ukáže návrh (nový, doplněný, beze změny) a **zapíše jen to, co potvrdíš**. Dva různí hráči se stejně zapsaným jménem („J. Silva“ dvakrát s jiným věkem nebo pozicemi)
+   ani zkratka, která sedí na víc hráčů v kádru, se **nesloučí a nezapíšou**: aplikace je vypíše zvlášť i s důvodem, protože z obrázku nejde poznat, který je který. Do atributů se dostanou jen
+   názvy, které aplikace zná (skryté údaje a cizí názvy se vynechají).
 2. **Moje taktiky:** vyfoť Taktika › Přehled › **Tvar týmu** (hřiště s tabulkou rolí; s míčem i bez míče) a **Týmové instrukce** (s míčem i bez míče). Formace se odvodí z kódů 11 míst
    (B, O, KO, DZ, Z, OZ, ÚT a strany P, L, S), role s míčem i bez míče se přiřadí ke každému místu, přečte se styl, mentalita a všechny instrukce.
    Co aplikace nepoznala, jí zůstane prázdné (nic se nehádá) a uvidíš to v návrhu.
 3. **Rozbor sestavy a taktiky** (jedno tlačítko „Analyzovat sestavu a taktiku“): 42 pravidel taktiky, rozbor sestavy (hloubka, kvalita, věk, zranění), vzájemné **kontroly rolí a instrukcí**.
    Pravidlo, kterému chybí vstup, se **nevyhodnotí** a je v seznamu „nevyhodnoceno“.
-4. **Soupeř:** ve hře otevři Zpráva o týmu soupeře (Přehled; Analýza formace › Očekávaná taktika; Analýza standardek) a vyfoť. Volitelně vyfoť i atributy jeho hráčů, **ale jen když je hra
+4. **Soupeř:** (zpráva o jiném týmu se nikdy nesmíchá s uloženou: aplikace to ukáže a uloženou zprávu nahradí jen s tvým výslovným souhlasem) ve hře otevři Zpráva o týmu soupeře (Přehled; Analýza formace › Očekávaná taktika; Analýza standardek) a vyfoť. Volitelně vyfoť i atributy jeho hráčů, **ale jen když je hra
    ukazuje** (u týmu s dobrými znalostmi jsou to přesná čísla; jinak zůstanou neznámé a rozbor atributů se nedělá).
 5. **Příprava na zápas** (tlačítko „Připravit zápas“): seznam doporučení seřazený podle důležitosti. U každého je **důkaz** (co o soupeři psala hra nebo co ukazují atributy), **konkrétní změna
    v českých názvech hry** („Šířka při útočení → Širší“), případně **pokyn k soupeři** (sloupec, místo, hodnota), **koho z tvého kádru** dát, **rizika**, **na co se dívat v zápase**
@@ -199,8 +201,13 @@ tvoje **vlastní taktika** a tvůj kádr. Výstupem je seřazený seznam (`Dopor
 průměr Pace a Acceleration obránců ≤ 10 = pomalá obrana; průměr Passing, Vision a Technique ≥ 14 = tvůrce hry; Composure, Passing nebo First Touch ≤ 9 u obránce nebo brankáře = slabý rozehrávač; rozbor atributů se dělá, jen když
 je potřebné atributy načteno u aspoň 3 hráčů sestavy; aspoň 2 fyzické slabiny = fyzicky měkký soupeř; rozdíl 2 hráčů ve středu zálohy = přesila.
 
-**Cena změn.** Ve hře každá změna taktiky i každý tweak snižuje porozumění taktice (štítek „Tactical Tweak Pending“, několik minut se drží staré hodnoty). Proto doporučení nese **počet změn**, drží se **nejvýš tří změn
-nastavení** (`maxChanges`) a **nejvýš tří pokynů k soupeři** (`maxOi`), a nad rozpočet jde jen označené „volitelné“. Nahoře je vždy **jedna testovatelná změna**: tu změň první, sleduj ji a teprve potom přidávej další.
+**Cena změn.** Ve hře každá změna taktiky i každý tweak snižuje porozumění taktice (štítek „Tactical Tweak Pending“, několik minut se drží staré hodnoty). Proto doporučení nese **počet změn**, drží se **nejvýš tří různých změn
+nastavení** (`maxChanges`; totéž nastavení, které chtějí dvě pravidla, se počítá jednou) a **nejvýš tří pokynů k soupeři** (`maxOi`), a nad rozpočet jde jen označené „volitelné“. Nahoře je vždy **jedna testovatelná změna, tedy jedno
+nastavení** (první z nejvyššího doporučení; zbytek téhož doporučení je zmíněný jako pozdější krok): tu změň první, sleduj ji a teprve potom přidávej další.
+
+**Štítek u konkrétního doporučení může být přesnější než v tabulce.** Tabulka níž udává zdroj úsudku pravidla; například P05 (těsné obsazování významných hráčů) je v katalogu KOMUNITA, ale doporučení nese HRA, když významné hráče
+uvedla hra, a ODHAD, když je aplikace určila z atributů. Pravidlo, kterému chybí vstup, je „nevyhodnoceno“; prázdný seznam výpadků znamená, že se ta část zprávy nenačetla, takže P06 je nevyhodnoceno, ne „nikdo nechybí“.
+Jména hráčů se z textu hry spárují jen jednoznačně (příjmení jako celé slovo; víc shod rozliší křestní jméno nebo iniciála; jinak se o koho jde nehádá).
 
 ## 8. Tactical Effectiveness
 
@@ -211,7 +218,9 @@ Ve hře jsou měřidla jen barevné pruhy bez čísel, proto **úrovně pilíř�
   Next Match Info (Quality of Next Opposition Report, Opposition Player Knowledge).
 - **Rady podle klíčových faktorů** (KOMUNITA/ODHAD): u každého ze 17 faktorů, co s ním dělat. U pilíře s nízkou úrovní jsou rozbalené.
 - **Pořadí, na co se zaměřit nejdřív:** nízká, pak střední, pak „nevím“, vysoká poslední.
-- **Odhad složitosti tvé taktiky** (ODHAD): počet týmových instrukcí mimo výchozí hodnotu plus pokyny k soupeři; od 7 „střední“, od 12 „vysoká“. Vzorec hry neznáme, je to jen vodítko.
+- **Odhad složitosti tvé taktiky** (ODHAD): počet týmových instrukcí mimo výchozí hodnotu plus pokyny k soupeři; od 7 „střední“, od 12 „vysoká“. Počítá se jen z **přečtených** instrukcí, takže při neúplném čtení je to dolní odhad:
+  „vysoká“ platí vždy, od sedmi je to „aspoň střední“, a jinak je složitost „neznámá“ (nízká se řekne jen tehdy, když je přečteno všech 27 instrukcí). Výchozí hodnoty instrukcí aplikace ve FM27 neověřila (bere je z veřejných průvodců).
+  Vzorec hry neznáme, je to jen vodítko.
 - **Doporučená sezení** z tréninkového rozvrhu: Tactical Understanding (pokud asistent ve hře jmenuje oblast, použije se jeho věta: štítek HRA) a Zápasová příprava (výběr podle karty Příprava na zápas).
 
 **Co aplikace u Tactical Effectiveness neví:** text po najetí na měřidla, barevnou stupnici a počet stupňů, z čeho se pilíře počítají a jak moc které změny pomáhají. To je v kartě i v seznamu „Co aplikace neví“.
@@ -220,7 +229,8 @@ Ve hře jsou měřidla jen barevné pruhy bez čísel, proto **úrovně pilíř�
 
 - **Nepředpovídá výsledek** ani nepíše, že taktika „zabere“, ani nepočítá „vlastní skóre 0 až 100“ taktiky (bez dat hry by bylo vymyšlené).
 - **Nehádá chybějící údaj:** neznámé atributy, neznámá role, neznámá instrukce = pravidlo se nevyhodnotí a je to vidět. Vlastní nastavení se nikdy nebere jako výchozí.
-- **Nepoužívá skryté údaje hry** (CA, PA, osobnost, reputace), ani kdyby je obrazovka ukazovala; nečte paměť hry a **nic ve hře nemění**.
+- **Nepoužívá skryté údaje hry** (CA, PA, osobnost, reputace), ani kdyby je obrazovka ukazovala; nečte paměť hry a **nic ve hře nemění**. Do úložiště se z obrázku dostanou jen atributy, jejichž název aplikace zná.
+- **Neslučuje dva různé hráče** se stejně zapsaným jménem a nepřepisuje údaje hráče v kádru podle nejednoznačné shody jména.
 - **Nevydává za vlastní objev to, co hra sama říká** (Datové centrum, zpráva štábu): takové věty jsou označené HRA.
 - **Nepřebírá cizí kód ani tabulky** (nástroje třetích stran jsou jen inspirace podle veřejných popisů; viz `docs/REFERENCE_ANALYSIS.md`).
 - Snímky obrazovky hry ani jména skutečných hráčů se **neukládají do repozitáře**; v repozitáři jsou jen názvy, rozložení a vymyšlené zkušební příklady.
@@ -242,5 +252,7 @@ záložka Šířka kádru; co ukazuje zpráva o soupeři při slabé znalosti t�
 | Rozbor sestavy | `squadcheck.js`, `posattrs.js` | `test/squadcheck.test.mjs`, scénář 24 |
 | Příprava na zápas | `oppanalysis.js`, `screens/oppprep.js` | `test/oppanalysis.test.mjs`, scénář 26 |
 | Tactical Effectiveness | `tacteff.js`, `screens/teffect.js` | `test/tacteff.test.mjs`, scénář 27 |
+
+Nezávislá revize nových modulů (7. 11. 2026) a co se podle ní opravilo: `docs/REVIZE_PRIPRAVA_NA_ZAPAS_2026-11-07.md`.
 
 Pravidla jsou čisté funkce: zkoušky ověřují, že stejný vstup dá stejný výstup, že se vstupy nemění, že moduly nesahají na DOM ani na síť a že chybějící vstup pravidlo nevyhodnotí.

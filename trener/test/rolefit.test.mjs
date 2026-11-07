@@ -398,3 +398,32 @@ test('FM27: profil role přečtený z české obrazovky (české názvy atribut�
   const pe = mk('Anglický', ['Heading', 'Tackling'], ['Pace']);
   assert.equal(RF.roleFit({ attributes: { Hlavičky: 15, 'Obranné zákroky': 16, Rychlost: 13 } }, pe).missing.length, 0);
 });
+
+// ---------------------------------------------------------------- nezávislá revize 7. 11. 2026 (nález A4)
+test('úprava profilu role bez míče nepřepíše profil téhož jména s míčem: editProfile přenáší fázi a povinnost z upravovaného profilu', () => {
+  const inP = RF.makeProfile({ name: 'Střední obránce', key: ['Heading'], pref: ['Pace'], phase: 'in' }, { now: 1 }).profile;
+  const outP = RF.makeProfile({ name: 'Střední obránce', key: ['Tackling'], pref: [], phase: 'out', duty: 'x' }, { now: 2 }).profile;
+  assert.notEqual(inP.id, outP.id, 'oba profily existují vedle sebe');
+  const edited = RF.editProfile(outP, { name: 'Střední obránce', key: ['Tackling', 'Marking'], pref: [] }, { now: 3 });
+  assert.equal(edited.ok, true);
+  assert.equal(edited.profile.id, outP.id, 'úprava profilu bez míče zůstává profilem bez míče');
+  assert.equal(edited.profile.phase, 'out');
+  assert.equal(edited.profile.duty, 'x');
+  assert.deepEqual(edited.profile.key, ['Tackling', 'Marking']);
+  // bez editProfile (formulář, který fázi nepředá) by vznikl profil s míčem a přepsal by druhý
+  const naive = RF.makeProfile({ name: 'Střední obránce', key: ['Tackling', 'Marking'], pref: [] }, { now: 3 });
+  assert.equal(naive.profile.id, inP.id, 'tohle je chyba, kterou editProfile odstraňuje');
+  // přejmenování role bez míče zůstává u profilů bez míče
+  const renamed = RF.editProfile(outP, { name: 'Zajišťující stoper', key: ['Tackling'], pref: [] }, { now: 3 });
+  assert.match(renamed.profile.id, /^ro/);
+  assert.equal(renamed.profile.phase, 'out');
+  // uživatel fázi výslovně změní: platí jeho volba
+  assert.equal(RF.editProfile(inP, { name: 'Střední obránce', key: ['Heading'], pref: [], phase: 'out' }, { now: 4 }).profile.phase, 'out');
+  // starý profil bez fáze zůstane bez fáze
+  const legacy = RF.makeProfile({ name: 'Advanced Forward', key: ['Finishing'], pref: [] }, { now: 5 }).profile;
+  const ed = RF.editProfile(legacy, { name: 'Advanced Forward', key: ['Finishing', 'Pace'], pref: [] }, { now: 6 });
+  assert.equal(ed.profile.id, legacy.id);
+  assert.equal(ed.profile.phase, '');
+  // bez upravovaného profilu je to obyčejné makeProfile
+  assert.equal(RF.editProfile(null, { name: 'Nový', key: ['Pace'], pref: [] }, { now: 7 }).ok, true);
+});

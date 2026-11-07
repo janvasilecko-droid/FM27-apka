@@ -26,8 +26,11 @@
     return v;
   }
   const str = (v) => (v === null || v === undefined ? '' : String(v));
+  // Písmena, která v Unicode nemají rozklad na základní písmeno a čárku (Ł, Ø, Đ, Æ…): bez převodu by se z názvu a jména tiše ztratila.
+  const TRANSLIT = { ł: 'l', ø: 'o', đ: 'd', ð: 'd', æ: 'ae', œ: 'oe', ß: 'ss', þ: 'th', ı: 'i', ħ: 'h' };
+  const fold = (s) => core.fold(str(s)).replace(/[łøđðæœßþıħ]/g, (c) => TRANSLIT[c]);
   /** Klíč pro porovnání názvů bez rozdílu velikosti písmen, diakritiky, mezer a interpunkce („Obranné zákroky“ = „obranne zakroky“). */
-  const key = (s) => core.fold(str(s)).replace(/[^a-z0-9]/g, '');
+  const key = (s) => fold(s).replace(/[^a-z0-9]/g, '');
 
   // ---------------------------------------------------------------- atributy hráčů (36 hráčů z pole viděno na profilu hráče)
   // [česky tak, jak to píše hra, kanonický anglický název]. „Fyzička“ je v profilu atribut Natural Fitness (a zároveň nadpis skupiny).
@@ -48,39 +51,49 @@
     ['Komunikace', 'Communication'], ['Výstřednost', 'Eccentricity'], ['Vyrážení', 'Punching'],
   ]);
   const ATTR_BY_KEY = new Map(ATTR_PAIRS.map(([cs, en]) => [key(cs), en]));
-  const ATTR_ENGLISH = new Set(ATTR_PAIRS.map(([, en]) => key(en)));
+  // anglické brankářské atributy (česky viděny jen tři, viz výše): hra je v anglické verzi píše takhle a pravidla soupeře (P01, P03) na ně spoléhají
+  const GK_ENGLISH = deepFreeze(['Aerial Reach', 'Command Of Area', 'Handling', 'Kicking', 'One On Ones', 'Reflexes', 'Rushing Out', 'Throwing']);
+  // kanonické anglické názvy podle klíče: „first touch“, „First-Touch“ i „First Touch“ dají „First Touch“
+  const ENGLISH_BY_KEY = new Map([...ATTR_PAIRS.map(([, en]) => en), ...GK_ENGLISH].map((en) => [key(en), en]));
 
-  /** canonAttr('Hlavičky') → 'Heading'; anglický a neznámý název vrací beze změny (jen ořezaný). */
+  /** canonAttr('Hlavičky') → 'Heading'; anglický název v jakémkoli psaní → kanonický ('one-on-ones' → 'One On Ones'); neznámý název vrací beze změny (jen ořezaný). */
   function canonAttr(name) {
     const raw = str(name).trim();
-    return ATTR_BY_KEY.get(key(raw)) || raw;
+    const k = key(raw);
+    return ATTR_BY_KEY.get(k) || ENGLISH_BY_KEY.get(k) || raw;
   }
   /** Klíč atributu po převodu na kanonický název: „Hlavičky“, „Heading“ i „heading“ dají totéž. */
   const attrKey = (name) => key(canonAttr(name));
   /** Je to název atributu, který tenhle slovník zná (česky nebo anglicky)? */
-  const isKnownAttr = (name) => ATTR_BY_KEY.has(key(name)) || ATTR_ENGLISH.has(key(name));
+  const isKnownAttr = (name) => ATTR_BY_KEY.has(key(name)) || ENGLISH_BY_KEY.has(key(name));
 
   /** Skupiny atributů v profilu hráče a v pohledech soupisky (jak je hra píše). */
   const ATTR_GROUPS_CS = deepFreeze({ profile: ['Technika', 'Psychika', 'Fyzička', 'Brankářské'], squadViews: ['Fyzické atributy', 'Psychika', 'Technické', 'Brankářské', 'Obrana', 'Útok'] });
 
-  // ---------------------------------------------------------------- jména hráčů: „L. Horníček“ = „Lukáš Horníček“
-  const nameTokens = (s) => core.fold(str(s)).split(/[^a-z]+/).filter(Boolean);
-  /** Jméno z obrazovky („L. Horníček“) sedí na jméno v kádru („Lukáš Horníček“): každé slovo kratšího jména je shodné nebo je iniciála slova
-      delšího jména a aspoň jedno slovo (příjmení) je shodné celé a má aspoň tři písmena. Bez příjmení se nepáruje. */
+  // ---------------------------------------------------------------- jména hráčů: „L. Horáček“ = „Lukáš Horáček“
+  const nameTokens = (s) => fold(s).split(/[^a-z]+/).filter(Boolean);
+  /** Jméno z obrazovky („L. Horáček“) sedí na jméno v kádru („Lukáš Horáček“), jen když platí obojí:
+      1. poslední slovo (příjmení) je u obou shodné celé a má aspoň tři písmena (iniciála příjmení ani křestní jméno nestačí);
+      2. ostatní slova kratšího jména jsou shodná, nebo jsou iniciálou slova delšího jména.
+      Jednoslovné jméno („Gabriel“, „Novák“) sedí jen na totéž jednoslovné jméno: nesplete se s plným jménem („Gabriel Jesus“).
+      Písmena Ł, Ø, Đ se skládají jako l, o, d. Shoda je jen podobnost zápisu: dva různí hráči („Jan Novák“, „Jiří Novák“) mohou sedět na jednu iniciálu,
+      proto volající musí nejednoznačnou shodu (víc kandidátů) přiznat a nic podle ní nepřepisovat. */
   function sameName(a, b) {
     const A = nameTokens(a);
     const B = nameTokens(b);
     if (!A.length || !B.length) return false;
+    const surname = A[A.length - 1];
+    if (surname !== B[B.length - 1] || surname.length < 3) return false;
+    if (A.length === 1 || B.length === 1) return A.length === B.length;
     const [short, long] = A.length <= B.length ? [A, B] : [B, A];
+    const rest = long.slice(0, -1);
     const used = new Set();
-    let full = false;
-    for (const tok of short) {
-      const i = long.findIndex((x, k) => !used.has(k) && (x === tok || (tok.length === 1 && x.startsWith(tok)) || (x.length === 1 && tok.startsWith(x))));
+    for (const tok of short.slice(0, -1)) {
+      const i = rest.findIndex((x, k) => !used.has(k) && (x === tok || (tok.length === 1 && x.startsWith(tok)) || (x.length === 1 && tok.startsWith(x))));
       if (i < 0) return false;
       used.add(i);
-      if (tok.length >= 3 && long[i] === tok) full = true;
     }
-    return full;
+    return true;
   }
 
   // ---------------------------------------------------------------- pozice: seznamy „O/KO/Z/OZ (P)“ a kódy míst „OZSP“
@@ -100,16 +113,24 @@
   };
   const ROLE_ALIASES = { GK: 'GK', B: 'GK', D: 'D', O: 'D', WB: 'WB', KO: 'WB', DM: 'DM', DZ: 'DM', M: 'M', Z: 'M', AM: 'AM', OZ: 'AM', ST: 'ST', UT: 'ST', SW: 'SW' };
   const FM_CODES = new Set(['GK', 'SW', 'DL', 'DC', 'DR', 'WBL', 'WBR', 'DM', 'ML', 'MC', 'MR', 'AML', 'AMC', 'AMR', 'ST']);
-  const upperAscii = (s) => core.fold(str(s)).toUpperCase().replace(/[^A-Z]/g, '');
+  const upperAscii = (s) => fold(s).toUpperCase().replace(/[^A-Z]/g, '');
 
   /** parsePositions('O/KO/Z/OZ (P)') → {codes: ['DR','WBR','MR','AMR'], unknown: []}. Funguje i na anglické kódy (GK, DC, „D (RC)“). */
+  const MAX_POSITION_TEXT = 400; // celý text pozic hráče (v tabulkách je to nejvýš několik desítek znaků)
+  const MAX_POSITION_PART = 60; // jedna pozice nebo skupina pozic se stranami
   function parsePositions(text) {
     const codes = [];
     const unknown = [];
     const add = (c) => c && !codes.includes(c) && codes.push(c);
-    for (const partRaw of str(text).split(/[;,]/)) {
+    const whole = str(text);
+    if (whole.length > MAX_POSITION_TEXT) return { codes, unknown: ['příliš dlouhý údaj o pozici'] };
+    for (const partRaw of whole.split(/[;,]/)) {
       const part = partRaw.trim();
       if (!part) continue;
+      if (part.length > MAX_POSITION_PART) {
+        unknown.push(part.slice(0, 20) + '…');
+        continue;
+      }
       const bare = upperAscii(part);
       if (FM_CODES.has(bare) && !/[(/]/.test(part)) {
         add(bare);
@@ -195,12 +216,16 @@
 
   /** normalizePositions(['O/KO/Z/OZ (P)', 'GK']) → {codes, unknown}. Přijme pole textů nebo jeden text; česky i anglicky. */
   function normalizePositions(value) {
-    const list = Array.isArray(value) ? value : [value];
-    return parsePositions(list.filter((x) => typeof x === 'string').join(', '));
+    const list = (Array.isArray(value) ? value : [value]).filter((x) => typeof x === 'string').slice(0, 20);
+    const tooLong = list.filter((x) => x.length > MAX_POSITION_TEXT / 2);
+    const parsed = parsePositions(list.filter((x) => x.length <= MAX_POSITION_TEXT / 2).join(', '));
+    if (tooLong.length) parsed.unknown.push('příliš dlouhý údaj o pozici');
+    return parsed;
   }
 
   /** normalizeAttributes({'Hlavičky': 15, 'Heading': 14}) → {attributes: {Heading: 15}, issues}. Názvy se převedou na kanonické anglické,
-      hodnoty jen celá čísla 1 až 20; dvě různé hodnoty téhož atributu se nesloučí (první vyhrává) a řekne se to v issues. */
+      hodnoty jen celá čísla 1 až 20; dvě různé hodnoty téhož atributu se nesloučí (první vyhrává) a řekne se to v issues.
+      Přijmou se jen atributy, které slovník zná (česky i anglicky včetně anglických brankářských): cokoli jiného, tedy i skryté údaje hry, se vynechá. */
   function normalizeAttributes(obj, opts) {
     const o = opts || {};
     const max = Number.isInteger(o.max) ? o.max : 40;
@@ -210,6 +235,11 @@
     for (const [k, v] of Object.entries(obj).slice(0, max)) {
       const name = canonAttr(k).slice(0, 30);
       if (!name) continue;
+      // jen atributy, které slovník zná: skryté údaje (CA, PA, osobnost, reputace, skryté atributy) a cizí nebo vymyšlené názvy se nepřevezmou
+      if (!isKnownAttr(k)) {
+        issues.push(`„${str(k).slice(0, 40)}“ není atribut, který aplikace zná (skryté údaje a neznámé názvy se nepřebírají), vynechal se`);
+        continue;
+      }
       if (!(Number.isInteger(v) && v >= 1 && v <= 20)) {
         issues.push(`atribut „${k}“ má nečitelnou hodnotu, vynechal se`);
         continue;
@@ -456,7 +486,7 @@
   ]);
 
   return {
-    VERSION, OBSERVED_ON, key, ATTR_PAIRS, ATTR_GROUPS_CS, canonAttr, attrKey, isKnownAttr, sameName,
+    VERSION, OBSERVED_ON, key, fold, ATTR_PAIRS, ATTR_GROUPS_CS, canonAttr, attrKey, isKnownAttr, sameName,
     parsePositions, normalizePositions, normalizeAttributes, parseSlotCode, SLOTS_BY_FM, fmOfSlot, OPPOSITION_SLOT_CODES,
     INSTR, VALUES, parseInstruction, labelCs, valueCs, valueSeen,
     MENTALITY_PAIRS, STYLE_PAIRS, parseMentality, parseStyle,

@@ -97,11 +97,20 @@
     });
     function renderPreview(r) {
       const confirm = h('input', { type: 'checkbox', id: 'oppRepConfirm' });
+      const current = reportOf(app.store.get('opponent', opp.id) || opp);
+      // zpráva o jiném týmu se nikdy nesmíchá s uloženou: uložení ji NAHRADÍ, a to jen s výslovným souhlasem
+      const otherTeam = !!(current && !OR().sameTeam(current, r.report));
+      const replace = h('input', { type: 'checkbox', id: 'oppRepReplace' });
       out.append(
         r.issues.length ? h('p', { class: 'hint', text: r.issues.join(' ') }) : null,
         h('b', { text: 'Přečtený návrh' }),
         lineList(reportLines(r.report), 'oppRepPreview'),
-        stored ? h('p', { class: 'hint', text: 'Uložení se sloučí s tím, co už je načtené: prázdné údaje se doplní, seznamy se sjednotí.' }) : null,
+        otherTeam
+          ? h('div', { class: 'banner warn', id: 'oppRepTeamWarn' }, h('b', { text: 'Jiný tým' }), h('span', { text: `Uložená zpráva je o týmu „${current.team}“, přečtená o týmu „${r.report.team}“. Zprávy o různých týmech se nemíchají: uložením se uložená zpráva NAHRADÍ touto.` }))
+          : current
+            ? h('p', { class: 'hint', text: 'Uložení se sloučí s tím, co už je načtené: novější údaje platí; výpadky, významní hráči, formace a sestava se berou z nového čtení (neúplná sestava jen doplní chybějící údaje), slabiny a silné stránky se sjednotí; nic, co nové čtení neobsahuje, se nemaže.' })
+            : null,
+        otherTeam ? h('label', { class: 'checkline' }, replace, h('span', { text: `Chci uloženou zprávu o týmu „${current.team}“ nahradit.` })) : null,
         h('label', { class: 'checkline' }, confirm, h('span', { text: 'Zkontroloval jsem návrh podle obrazovky hry a odpovídá jí.' })),
         h('div', { class: 'actions' }, h('button', {
           class: 'btn primary',
@@ -110,6 +119,7 @@
           text: 'Uložit do profilu soupeře (neověřeno)',
           onclick: async () => {
             if (!confirm.checked) return toast('Nejdřív potvrď, že návrh odpovídá obrazovce.');
+            if (otherTeam && !replace.checked) return toast('Zpráva je o jiném týmu: potvrď, že chceš uloženou zprávu nahradit.');
             const merged = OR().mergeReports(reportOf(app.store.get('opponent', opp.id) || opp), r.report);
             await saveStructured(app, opp, { report: merged });
             toast('Zpráva o soupeři je uložená (neověřeno).');
@@ -172,6 +182,7 @@
       out.append(
         plan.add.length ? h('div', null, h('b', { text: 'Noví hráči soupeře' }), h('ul', { class: 'list', id: 'oppSqNew' }, plan.add.map((p) => h('li', { text: `${p.name}: ${desc(p)}` })))) : null,
         plan.update.length ? h('div', null, h('b', { text: 'Už načtení: doplnit atributy' }), h('ul', { class: 'list', id: 'oppSqUpdate' }, plan.update.map((u) => h('li', { text: `${u.name}: ${u.changes.slice(0, 6).join(' · ')}` })))) : null,
+        plan.skipped.length ? h('div', { id: 'oppSqSkipped' }, h('b', { text: 'Nezapíše se: nejednoznačné' }), h('ul', { class: 'list' }, plan.skipped.map((x) => h('li', { text: `${x.name}: ${x.reason}.` }))), h('p', { class: 'hint', text: 'Aplikace nehádá, kdo je který.' })) : null,
         h('label', { class: 'checkline' }, confirm, h('span', { text: 'Zkontroloval jsem návrh podle obrazovky hry a odpovídá jí.' })),
         h('div', { class: 'actions' }, h('button', {
           class: 'btn primary',
@@ -234,7 +245,7 @@
     }
     const i = r.inputs;
     box.append(
-      h('p', { class: 'hint', id: 'oppPrepInputs', text: `Z čeho se počítalo: zpráva o soupeři (${i.weaknesses} slabin, ${i.strengths} silných stránek, sestava ${i.lineup}, atributy u ${i.lineupWithAttributes}), ${i.tactic ? `tvoje aktivní taktika (${i.tacticInstructions} přečtených instrukcí)` : 'tvoje taktika NENÍ načtená, takže nevím, co už máš nastavené'}, kádr ${i.squad} hráčů.` }),
+      h('p', { class: 'hint', id: 'oppPrepInputs', text: `Z čeho se počítalo: zpráva o soupeři (${i.weaknesses} slabin, ${i.strengths} silných stránek, sestava ${i.lineup}, atributy u ${i.lineupWithAttributes}), ${i.tactic ? `${r.tacticLabel || 'tvoje taktika'} (${i.tacticInstructions} přečtených instrukcí)` : 'tvoje taktika NENÍ načtená, takže nevím, co už máš nastavené'}, kádr ${i.squad} hráčů.` }),
       r.budget.over
         ? h('div', { class: 'banner warn', id: 'oppPrepBudget' }, h('b', { text: `Nabízím ${r.budget.offered} změn nastavení, doporučuji nejvýš ${r.budget.max}` }), h('span', { text: 'Každá změna taktiky snižuje porozumění taktice. Přednost mají doporučení nahoře; ostatní jsou označená jako volitelná.' }))
         : h('p', { class: 'hint', id: 'oppPrepBudget', text: `Změn nastavení celkem: ${r.budget.settings} (doporučený strop ${r.budget.max}).` }),
@@ -274,9 +285,12 @@
         const cur = app.store.get('opponent', opp.id) || opp;
         const career = app.career();
         const tactics = FM27.context.tactics(app);
-        const tactic = tactics.find((t) => t.id === career.activeTacticId) || tactics[0] || null;
+        const active = tactics.find((t) => t.id === career.activeTacticId) || null;
+        const tactic = active || tactics[0] || null;
         const squad = FM27.context.players(app);
         const result = OA().analyze({ report: reportOf(cur), oppPlayers: playersOf(cur), tactic, squad });
+        // která taktika se použila: když žádná není aktivní, bere se první v seznamu a řekne se to
+        result.tacticLabel = tactic ? (active ? `tvoje aktivní taktika „${tactic.name}“` : `tvoje taktika „${tactic.name}“ (žádná není označená jako aktivní, vzala se první v seznamu)`) : null;
         out.replaceChildren(resultEl(result, OA().summaryLines(result)));
         last.set(opp.id, { at: Date.now(), result });
       },

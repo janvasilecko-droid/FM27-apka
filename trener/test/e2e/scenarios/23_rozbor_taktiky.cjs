@@ -68,7 +68,7 @@ module.exports = async function run(env) {
   const a08 = await text(page, '[data-rule="A08"]');
   check('23 nález A08 ukazuje atribut nejpomalejšího stopera a místo', /Pace 10/.test(a08) && /RCB/.test(a08), a08.slice(0, 300));
   check('23 rozbor říká, že nevyhodnocené kontroly se nehádají, a vypisuje je zvlášť', /nevyhodnoceno kvůli chybějícím údajům \d+/.test(await text(page, '#tacCheckCounts')) && /Nevyhodnocené kontroly/.test(await text(page, '#tacCheckMissing')));
-  check('23 složitost taktiky se uvede podle počtu nastavených instrukcí', /Složitost podle počtu nastavených instrukcí: nízká \(5 jiných než výchozích\)/.test(await text(page, '#tacCheckCounts')), await text(page, '#tacCheckCounts'));
+  check('23 u složitosti taktiky se uvede počet instrukcí jiných než výchozích a kolik jich je přečteno (úroveň se neodhaduje z nepřečtených)', /Instrukcí jiných než výchozích mezi přečtenými: 5 \(přečteno 5 z 27;/.test(await text(page, '#tacCheckCounts')) && !/undefined/.test(await text(page, '#tacCheckCounts')), await text(page, '#tacCheckCounts'));
   check('23 v rozboru nejsou zbytečně silná slova: žádné „zabere“, „vyhraješ“ ani „zaručeně“', !/zabere|vyhraj|zaručen/i.test(result));
 
   // ====================================================== C) změna taktiky: rozbor zastará

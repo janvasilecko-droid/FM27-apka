@@ -48,6 +48,7 @@ module.exports = async function run(env) {
   const ability = await page.evaluate(() => document.querySelector('#te-block-ability').textContent);
   check('27 u vysoké schopnosti jsou jen názvy faktorů bez rad a je tam poznámka, ať se taktika nezhoršuje', (await page.locator('#te-block-ability li').count()) === 2 && !/Rozbor sestavy/.test(ability) && /Player Capability/.test(ability) && /Úroveň je vysoká/.test(ability), ability);
   const comp = await text(page, '#teComplexity');
+  check('27 složitost říká, kolik instrukcí je přečteno (dolní odhad), a že výchozí hodnoty aplikace ve FM27 neověřila', /Přečteno \d+ z 27 týmových instrukcí/.test(comp) && /nejméně/.test(comp) && /Výchozí hodnoty instrukcí aplikace ve FM27 neověřila/.test(comp), comp);
   check('27 složitost taktiky: 8 instrukcí mimo výchozí + 5 pokynů k soupeři = 13 → vysoká, označeno jako odhad autora aplikace', /vysoká/.test(comp) && /Instrukcí mimo výchozí hodnotu: 8/.test(comp) && /pokynů k soupeři: 5/.test(comp) && /celkem 13/.test(comp) && /odhad/i.test(comp) && /Vzorec hry neznáme/.test(comp), comp);
   const list = await page.evaluate(() => document.querySelector('#teComplexityList').textContent);
   check('27 výpis instrukcí je česky, jak je hra píše', /Tempo: Vyšší/.test(list) && /Přímočarost přihrávek: Mnohem kratší/.test(list), list);

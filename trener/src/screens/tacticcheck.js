@@ -170,7 +170,7 @@
       out.append(h('h4', { text: 'Silné stránky nastavení', style: 'margin-top:12px' }));
       out.append(h('div', { class: 'books', id: 'tacCheckStrengths' }, r.strengths.map((f) => findingEl(f, tactic, 'tactic'))));
     }
-    out.append(h('p', { class: 'hint', id: 'tacCheckCounts', text: `Kontroly: vyhodnoceno ${r.checks.evaluated} z ${r.checks.total} (bez nálezu ${r.checks.passed}, s nálezem ${r.checks.fired}); na tohle rozestavení se nevztahuje ${r.checks.notApplicable}; nevyhodnoceno kvůli chybějícím údajům ${r.checks.notEvaluated.length}. Složitost podle počtu nastavených instrukcí: ${r.complexity.level} (${r.complexity.nonDefaultInstructions} jiných než výchozích).` }));
+    out.append(h('p', { class: 'hint', id: 'tacCheckCounts', text: `Kontroly: vyhodnoceno ${r.checks.evaluated} z ${r.checks.total} (bez nálezu ${r.checks.passed}, s nálezem ${r.checks.fired}); na tohle rozestavení se nevztahuje ${r.checks.notApplicable}; nevyhodnoceno kvůli chybějícím údajům ${r.checks.notEvaluated.length}. Instrukcí jiných než výchozích mezi přečtenými: ${r.complexity.nonDefaultInstructions} (přečteno ${r.coverage.settingsKnown} z ${r.coverage.settingsTotal}; úroveň složitosti odhaduje karta Tactical Effectiveness).` }));
     if (r.checks.notEvaluated.length) {
       out.append(
         h(

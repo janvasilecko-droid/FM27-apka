@@ -668,7 +668,8 @@
       findings: findings.filter((f) => f.kind === 'finding'),
       strengths: findings.filter((f) => f.kind === 'strength'),
       checks: { total: RULES.length, evaluated, passed, fired, notApplicable, notEvaluated },
-      complexity: { nonDefaultInstructions: nonDefault, level: nonDefault >= 12 ? 'vysoká' : nonDefault >= 7 ? 'střední' : 'nízká' },
+      // jen počet PŘEČTENÝCH instrukcí mimo výchozí hodnotu (dolní odhad); úroveň složitosti z něj odhaduje až tacteff.js a jen s ohledem na pokrytí
+      complexity: { nonDefaultInstructions: nonDefault },
       note: 'Rozbor hledá rozpory v nastavení a chybějící práci rolí. Je to pomůcka podle komunitních průvodců a textů hry, ne pravidlo FM27 a ne předpověď výsledku zápasu.',
     };
   }

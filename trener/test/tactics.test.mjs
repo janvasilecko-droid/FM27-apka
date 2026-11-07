@@ -1614,12 +1614,12 @@ test('normalizeTacticExtraction: text z obrázku se čistí (řídicí znaky, d�
     name: 'A\nB\u0000C' + long,
     formation: '4-3-3',
     mentality: long,
-    instructions: Array.from({ length: 40 }, (_, i) => `Instrukce ${i}`).concat([{ text: '' }, 7, null]),
+    instructions: Array.from({ length: 60 }, (_, i) => `Instrukce ${i}`).concat([{ text: '' }, 7, null]),
     roles: [{ position: 'st', role: 'R1' }, { position: 'Útočník vpravo', role: 'R2', duty: 'D' }, { position: 'CB' }, 'x', null, { role: '', duty: '' }],
   });
   assert.ok(r.read.name.length <= 60 && !/[\u0000\n]/.test(r.read.name));
   assert.ok(r.read.mentality.length <= 90);
-  assert.equal(r.read.instructions.length, 24);
+  assert.equal(r.read.instructions.length, 40);
   assert.ok(r.issues.some((i) => /nad limit/.test(i)));
   assert.deepEqual(r.read.roles.map((x) => [x.pos, x.role]), [['ST', 'R1'], ['', 'R2']]); // „st“ se opraví na velká písmena, divná pozice se zahodí, role bez názvu a povinnosti také
   const max = T.normalizeTacticExtraction({ roles: Array.from({ length: 30 }, (_, i) => ({ position: 'ST', role: 'R' + i })) });

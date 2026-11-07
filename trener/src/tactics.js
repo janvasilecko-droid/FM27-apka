@@ -1263,7 +1263,7 @@
   // dokud ho uživatel nepotvrdí podle snímku. Názvy rolí a instrukcí se přebírají přesně tak, jak je hra píše (aplikace jejich
   // oficiální názvy nezná a nic nepřekládá ani nedoplňuje). Neznámá formace se nikdy tiše nenahradí jinou.
   const TAC_TEXT = 90;
-  const TAC_MAX_INSTRUCTIONS = 24;
+  const TAC_MAX_INSTRUCTIONS = 40; // hra má 27 týmových instrukcí (18 s míčem + 9 bez míče); strop je jen pojistka proti obrovskému výstupu modelu
   const TAC_MAX_ROLES = 14;
   // řídicí znaky, oddělovače řádků, všechny formátovací znaky Unicode, všechny znaky ignorované při zobrazení (Default_Ignorable_Code_Point), prázdné braillské písmeno a náhradní znak objektu; zapsáno přes RegExp, aby ve zdrojích nebyly doslovné znaky
   const HIDDEN_CHARS = new RegExp('[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}\\p{Default_Ignorable_Code_Point}\\u2800\\ufffc]+', 'gu');
@@ -1422,7 +1422,7 @@
   }
 
   // ---------------------------------------------------------------- hráči v tabulce míst → hráči kádru (podle jména)
-  const sameName = (a, b) => CS.sameName(a, b); // „L. Horníček“ = „Lukáš Horníček“ (fm27cs.js)
+  const sameName = (a, b) => CS.sameName(a, b); // „L. Horáček“ = „Lukáš Horáček“ (fm27cs.js)
 
   /** assignReadPlayers(tactic, players) → {tactic: kopie, assigned: [{slot, name, playerId}], ambiguous: [jména], unmatched: [jména]}.
       Místa s `readPlayer` (jméno přečtené z tabulky) dostanou `playerId` jen tehdy, když sedí právě jeden hráč kádru; `readPlayer` se odstraní. */

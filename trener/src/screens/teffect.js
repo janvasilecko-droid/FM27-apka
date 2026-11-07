@@ -45,10 +45,10 @@
               'div',
               { class: 'meta' },
               h('b', { text: `${p.name}: ${p.levelCs}` }),
-              h('span', { class: 'chips' }, ui.chip(LEVEL_CHIP[p.level], p.levelCs), ui.chip('neutral', 'text hry')),
+              h('span', { class: 'chips' }, ui.chip(LEVEL_CHIP[p.level], p.levelCs), ui.chip('neutral', 'popis pilíře: text hry')),
               h('span', { class: 'hint', text: p.csDesc }),
               p.note ? h('span', { text: p.note }) : null,
-              p.advice.length ? h('details', { open: p.level === 'low' }, h('summary', { text: `Klíčové faktory a co s nimi (${p.advice.length})` }), h('ul', { class: 'list' }, p.advice.map((a) => h('li', null, h('b', { text: a.factor + ': ' }), h('span', { text: a.text }))))) : h('details', null, h('summary', { text: 'Klíčové faktory (názvy ze hry)' }), h('ul', { class: 'list' }, p.factors.map((f) => h('li', { text: f }))))
+              p.advice.length ? h('details', { open: p.level === 'low' }, h('summary', { text: `Klíčové faktory (názvy ze hry) a rady k nim (komunita a odhad autora, ${p.advice.length})` }), h('ul', { class: 'list' }, p.advice.map((a) => h('li', null, h('b', { text: a.factor + ': ' }), h('span', { text: a.text }))))) : h('details', null, h('summary', { text: 'Klíčové faktory (názvy ze hry)' }), h('ul', { class: 'list' }, p.factors.map((f) => h('li', { text: f }))))
             )
           )
         );
@@ -64,7 +64,7 @@
               { class: 'meta' },
               h('b', { text: `Složitost tvé taktiky: ${c.level} (odhad aplikace)` }),
               h('span', { class: 'chips' }, ui.chip('neutral', 'odhad autora aplikace')),
-              h('span', { text: `Instrukcí mimo výchozí hodnotu: ${c.nonDefault}${c.opposition !== null ? `, pokynů k soupeři: ${c.opposition}` : ''} (celkem ${c.total}).` }),
+              h('span', { text: `Instrukcí mimo výchozí hodnotu: ${c.nonDefault}${c.opposition !== null ? `, pokynů k soupeři: ${c.opposition}` : ''} (celkem ${c.total}${c.complete ? '' : ', nejméně'}). Přečteno ${c.known === null ? 'jen část' : `${c.known} z ${c.allInstructions}`} týmových instrukcí.` }),
               h('span', { class: 'hint', text: c.note }),
               c.nonDefaultList.length ? h('details', null, h('summary', { text: 'Které instrukce to jsou' }), h('ul', { class: 'list', id: 'teComplexityList' }, c.nonDefaultList.map((x) => h('li', { text: x })))) : null
             )

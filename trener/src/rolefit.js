@@ -124,6 +124,14 @@
     return { ok: true, profile, issues };
   }
 
+  /** editProfile(existing, fields, opts) → makeProfile(...) s fází a povinností převzatými z upravovaného profilu, pokud je `fields` neurčí.
+      „Střední obránce“ existuje s míčem i bez míče: úprava profilu bez míče, která by fázi neznala, by vyrobila profil s míčem téhož jména a přepsala ho. */
+  function editProfile(existing, fields, opts) {
+    const e = isObj(existing) ? existing : {};
+    const f = isObj(fields) ? fields : {};
+    return makeProfile(Object.assign({ phase: e.phase, duty: e.duty, source: 'user', note: e.note }, f), opts);
+  }
+
   const profilesIndex = (profiles) => {
     const m = new Map();
     for (const p of Array.isArray(profiles) ? profiles : []) if (isObj(p) && typeof p.name === 'string') m.set(profileKey(p.name, p.phase), p);
@@ -357,5 +365,5 @@
     return lines;
   }
 
-  return { DEFAULT_WEIGHTS, SOURCES, SOURCE_CS, SLOT_FM_POS, attrKey, roleKey, phaseOf, profileKey, normalizeRoleExtraction, makeProfile, profilesIndex, roleFit, eligibility, hungarianMax, assignBest, weakSpots, summaryLines };
+  return { DEFAULT_WEIGHTS, SOURCES, SOURCE_CS, SLOT_FM_POS, attrKey, roleKey, phaseOf, profileKey, normalizeRoleExtraction, makeProfile, editProfile, profilesIndex, roleFit, eligibility, hungarianMax, assignBest, weakSpots, summaryLines };
 });

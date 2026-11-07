@@ -363,6 +363,7 @@
       plan.add.length ? h('div', null, h('h3', { text: 'Noví hráči' }), h('div', { class: 'books', id: 'squadNew' }, plan.add.map((p, i) => h('label', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: p.name }), h('span', { text: describe(p) })), addChecks[i])))) : null,
       plan.update.length ? h('div', null, h('h3', { text: 'Už v kádru: doplnit atributy z tohoto snímku' }), h('div', { class: 'books', id: 'squadUpdate' }, plan.update.map((u, i) => h('label', { class: 'book' }, h('div', { class: 'meta' }, h('b', { text: u.name }), h('span', { text: u.changes.slice(0, 8).join(' · ') + (u.changes.length > 8 ? ` · … (${u.changes.length} změn)` : '') })), updChecks[i])))) : null,
       plan.same.length ? h('p', { class: 'hint', text: `Beze změny (hráč už je v kádru se stejnými údaji): ${plan.same.join(', ')}.` }) : null,
+      plan.skipped.length ? h('div', { id: 'squadSkipped' }, h('h3', { text: 'Nezapíše se: nejednoznačné' }), h('ul', { class: 'list' }, plan.skipped.map((x) => h('li', { text: `${x.name}: ${x.reason}.` }))), h('p', { class: 'hint', text: 'Aplikace nehádá, kdo je který: oprav jméno nebo údaje ručně u hráče v kádru.' })) : null,
       h('label', { class: 'checkline' }, confirm, h('span', { text: 'Zkontroloval jsem návrhy podle screenshotu a odpovídají mu.' })),
       h('div', { class: 'actions' }, add)
     );

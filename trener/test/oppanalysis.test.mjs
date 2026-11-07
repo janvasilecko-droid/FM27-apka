@@ -259,12 +259,13 @@ test('přesila ve středu zálohy soupeře: počítá se z jeho sestavy a z mís
   assert.ok(!OA.analyze({ report: rep, tactic: t3 }).recs.some((x) => x.id === 'P09' && x.sev !== 'info'));
 });
 
-test('výpadky: oba hlavní stopeři pryč zvedne důležitost, nejistý start jen připomene kontrolu před zápasem', () => {
+test('výpadky: dva stopeři pryč zvedne důležitost (bez tvrzení, že jde o „hlavní“), nejistý start jen připomene kontrolu před zápasem', () => {
   const rep = bare();
   rep.absences = [{ name: 'Karel Stoper', status: 'out', note: 'zlomená paže' }, { name: 'Calvin Střed', status: 'out', note: 'trest' }, { name: 'Petr Útočník', status: 'doubt', note: 'natažené slabiny' }];
   const r = OA.analyze({ report: rep, oppPlayers: OPP_PLAYERS, tactic: myTactic() });
   const p06 = r.recs.find((x) => x.id === 'P06');
-  assert.equal(p06.sev, 'doporuceno');
+  assert.equal(p06.sev, 'zvaz');
+  assert.match(p06.text, /chybí dva stopeři/);
   assert.ok(p06.risks.some((x) => /Petr Útočník/.test(x) && /znovu otevři/.test(x)));
   const solo = OA.analyze({ report: Object.assign(bare(), { absences: [{ name: 'Karel Stoper', status: 'out' }] }), oppPlayers: OPP_PLAYERS, tactic: myTactic() }).recs.find((x) => x.id === 'P06');
   assert.equal(solo.sev, 'info');
@@ -310,4 +311,148 @@ test('modul je čistý (žádný DOM, síť, čas ani náhoda) a nezná skryté 
   assert.doesNotMatch(withoutComments, /\b(currentAbility|potentialAbility|personality|reputation)\b/i);
   const deps = [...withoutComments.matchAll(/\brequire\('([^']+)'\)/g)].map((m) => m[1]).sort();
   assert.deepEqual(deps, ['./dwrs.js', './fm27cs.js', './fm27know.js', './oppread.js', './tacticanalysis.js']);
+});
+
+// ---------------------------------------------------------------- nezávislá revize 7. 11. 2026 (nálezy A1, A7, A9, B1, B3 a drobnosti)
+const LINEUP11 = [
+  { slot: 'B', name: 'Adam Brankář' }, { slot: 'OP', name: 'Kenny Pravý' }, { slot: 'OSP', name: 'Karel Stoper' }, { slot: 'OSL', name: 'Milan Stopl' }, { slot: 'OL', name: 'Luboš Levý' },
+  { slot: 'DZSP', name: 'Dan Dvě' }, { slot: 'DZSL', name: 'Emil Emko' }, { slot: 'OZP', name: 'Oto Křídlo' }, { slot: 'OZS', name: 'Ota Střed' }, { slot: 'OZL', name: 'Ondra Levák' }, { slot: 'ÚTS', name: 'Petr Útočník' },
+];
+const mini = (raw) => OR.normalizeReport(Object.assign({ team: 'Mini FC' }, raw)).report;
+const run = (rep, extra) => OA.analyze(Object.assign({ report: rep, tactic: myTactic(), squad: SQUAD }, extra || {}));
+const recOf = (res, id) => res.recs.find((r) => r.id === id);
+const unchecked = (res) => res.notChecked.map((x) => x.id);
+const poorForm = (name) => ({ area: 'Hráč, který se potýká s formou', text: `${name} (6,44) se potýká s formou.` });
+
+test('A1/P04: strana se pozná i z pozice bez kódu místa (jeho pravá je naše levá); brankář ve špatné formě neotevírá žádnou stranu; hráče se stejným příjmením rozliší křestní jméno', () => {
+  const fromPosition = run(mini({ lineup: [{ position: 'OZ (P)', name: 'Oto Křídlo' }], weaknesses: [poorForm('Oto Křídlo')] }));
+  const p04 = recOf(fromPosition, 'P04');
+  assert.deepEqual(p04.changes.map((c) => [c.id, c.to]), [['progressThrough', 'Left']], 'jeho pravá strana je naše levá');
+  assert.match(p04.text, /svou levou/);
+  const gk = recOf(run(mini({ lineup: [{ slot: 'B', name: 'Adam Brankář' }], weaknesses: [poorForm('Adam Brankář')] })), 'P04');
+  assert.deepEqual(gk.changes, []);
+  assert.equal(gk.info, true);
+  assert.match(gk.text, /brankář/i);
+  // dva Nováci: text hry jmenuje Jiřího (OL = jeho levá = naše pravá), ne Jana (OP)
+  const twins = mini({ lineup: [{ slot: 'OP', name: 'Jan Novák' }, { slot: 'OL', name: 'Jiří Novák' }], weaknesses: [poorForm('Jiří Novák')] });
+  assert.deepEqual(recOf(run(twins), 'P04').changes.map((c) => c.to), ['Right']);
+  // jen příjmení a dvě shody: nepozná se, o koho jde, a nic se nehádá
+  const vague = mini({ lineup: [{ slot: 'OP', name: 'Jan Novák' }, { slot: 'OL', name: 'Jiří Novák' }], weaknesses: [poorForm('Novák')] });
+  const pv = recOf(run(vague), 'P04');
+  assert.deepEqual(pv.changes, []);
+  assert.equal(pv.info, true);
+  // text hry nesmí vyvolat shodu přes hranici slov ani přes nadpis oblasti („se potýká s formou“)
+  const noMatch = mini({ lineup: [{ slot: 'OP', name: 'Ab Pot' }], weaknesses: [{ area: 'Hráč, který se potýká s formou', text: 'Jiný Hráč (6,0) se potýká s formou.' }] });
+  assert.equal(recOf(run(noMatch), 'P04').info, true);
+});
+
+test('A7: slabina brankáře u střel z dálky není slabina ve vzduchu (P01), ale zákroků (P03); Hbitost není brankářský atribut; Vyrážení je vzdušní brankářský atribut', () => {
+  const shots = run(mini({ weaknesses: [{ area: 'Brankář', text: 'Brankář často inkasuje po střelách z dálky.' }] }));
+  assert.equal(recOf(shots, 'P01'), undefined, 'o vzduchu nic nepadlo');
+  const p03 = recOf(shots, 'P03');
+  assert.ok(p03, 'střely z dálky jsou věc zákroků');
+  assert.equal(p03.basis, 'HRA');
+  assert.equal(recOf(run(mini({ weaknesses: [{ area: 'Hbitost', text: 'Hbitost týmu je nízká.' }] })), 'P03'), undefined, 'Hbitost je atribut hráčů v poli');
+  assert.ok(recOf(run(mini({ weaknesses: [{ area: 'Vyrážení (Tendence)', text: 'Brankáři málo vyrážejí.' }] })), 'P01'), 'Vyrážení patří k brankářově hře do vzduchu');
+  assert.ok(recOf(run(mini({ weaknesses: [{ area: 'Brankář', text: 'Brankář je slabý při centrech a hře ve vzduchu.' }] })), 'P01'));
+  assert.ok(recOf(run(mini({ weaknesses: [{ area: 'Reflexes', text: 'Goalkeepers have poor reflexes.' }] })), 'P03'), 'anglické brankářské atributy se poznají');
+  // centr v nadpisu oblasti platí stejně jako v textu; „centrální“ není centr
+  assert.ok(recOf(run(mini({ weaknesses: [{ area: 'Inkasované góly (6 z 18 po centru)', text: 'Dostávají góly.' }] })), 'P01'));
+  assert.equal(recOf(run(mini({ weaknesses: [{ area: 'Inkasované góly', text: 'Slabé v centrální zóně.' }] })), 'P01'), undefined);
+  // silná stránka Rohy je hrozba na standardky
+  assert.ok(recOf(run(mini({ strengths: [{ area: 'Rohy', text: 'Rohy dobře zahrávají.' }] })), 'P11'));
+});
+
+test('A9: pravidlo, kterému chybí vstup, je „nevyhodnoceno“, ne „nic nenalezeno“; P09 nehádá z pozic, které nejdou převést', () => {
+  const onlyLineup = run(mini({ lineup: LINEUP11 }));
+  for (const id of ['P03', 'P05', 'P06', 'P14']) assert.ok(unchecked(onlyLineup).includes(id), `${id} je nevyhodnoceno`);
+  // atributy jen Pace a Acceleration: P03 a P14 je nemají z čeho posoudit
+  const paceOnly = [
+    player('o1', 'Adam Brankář', ['GK'], { Pace: 8, Acceleration: 9 }), player('o2', 'Kenny Pravý', ['DR'], { Pace: 8, Acceleration: 9 }), player('o3', 'Karel Stoper', ['DC'], { Pace: 7, Acceleration: 8 }),
+    player('o4', 'Milan Stopl', ['DC'], { Pace: 9, Acceleration: 9 }), player('o5', 'Luboš Levý', ['DL'], { Pace: 9, Acceleration: 10 }),
+  ];
+  const r = run(mini({ lineup: LINEUP11 }), { oppPlayers: paceOnly });
+  assert.ok(unchecked(r).includes('P03') && unchecked(r).includes('P14'));
+  assert.ok(!unchecked(r).includes('P12'), 'pomalá obrana se z Pace a Acceleration posoudit dá');
+  // zpráva se zraněnými a významnými hráči: P05 a P06 se vyhodnotily
+  const withInfo = run(mini({ lineup: LINEUP11, absences: [{ name: 'Nikdo Důležitý', status: 'doubt' }], keyPlayers: [{ kind: 'topScorer', name: 'Petr Útočník', position: 'ÚT (S)' }] }));
+  assert.ok(!unchecked(withInfo).includes('P05') && !unchecked(withInfo).includes('P06'));
+  // P09: tři z jedenácti pozic nejdou převést, střed zálohy se z nich nespočítá
+  const broken = LINEUP11.map((x, i) => (i >= 8 ? { position: 'Xyz', name: x.name } : x));
+  const rb = run(mini({ lineup: broken }));
+  assert.ok(unchecked(rb).includes('P09'), 'nepřevedené pozice: P09 nevyhodnoceno');
+  assert.equal(recOf(rb, 'P09'), undefined);
+});
+
+test('B1: věty o standardkách se zápornými tvary nespouštějí P10 a P11; kladné věty dál fungují', () => {
+  const neg = run(mini({
+    setPieces: {
+      attack: ['They have not scored from any of their last 12 corners.', 'They have scored from 0 of their last 12 corners.', 'Nevytváří žádné šance ze standardek.'],
+      defence: ['They have not struggled to defend free-kicks.', 'They have not conceded from any of the last 10 corners.', 'They have been solid when defending corners, conceding from only 1 of the previous 12 deliveries.', 'Neinkasují góly ze standardek.'],
+    },
+  }));
+  assert.equal(recOf(neg, 'P10'), undefined);
+  assert.equal(recOf(neg, 'P11'), undefined);
+  const pos = run(mini({ setPieces: { attack: ['They have scored from 4 of their last 12 corners.'], defence: ['They have struggled to defend corners, conceding from 5 of the last 9 they have faced.'] } }));
+  assert.ok(recOf(pos, 'P10') && recOf(pos, 'P11'));
+});
+
+test('B3: P05 nehlídá hráče, který podle hry nehraje; pozice významného hráče rozlišuje stejná příjmení; P06 netvrdí, že jde o „hlavní“ stopery', () => {
+  const rep = mini({
+    lineup: [...LINEUP11.slice(0, 10), { slot: 'ÚTS', name: 'Petr Útočník' }],
+    absences: [{ name: 'Petr Útočník', status: 'out' }],
+    keyPlayers: [{ kind: 'topScorer', name: 'Petr Útočník', position: 'ÚT (S)' }, { kind: 'topAssists', name: 'Oto Křídlo', position: 'OZ (P)' }],
+  });
+  const p05 = recOf(run(rep), 'P05');
+  assert.ok(p05);
+  assert.deepEqual(p05.oi.map((o) => o.name), ['Oto Křídlo'], 'hráč, který nehraje, se nehlídá');
+  const twins = mini({
+    lineup: [{ slot: 'OSP', name: 'Jan Novák' }, { slot: 'ÚTS', name: 'Jiří Novák' }, ...LINEUP11.slice(1, 3)],
+    keyPlayers: [{ kind: 'topScorer', name: 'J. Novák', position: 'ÚT (S)' }],
+  });
+  assert.deepEqual(recOf(run(twins), 'P05').oi.map((o) => o.name), ['Jiří Novák'], 'střelec hraje na útoku, tak je to ten útočník');
+  const unclear = mini({ lineup: [{ slot: 'OSP', name: 'Jan Novák' }, { slot: 'ÚTS', name: 'Jiří Novák' }], keyPlayers: [{ kind: 'topScorer', name: 'J. Novák' }] });
+  assert.equal(recOf(run(unclear), 'P05'), undefined, 'bez pozice a se dvěma shodami se nehádá');
+  // P06
+  const backs = [player('b1', 'Záložní Stoper', ['DC'], {}), player('b2', 'Druhý Stoper', ['DC'], {})];
+  const p06 = recOf(run(mini({ absences: [{ name: 'Záložní Stoper', status: 'out' }, { name: 'Druhý Stoper', status: 'out' }] }), { oppPlayers: backs }), 'P06');
+  assert.ok(p06);
+  assert.match(p06.text, /chybí dva stopeři/);
+  assert.doesNotMatch(p06.text, /hlavní/);
+  assert.equal(p06.sev, 'zvaz');
+});
+
+test('P08 a P07: Aktivní (Positive) ani Protiútočný nejsou útočná mentalita; „Not often“ není časté napadání; „Často“ ano', () => {
+  const mood = (m) => recOf(run(mini({ manager: { mentality: m } })), 'P08');
+  assert.equal(mood('Aktivní'), undefined);
+  assert.equal(mood('Positive'), undefined);
+  assert.equal(mood('Protiútočný'), undefined);
+  assert.equal(mood('Vyvážený'), undefined);
+  for (const m of ['Útočný', 'Velmi útočný', 'Attacking', 'Very Attacking']) assert.match(mood(m).text, /odvážně a otevřeně/, m);
+  for (const m of ['Opatrný', 'Obranný', 'Velmi defenzivní', 'Cautious', 'Defensive']) assert.match(mood(m).text, /opatrný/, m);
+  const press = (p) => recOf(run(mini({ manager: { pressing: p } })), 'P07');
+  for (const p of ['Not often', 'Zřídka', 'Méně často', 'Never', 'Nikdy']) assert.equal(press(p), undefined, p);
+  for (const p of ['Často', 'Častěji', 'Often', 'Vždy', 'Always', 'Vysoký']) assert.ok(press(p), p);
+});
+
+test('rozpočet změn počítá každé nastavení jednou, i když ho chtějí dvě pravidla; jedna testovatelná změna je jedno nastavení', () => {
+  // P01 (vzduch) i P08 (opatrný soupeř) chtějí Šířku při útočení → Širší
+  const both = run(mini({ manager: { mentality: 'Opatrný' }, weaknesses: [{ area: 'Dovednost ve vzduchu', text: 'Slabý vzduch.' }] }));
+  const p01 = recOf(both, 'P01');
+  const p08 = recOf(both, 'P08');
+  assert.ok(p01 && p08);
+  assert.deepEqual(p01.changes.filter((c) => !c.already).map((c) => c.id), ['attackingWidth']);
+  assert.deepEqual(p08.changes.filter((c) => !c.already).map((c) => c.id), ['attackingWidth']);
+  assert.equal(both.budget.settings, 1, 'Šířka se počítá jednou');
+  assert.equal(p08.optional, false, 'P08 nedoplácí nic navíc: změna už je v P01');
+  assert.equal(p01.optional, false);
+  // jedna testovatelná změna = jedno nastavení; zbytek doporučení jde až potom
+  const bare2 = run(mini({ weaknesses: [{ area: 'Dovednost ve vzduchu', text: 'Slabý vzduch.' }] }), { tactic: myTactic({ teamInstructions: [] }) });
+  const todo = recOf(bare2, 'P01').changes.filter((c) => !c.already);
+  assert.equal(todo.length, 2, 'bez načtené taktiky jsou na řadě obě změny');
+  assert.equal(bare2.oneChange.recId, 'P01');
+  assert.match(bare2.oneChange.text, /Styl centrování/);
+  assert.doesNotMatch(bare2.oneChange.text.split('Zbytek')[0], /Šířka při útočení/, 'v „zkus jen tohle“ je jediné nastavení');
+  assert.match(bare2.oneChange.text, /Šířka při útočení → Širší/, 'druhé nastavení je jen zmíněno jako pozdější');
+  assert.match(bare2.oneChange.text, /až potom/);
 });

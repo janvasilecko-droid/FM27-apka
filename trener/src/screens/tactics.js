@@ -386,7 +386,7 @@ Odpověz POUZE JSON objektem:
         next.name = nm;
         next.kind = kind.value;
         next.mentality = mentality.value.trim();
-        next.teamInstructions = instr.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 20);
+        next.teamInstructions = instr.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 40); // stejný strop jako při čtení z obrazovky: hra má 27 instrukcí, nic se při úpravě tiše nemaže
         next.notes = notes.value.trim().slice(0, 400);
         if (formation.value !== tactic.formation) {
           // Nová formace přebírá hráče, role a povinnosti podle pozice, kde to jde, jinak podle pořadí.

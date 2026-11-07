@@ -62,7 +62,6 @@ Odpověz POUZE JSON objektem:
     ['creativity', ['tvorivost', 'creativity']],
     ['setPieceChances', ['sancevytvoreneze standardek', 'setpiecechances', 'chancescreatedfromsetpieces']],
     ['freeKicks', ['volnekopy', 'freekicks']],
-    ['punching', ['vyrazenitendence', 'vyrazeni', 'punching']],
     ['corners', ['rohy', 'corners']],
     ['attack', ['utok', 'attack', 'attacking']],
   ];
@@ -86,6 +85,8 @@ Odpověz POUZE JSON objektem:
   const manyOf = (list, max, fn) => (Array.isArray(list) ? list.slice(0, max * 2).map(fn).filter(Boolean).slice(0, max) : []);
   const KIND = { topscorer: 'topScorer', topassists: 'topAssists', toprating: 'topRating' };
 
+  // strana (z pohledu soupeře) k jednomu kódu pozice: pravý a levý krajní hráč jsou R a L, ostatní středem; brankář bez strany
+  const SIDE_OF_FM = { GK: '', DR: 'R', DL: 'L', DC: 'C', SW: 'C', WBR: 'R', WBL: 'L', DM: 'C', MR: 'R', ML: 'L', MC: 'C', AMR: 'R', AML: 'L', AMC: 'C', ST: 'C' };
   function positionFields(slotText, positionText) {
     const slot = clean(slotText, 14);
     const position = clean(positionText, 40);
@@ -102,7 +103,10 @@ Odpověz POUZE JSON objektem:
     }
     if (!fm && CS && (position || slot)) {
       const list = CS.parsePositions(position || slot).codes;
-      if (list.length === 1) fm = list[0];
+      if (list.length === 1) {
+        fm = list[0];
+        if (side === null && Object.prototype.hasOwnProperty.call(SIDE_OF_FM, fm)) side = SIDE_OF_FM[fm]; // „OZ (P)“ je jeho pravá strana: bez toho by rada o straně spadla na střed
+      }
     }
     return { slot, position, fm, side, code };
   }
@@ -204,14 +208,57 @@ Odpověz POUZE JSON objektem:
     };
   }
 
-  /** mergeReports(base, add) → nový profil: skalární údaj z `base` zůstává, prázdný se doplní z `add`; seznamy se sjednotí bez duplicit.
-      Slouží k tomu, aby se zpráva četla po částech (jeden snímek = jedna záložka). */
+  /** Je zpráva `add` o témž týmu jako `base`? Bez názvu týmu u jedné ze zpráv se nedá říct, že jde o jiný. Volající s tím má říct uživateli, než zprávy sloučí. */
+  function sameTeam(base, add) {
+    const x = key(isObj(base) ? base.team : '');
+    const y = key(isObj(add) ? add.team : '');
+    return !x || !y || x === y;
+  }
+
+  const sameNameOf = (x, y) => (CS ? CS.sameName(x, y) : key(x) === key(y));
+
+  /** Sestava: úplné čtení tabulky (aspoň 10 hráčů s místem) nahradí starou sestavu (předpokládaná sestava se mění s časem, unie by dala třeba 13 hráčů);
+      neúplné čtení (jména bez míst, jedna záložka) staré nesmaže a nepřidá nové hráče: jen doplní chybějící pole hráčům, kteří sedí podle jména. */
+  function mergeLineup(oldL, newL, max) {
+    const placed = (l) => l.filter((x) => x.fm || x.code).length;
+    const only = (list, name) => {
+      const hits = list.filter((x) => sameNameOf(x.name, name));
+      return hits.length === 1 ? hits[0] : null;
+    };
+    if (!newL.length) return oldL.slice(0, max);
+    if (!oldL.length || placed(newL) >= 10) {
+      return newL.slice(0, max).map((n) => {
+        const o = only(oldL, n.name);
+        return o && n.rating === null && o.rating !== null && o.rating !== undefined ? Object.assign({}, n, { rating: o.rating }) : n;
+      });
+    }
+    return oldL.slice(0, max).map((o) => {
+      const n = only(newL, o.name);
+      if (!n) return o;
+      const out = Object.assign({}, o);
+      for (const k of ['slot', 'position', 'code']) if (!out[k] && n[k]) out[k] = n[k];
+      if (!out.fm && n.fm) {
+        out.fm = n.fm;
+        out.side = n.side;
+      }
+      if ((out.rating === null || out.rating === undefined) && n.rating !== null && n.rating !== undefined) out.rating = n.rating;
+      return out;
+    });
+  }
+
+  /** mergeReports(base, add) → nový profil. Slouží k tomu, aby se zpráva četla po částech (jeden snímek = jedna záložka).
+      Zpráva o JINÉM týmu se nikdy nesmíchá se starou: platí jen `add` (volající to má předem ukázat přes sameTeam).
+      Pravidla pro týž tým: skalární údaj z `add` platí, když je vyplněný (je novější), jinak zůstává starý; údaje, které se mění v čase, se berou z nového čtení
+      (výpadky, významní hráči po druzích, formace, sestava, verdikty podle oblasti); seznamy, které se v čase nemění (slabiny, silné stránky, věty o standardkách),
+      se sjednotí bez duplicit; jména hráčů se porovnávají podle sameName („L. Horáček“ = „Lukáš Horáček“). Prázdné nové čtení nic nesmaže. */
   function mergeReports(base, add) {
-    const a = isObj(base) ? JSON.parse(JSON.stringify(base)) : emptyReport();
     const b = isObj(add) ? add : emptyReport();
-    for (const k of ['team', 'matchDate', 'summary', 'staffAnalysis', 'notes']) if (!a[k] && b[k]) a[k] = b[k];
-    if (a.leaguePosition === null && b.leaguePosition !== null && b.leaguePosition !== undefined) a.leaguePosition = b.leaguePosition;
-    for (const k of Object.keys(a.manager)) if (!a.manager[k] && b.manager && b.manager[k]) a.manager[k] = b.manager[k];
+    const old = isObj(base) ? JSON.parse(JSON.stringify(base)) : emptyReport();
+    if (!sameTeam(old, b)) return JSON.parse(JSON.stringify(b));
+    const a = old;
+    for (const k of ['team', 'matchDate', 'summary', 'staffAnalysis', 'notes']) if (b[k]) a[k] = b[k];
+    if (b.leaguePosition !== null && b.leaguePosition !== undefined) a.leaguePosition = b.leaguePosition;
+    for (const k of Object.keys(a.manager)) if (b.manager && b.manager[k]) a.manager[k] = b.manager[k];
     const union = (x, y, idOf, max) => {
       const out = Array.isArray(x) ? x.slice() : [];
       const ids = new Set(out.map(idOf));
@@ -223,22 +270,35 @@ Odpověz POUZE JSON objektem:
       }
       return out.slice(0, max);
     };
-    a.formations.ip = union(a.formations.ip, b.formations && b.formations.ip, (f) => key(f.formation), LIMITS.formations);
-    a.formations.oop = union(a.formations.oop, b.formations && b.formations.oop, (f) => key(f.formation), LIMITS.formations);
-    a.absences = union(a.absences, b.absences, (x) => key(x.name), LIMITS.absences);
-    a.keyPlayers = union(a.keyPlayers, b.keyPlayers, (x) => `${x.kind}|${key(x.name)}`, LIMITS.keyPlayers);
+    /** Seznam hráčů podle jména: nové čtení nahradí staré položky téhož hráče a ostatní staré zůstanou (when `replaceAll`, zůstane jen nové čtení). */
+    const byName = (x, y, max, replaceAll) => {
+      const fresh = Array.isArray(y) ? y.filter((i) => i && typeof i.name === 'string') : [];
+      if (!fresh.length) return Array.isArray(x) ? x.slice(0, max) : [];
+      const kept = replaceAll ? [] : (Array.isArray(x) ? x : []).filter((o) => !fresh.some((n) => sameNameOf(n.name, o.name)));
+      const out = [];
+      for (const n of fresh) {
+        const i = out.findIndex((o) => sameNameOf(o.name, n.name));
+        if (i < 0) out.push(n);
+        else if (n.name.length > out[i].name.length) out[i] = Object.assign({}, out[i], { name: n.name }); // delší tvar jména
+      }
+      return kept.concat(out).slice(0, max);
+    };
+    if (b.formations && b.formations.ip && b.formations.ip.length) a.formations.ip = b.formations.ip.slice(0, LIMITS.formations);
+    if (b.formations && b.formations.oop && b.formations.oop.length) a.formations.oop = b.formations.oop.slice(0, LIMITS.formations);
+    a.absences = byName(a.absences, b.absences, LIMITS.absences, true);
+    const kinds = new Set((b.keyPlayers || []).map((x) => x.kind));
+    a.keyPlayers = (a.keyPlayers || []).filter((x) => !kinds.has(x.kind)).concat(b.keyPlayers || []).slice(0, LIMITS.keyPlayers);
     a.strengths = union(a.strengths, b.strengths, (x) => `${key(x.area)}|${key(x.text).slice(0, 40)}`, LIMITS.strengths);
     a.weaknesses = union(a.weaknesses, b.weaknesses, (x) => `${key(x.area)}|${key(x.text).slice(0, 40)}`, LIMITS.weaknesses);
-    a.verdicts = union(a.verdicts, b.verdicts, (x) => key(x.area), LIMITS.verdicts);
+    const vAreas = new Set((b.verdicts || []).map((x) => key(x.area)));
+    a.verdicts = (a.verdicts || []).filter((x) => !vAreas.has(key(x.area))).concat(b.verdicts || []).slice(0, LIMITS.verdicts);
     a.setPieces.attack = union(a.setPieces.attack, b.setPieces && b.setPieces.attack, (t) => key(t).slice(0, 60), LIMITS.insights);
     a.setPieces.defence = union(a.setPieces.defence, b.setPieces && b.setPieces.defence, (t) => key(t).slice(0, 60), LIMITS.insights);
-    for (const k of Object.keys(a.setPieces.prefs)) if (!a.setPieces.prefs[k] && b.setPieces && b.setPieces.prefs && b.setPieces.prefs[k]) a.setPieces.prefs[k] = b.setPieces.prefs[k];
-    // sestava: preferuje se ta, která má víc hráčů (úplnější čtení tabulky), jinak sjednocení podle jména
-    if (b.lineup && b.lineup.length > a.lineup.length) a.lineup = b.lineup.slice(0, LIMITS.lineup);
-    else a.lineup = union(a.lineup, b.lineup, (x) => key(x.name), LIMITS.lineup);
+    for (const k of Object.keys(a.setPieces.prefs)) if (b.setPieces && b.setPieces.prefs && b.setPieces.prefs[k]) a.setPieces.prefs[k] = b.setPieces.prefs[k];
+    a.lineup = mergeLineup(a.lineup || [], b.lineup || [], LIMITS.lineup);
     a.ok = a.ok || !!b.ok;
     return a;
   }
 
-  return { PROMPT, LIMITS, classifyArea, normalizeReport, mergeReports, emptyReport, verdictLevel };
+  return { PROMPT, LIMITS, classifyArea, normalizeReport, mergeReports, sameTeam, emptyReport, verdictLevel };
 });
