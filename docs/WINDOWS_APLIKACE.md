@@ -14,7 +14,8 @@ nastavíš (viz níže). Všechna pravidla poctivosti (štítky HRA, KOMUNITA, O
 ## Stažení a instalace
 
 1. Stáhni instalátor: https://github.com/janvasilecko-droid/FM27-apka/releases/latest/download/FM27-Trener-Setup.exe
-   (všechna vydání: https://github.com/janvasilecko-droid/FM27-apka/releases). Odkaz funguje až po prvním vydání (sestavení instalátoru na GitHubu, viz „Sestavení“ níž).
+   (všechna vydání: https://github.com/janvasilecko-droid/FM27-apka/releases; první vydání `desktop-v1.0.0` z 7. 11. 2026 má 121,6 MB, sestavil ho GitHub:
+   https://github.com/janvasilecko-droid/FM27-apka/actions/runs/42395321606).
 2. Spusť `FM27-Trener-Setup.exe`. Instaluje se **jen pro tebe, bez práv správce**, vznikne zástupce na ploše a v nabídce Start; po instalaci se aplikace sama otevře.
 3. **Windows ukáže varování „Windows ochránil váš počítač“ (SmartScreen).** Instalátor není podepsaný: podpis kódu je placená služba a majitel ji zatím nemá. Klikni na **„Další informace“** a potom na
    **„Přesto spustit“**. Totéž může udělat antivirus; instalátor se sestavuje veřejně na GitHubu z kódu v tomto repozitáři (sestavení lze projít v záložce Actions).
@@ -54,10 +55,12 @@ Okno aplikace se při automatickém výběru ani v seznamu oken nesnímá (jedin
 Ověřeno v tomto repozitáři (Linux, Electron 45 na virtuálním displeji, `desktop/test/smoke.cjs`, 20 kontrol): aplikace naběhne z vlastního protokolu bez chyb, stránka dostane jen příznak desktopu a verzi
 (žádný přístup k Node.js), „Načíst z okna hry“ najde okno Football Manageru samo a nasnímá právě ho (ne jiné okno, ne vlastní okno, ne celou obrazovku), vzor z nastavení přepíše výchozí, bez okna hry se
 nabídne seznam oken a zrušení nic nenasnímá, odkazy jdou do prohlížeče, protokol nevydá cizí soubory, mikrofon projde a poloha ne, velikost okna se pamatuje a druhá instance se nespustí.
+Sestavení instalátoru na GitHubu (`windows-latest`) 7. 11. 2026 **prošlo** a vydání vzniklo; staženému `FM27-Trener-Setup.exe` jsem ověřil, že je to instalátor NSIS pro Windows, a z něj rozbalený archiv
+`app.asar` (stejný kód, jaký poběží u tebe) jsem pustil v Electronu na Linuxu se stejnou zkouškou (`FM27_ENTRY=…/app.asar node desktop/test/smoke.cjs`): všech 20 kontrol prošlo.
 Čistá logika výběru okna má 6 testů (`desktop/test/windowpick.test.mjs`), stránka v desktopovém režimu zkoušku 28 v prohlížeči. Balení aplikace (soubory v archivu, ikona, konfigurace instalátoru) se
 ověřilo sestavením rozbalené aplikace pro Windows na Linuxu.
 
-**Neověřeno** (z cloudu to nejde): samotné sestavení a spuštění instalátoru na Windows (sestaví ho GitHub na `windows-latest`; první skutečná zkouška je u majitele), chování SmartScreenu a antiviru,
+**Neověřeno** (z cloudu to nejde): **spuštění** instalátoru a aplikace na Windows (sestavení na `windows-latest` prošlo, ale nikdo ho na Windows nespustil; první skutečná zkouška je u majitele), chování SmartScreenu a antiviru,
 **skutečný Football Manager 2027** (název okna, to, jak Windows nasnímá jeho okno, režim na celou obrazovku), čtení skutečných obrazovek hry a plugin FMMatchLens.
 
 ## Sestavení (pro vývojáře)

@@ -13,6 +13,8 @@ const { spawnSync } = require('node:child_process');
 const { _electron: electron } = require('playwright');
 
 const desktop = path.join(__dirname, '..');
+// FM27_ENTRY: místo složky desktop/ spustí balíček (soubor app.asar z rozbaleného instalátoru): ověří, že aplikace jede i z archivu
+const entry = process.env.FM27_ENTRY || desktop;
 const results = [];
 const check = (name, ok, detail) => {
   results.push(ok);
@@ -58,7 +60,7 @@ const near = (rgb, want) => rgb && rgb.every((v, i) => Math.abs(v - want[i]) < 4
 
 (async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'fm27-desktop-'));
-  const launch = () => electron.launch({ executablePath: require(path.join(desktop, 'node_modules', 'electron')), args: [desktop, '--no-sandbox', `--user-data-dir=${userData}`], cwd: desktop });
+  const launch = () => electron.launch({ executablePath: require(path.join(desktop, 'node_modules', 'electron')), args: [entry, '--no-sandbox', `--user-data-dir=${userData}`], cwd: desktop });
   let app = await launch();
   const problems = [];
   const page = await app.firstWindow();
@@ -157,7 +159,7 @@ const near = (rgb, want) => rgb && rgb.every((v, i) => Math.abs(v - want[i]) < 4
   await p2.waitForFunction(() => window.__trenerReady === true, null, { timeout: 30000 });
   const reopened = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'FM27 Trenér').getBounds());
   check('při dalším spuštění se obnoví uložená velikost okna', Math.abs(reopened.width - 1050) <= 20 && Math.abs(reopened.height - 720) <= 20, reopened);
-  const second = spawnSync(require(path.join(desktop, 'node_modules', 'electron')), [desktop, '--no-sandbox', `--user-data-dir=${userData}`], { cwd: desktop, timeout: 20000, env: process.env });
+  const second = spawnSync(require(path.join(desktop, 'node_modules', 'electron')), [entry, '--no-sandbox', `--user-data-dir=${userData}`], { cwd: desktop, timeout: 20000, env: process.env });
   check('druhá instance se nespustí (skončí hned s kódem 0) a první okno zůstane', second.status === 0 && (await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)) >= 1, { status: second.status, signal: second.signal });
   await app.close();
 
