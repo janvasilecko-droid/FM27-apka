@@ -78,17 +78,20 @@ const near = (rgb, want) => rgb && rgb.every((v, i) => Math.abs(v - want[i]) < 4
   check('titulek okna je „FM27 Trenér“ i po načtení stránky s jiným titulkem', (await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())) === 'FM27 Trenér');
 
   // ---------- snímání okna hry
-  const fm = await openFake(app, 'Football Manager 2027', '#00a000');
+  // název okna hry je ověřený na počítači majitele: „Football Manager 27“; vedle hry běží okno jiného nástroje s názvem „FMTOOL 27…“, které se nesmí vybrat
+  const fm = await openFake(app, 'Football Manager 27', '#00a000');
   const decoy = await openFake(app, 'Poznámkový blok', '#c00000');
+  const tool = await openFake(app, 'FMTOOL 27.0.0-build6', '#e0c000');
   await pause(1200);
   const c1 = await grabCenterColor(app);
-  check('„Načíst z okna hry“ najde okno Football Manageru samo a nasnímá právě ho (zelené), ne jiné okno ani celou obrazovku', c1.rgb && near(c1.rgb, [0, 160, 0]), c1);
+  check('„Načíst z okna hry“ najde okno „Football Manager 27“ samo a nasnímá právě ho (zelené), ne jiné okno, ne okno nástroje „FMTOOL 27…“ (žluté) a ne celou obrazovku', c1.rgb && near(c1.rgb, [0, 160, 0]), c1);
   await closeFake(app, fm);
   await closeFake(app, decoy);
+  await closeFake(app, tool);
 
   // vzor z nastavení přepíše výchozí
   fs.writeFileSync(path.join(userData, 'desktop-settings.json'), JSON.stringify({ gameWindowPattern: 'moje hra' }));
-  const fm2 = await openFake(app, 'Football Manager 2027', '#00a000');
+  const fm2 = await openFake(app, 'Football Manager 27', '#00a000');
   const mine = await openFake(app, 'Moje hra – okno', '#0000c0');
   await pause(1200);
   const c2 = await grabCenterColor(app);

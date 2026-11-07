@@ -30,6 +30,33 @@ test('přesný název hry má přednost před oknem, které ho jen obsahuje', ()
   assert.equal(W.pickGameWindow([win(1, 'Football Manager 2027'), win(2, 'Football Manager 2027')]).source, null);
 });
 
+test('skutečný název okna hry „Football Manager 27“: vybere se, i když vedle běží okno jiného nástroje s „27“ v názvu a okno prohlížeče se stránkou o hře', () => {
+  // název ověřený na počítači majitele 7. 11. 2026: „Football Manager 27“ (proces fm.exe), vedle hry běží nástroj s názvem „FM…“ a „27“ ve verzi
+  const sources = [win(1, 'Steam'), win(2, 'FMTOOL 27.0.0-build6'), win(3, 'Football Manager 27'), win(4, 'Football Manager 27 – Steam Community – Google Chrome'), scr(1, 'Celá obrazovka')];
+  const r = W.pickGameWindow(sources);
+  assert.equal(r.source.id, 'window:3:0', 'vybere se jen okno s přesným názvem hry');
+  assert.deepEqual(r.matches.map((m) => m.name).sort(), ['Football Manager 27', 'Football Manager 27 – Steam Community – Google Chrome'], 'okno nástroje „FMTOOL 27…“ se mezi okna hry nedostane');
+  assert.ok(r.others.some((m) => m.name === 'FMTOOL 27.0.0-build6'), 'nástroj zůstane v seznamu ostatních oken (uživatel ho může vybrat ručně)');
+  // samotný nástroj bez hry: nic se nevybere (nehádá se), uživatel dostane seznam oken
+  assert.equal(W.pickGameWindow([win(2, 'FMTOOL 27.0.0-build6'), win(1, 'Steam')]).source, null);
+  assert.equal(W.pickGameWindow([win(2, 'FMTOOL 27.0.0-build6')]).matches.length, 0);
+  // zkrácený „FM27“ na začátku názvu hru chytí, i když za ním je další text; „FM 27“ s mezerou také; „FMTOOL 27“ ne
+  for (const [title, hit] of [['FM27', true], ['FM 27', true], ['FM27 – spuštěno', true], ['FMTOOL 27', false], ['FMRT 27.0', false], ['Moje FM27 poznámky', false]]) {
+    assert.equal(W.pickGameWindow([win(9, title)]).matches.length === 1, hit, title);
+  }
+  // hra je jediné okno bez spouštěče a nehledá se podle cesty: sources z desktopCapturer cestu nemají a výběr na ní nezávisí
+  assert.equal(W.pickGameWindow([win(3, 'Football Manager 27')]).source.id, 'window:3:0');
+});
+
+test('přesný název hry: „Football Manager 27“ (ověřený, s mezerou) i „Football Manager 2027“ a bez mezery; cokoli navíc už přesný název není', () => {
+  for (const t of ['Football Manager 27', 'football manager 27', 'Football Manager 2027', 'Football Manager27', 'Football Manager2027']) assert.ok(W.EXACT_TITLE.test(t), t);
+  for (const t of ['Football Manager 27 – Steam Community – Google Chrome', 'Football Manager 270', 'Football Manager 2', 'Football Manager', 'Football Manager 27 Launcher', 'Moje Football Manager 27', 'FMTOOL 27.0.0-build6']) assert.ok(!W.EXACT_TITLE.test(t), t);
+  // dvě okna se stejným přesným názvem jsou pořád nejednoznačná, i když je název ten ověřený
+  assert.equal(W.pickGameWindow([win(1, 'Football Manager 27'), win(2, 'Football Manager 27')]).source, null);
+  // hra + dvě okna, která jen obsahují její název: vybere se hra
+  assert.equal(W.pickGameWindow([win(5, 'Football Manager 27 – návod – Mozilla Firefox'), win(6, 'Football Manager 27'), win(7, 'Football Manager 27 Launcher')]).source.id, 'window:6:0');
+});
+
 test('vlastní okno aplikace se nikdy nevybere (podle id ani podle názvu)', () => {
   const sources = [win(1, 'FM27 Trenér'), win(2, 'Football Manager 2027 – FM27 Trenér')];
   assert.equal(W.pickGameWindow(sources, { excludeIds: ['window:2:0'] }).matches.length, 1, 'bez názvu vlastního okna by se „FM27 Trenér“ chytil na zkrácený vzor FM27');

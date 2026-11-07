@@ -3,14 +3,19 @@
 
    PROČ: webová verze se při každém „Načíst z okna hry“ ptá prohlížeče na výběr okna. Desktopová aplikace okno FM27 najde sama podle názvu, takže se
    neptá. Když okno nenajde nebo jich najde víc, nic nehádá: vrátí `source: null` a aplikace ukáže seznam oken k výběru. Vlastní okno aplikace se nikdy
-   nevybere (snímalo by samo sebe). Název okna ve hře není ověřený na skutečném FM27 (předpoklad: „Football Manager 2027“), proto jde vzor přepsat
-   v souboru nastavení (gameWindowPattern) a proto je záložní výběr oken. */
+   nevybere (snímalo by samo sebe).
+
+   OVĚŘENO na počítači majitele 7. 11. 2026 (jiná relace Claude, jen čtením seznamu procesů a oken): název okna hry je „Football Manager 27“ (proces fm.exe,
+   jediné okno hry, bez spouštěče), hra běží v režimu bez okrajů přes celou obrazovku. Vedle hry může běžet okno jiného nástroje, jehož název začíná „FM…“
+   a obsahuje „27“ (například „FMTOOL 27.0.0-build6“): žádný z výchozích vzorů ho nechytí a zkouška to hlídá. Hra nemusí být ve stejné složce Steamu
+   (na počítači jsou dvě knihovny): hledá se proto jen podle názvu okna, nikdy podle cesty. Jiné jazyky hry a jiné názvy jdou nastavit v souboru nastavení
+   (gameWindowPattern); záložní je seznam oken k výběru. */
 'use strict';
 
-/** Výchozí vzory názvu okna hry: „Football Manager 2027“ (a zkrácený „FM27“). */
+/** Výchozí vzory názvu okna hry: „Football Manager 27“ (ověřený název) a zkrácený „FM27“ na začátku názvu. Názvy jako „FMTOOL 27…“ se nechytí. */
 const DEFAULT_PATTERNS = Object.freeze([/football\s*manager/i, /^fm\s?2\d\b/i]);
-/** Přesný název okna hry („Football Manager 2027“, „Football Manager 27“): má přednost před oknem, které ho jen obsahuje (spouštěč, upozornění). */
-const EXACT_TITLE = /^football manager( ?20)?\d{2}$/i;
+/** Přesný název okna hry („Football Manager 27“, ověřeno; také „Football Manager 2027“): má přednost před oknem, které ho jen obsahuje (spouštěč, okno prohlížeče se stránkou o hře). */
+const EXACT_TITLE = /^football manager ?(20)?\d{2}$/i;
 
 const clean = (s) =>
   String(s === null || s === undefined ? '' : s)

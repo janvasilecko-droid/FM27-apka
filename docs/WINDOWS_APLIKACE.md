@@ -4,7 +4,7 @@ Na přání majitele (7. 11. 2026: „vytvoř aplikaci, která není webová, al
 (desktopový obal v Electronu, složka `desktop/`). Navíc proti webu:
 
 - **Okno Football Manageru si najde sama.** Tlačítko „Načíst z okna hry“ (u taktiky, soupisky, soupeře, klubu i Live Coach) se v prohlížeči při každém snímku ptá na výběr okna.
-  V aplikaci pro Windows se neptá: hledá okno, jehož název obsahuje „Football Manager“, a nasnímá právě ho. Najde-li víc oken, nebo žádné, ukáže seznam oken k výběru.
+  V aplikaci pro Windows se neptá: hledá okno, jehož název obsahuje „Football Manager“ (ověřený název je „Football Manager 27“), a nasnímá právě ho. Najde-li víc oken, nebo žádné, ukáže seznam oken k výběru.
 - Nepotřebuje prohlížeč, otevírá se z nabídky Start nebo z plochy, pamatuje si velikost okna a drží jedinou instanci.
 - Odkazy ven otevírá v prohlížeči, okno aplikace zůstává na aplikaci.
 
@@ -43,7 +43,7 @@ Okno aplikace se při automatickém výběru ani v seznamu oken nesnímá (jedin
 
 - **Okno hry se nenašlo** (název okna neobsahuje „Football Manager“, například v jiném jazyce): aplikace ukáže seznam oken, vyber hru. Natrvalo jde vzor přepsat v souboru
   `desktop-settings.json` ve složce s daty (Nápověda → Složka s daty a nastavením), například `{ "gameWindowPattern": "Fotbalový manažer" }` (text nebo seznam textů, bez rozlišení velikosti písmen).
-  Změna platí hned při dalším snímku. **Název okna hry v FM27 není ověřený** (předpoklad je „Football Manager 2027“), proto je záložní výběr oken.
+  Změna platí hned při dalším snímku. **Název okna hry je ověřený**: „Football Manager 27“ (zjištěno 7. 11. 2026 čtením seznamu oken na počítači majitele; hra má jediné okno). Okno jiného nástroje, které má v názvu „27“ (třeba „FMTOOL 27.0.0-build6“), aplikace nevybere a zkouška to hlídá. Kdyby se okno hry přece nenašlo (jiný jazyk, jiný název), je záložní seznam oken.
 - **Snímek je černý:** hra běží na celou obrazovku výhradním režimem, viz výše.
 - **Nic se neděje po kliknutí na „Načíst z okna hry“:** podívej se do protokolu (Nápověda → Složka s protokolem, soubor `main.log`) a pošli mi jeho obsah, hesla ani klíče v něm nejsou.
 - **Hlasový vstup (mikrofon) v aplikaci chybí:** rozpoznávání řeči z Chromia v Electronu nefunguje, proto se nenabízí. Hlasové čtení rad (výstup) funguje.
@@ -57,11 +57,11 @@ Ověřeno v tomto repozitáři (Linux, Electron 45 na virtuálním displeji, `de
 nabídne seznam oken a zrušení nic nenasnímá, odkazy jdou do prohlížeče, protokol nevydá cizí soubory, mikrofon projde a poloha ne, velikost okna se pamatuje a druhá instance se nespustí.
 Sestavení instalátoru na GitHubu (`windows-latest`) 7. 11. 2026 **prošlo** a vydání vzniklo; staženému `FM27-Trener-Setup.exe` jsem ověřil, že je to instalátor NSIS pro Windows, a z něj rozbalený archiv
 `app.asar` (stejný kód, jaký poběží u tebe) jsem pustil v Electronu na Linuxu se stejnou zkouškou (`FM27_ENTRY=…/app.asar node desktop/test/smoke.cjs`): všech 20 kontrol prošlo.
-Čistá logika výběru okna má 6 testů (`desktop/test/windowpick.test.mjs`), stránka v desktopovém režimu zkoušku 28 v prohlížeči. Balení aplikace (soubory v archivu, ikona, konfigurace instalátoru) se
+Čistá logika výběru okna má 8 testů (`desktop/test/windowpick.test.mjs`), stránka v desktopovém režimu zkoušku 28 v prohlížeči. Balení aplikace (soubory v archivu, ikona, konfigurace instalátoru) se
 ověřilo sestavením rozbalené aplikace pro Windows na Linuxu.
 
 **Neověřeno** (z cloudu to nejde): **spuštění** instalátoru a aplikace na Windows (sestavení na `windows-latest` prošlo, ale nikdo ho na Windows nespustil; první skutečná zkouška je u majitele), chování SmartScreenu a antiviru,
-**skutečný Football Manager 2027** (název okna, to, jak Windows nasnímá jeho okno, režim na celou obrazovku), čtení skutečných obrazovek hry a plugin FMMatchLens.
+**skutečný Football Manager 27** (název okna „Football Manager 27“ a režim hry bez okrajů přes celou obrazovku jsou ověřené čtením seznamu oken na počítači majitele, ale **to, jak Windows nasnímá okno hry v tomhle režimu, a jestli snímek nebude černý, nikdo nezkoušel**), čtení skutečných obrazovek hry a plugin FMMatchLens.
 
 ## Sestavení (pro vývojáře)
 
