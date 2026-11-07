@@ -269,7 +269,9 @@
         toast('Hodnota je použitá, označená jako neověřená.');
       };
       editorSection = editor(app, opp, draw);
-      root.replaceChildren(picker, h('div', { class: 'coach-grid' }, h('div', null, editorSection, screenshotCard(app, opp, applyFields)), planCard));
+      // karty „Zpráva o soupeři ze hry“, „Soupiska soupeře“ a „Příprava na zápas“ (screens/oppprep.js): strukturovaná data soupeře a rozbor bez AI
+      const prep = FM27.oppPrepUI ? FM27.oppPrepUI.cards(app, opp, draw) : [];
+      root.replaceChildren(picker, ...prep, h('div', { class: 'coach-grid' }, h('div', null, editorSection, screenshotCard(app, opp, applyFields)), planCard));
     };
     const guard = ui.dirtyGuard(root, app, () => draw());
     draw();

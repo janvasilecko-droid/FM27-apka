@@ -1,0 +1,63 @@
+// Zpráva o soupeři ve tvaru, který vrací čtení české zprávy FM27 (rozložení z průzkumu 7. 11. 2026). Jména týmů a hráčů jsou vymyšlená, věty jsou ve stylu hry.
+export const RAW = {
+  team: 'Sparta Test',
+  leaguePosition: 18,
+  matchDate: 'Dnes 20:00',
+  summary: 'Měl by to být velmi těsný zápas mezi dvěma vyrovnanými týmy.',
+  staffAnalysis: 'Základní',
+  manager: { preferredFormation: '4-2-3-1 DZ OZ Široká', mentality: 'Vyrovnaný', pressing: 'Častěji', marking: 'Zónový' },
+  formations: {
+    inPossession: [{ formation: '4-2-3-1 DZ OZ Široká', share: '89,4%', chances: 26 }, { formation: '4-3-3 DZ Široká', share: 10.6, chances: 4 }],
+    outOfPossession: [{ formation: '4-4-2 2DZ', share: 74.9, chances: 11 }],
+  },
+  absences: [{ name: 'Karel Stoper', status: 'out', note: 'zlomená paže' }, { name: 'Petr Útočník', status: 'doubt', note: 'natažené slabiny' }],
+  keyPlayers: [
+    { kind: 'topScorer', name: 'Petr Útočník', position: 'ÚT (S)', value: 6 },
+    { kind: 'topAssists', name: 'Oto Křídlo', position: 'Z (PS), OZ (PLS)', value: 7 },
+    { kind: 'topRating', name: 'Oto Křídlo', position: 'Z (PS), OZ (PLS)', value: '6,97' },
+  ],
+  strengths: [
+    { area: 'Obrana', text: 'Aleš Bek ztělesňuje na stoperu velmi dobrou kvalitu.' },
+    { area: 'Brankář', text: 'Brankář je v bráně velmi dobrou volbou.' },
+    { area: 'Šance vytvořené ze standardek', text: 'Vytváří poměrně dobré šance ze standardek.' },
+    { area: 'Volné kopy', text: 'Tým má spoustu hráčů schopných zahrávat volné kopy.' },
+    { area: 'Obranné zákroky', text: 'Tým je v zákrocích silný.' },
+    { area: 'Výstřednost', text: 'Brankáři týmu mají k výstřednosti velmi daleko.' },
+  ],
+  weaknesses: [
+    { area: 'Agresivita', text: 'Možná by stálo za to věnovat pozornost nízké úrovni agresivity a odhodlání v mužstvu.' },
+    { area: 'Odvaha', text: 'Odvaha je místo, o kterém by se měli zamyslet.' },
+    { area: 'Síla', text: 'Někteří hráči nejsou fyzicky zrovna nejsilnější.' },
+    { area: 'Nasazení', text: 'Mužstvo se nachází ve spodní třetině soutěže, pokud je řeč o nasazení.' },
+    { area: 'Komunikace', text: 'Mezi nejsilnější stránky brankářů rozhodně nepatří komunikace.' },
+    { area: 'Dovednost ve vzduchu', text: 'Je tu trochu obava z dovednosti ve vzduchu u brankářů.' },
+    { area: 'Obranné zákroky', text: 'Týmu obvykle chybí obranné zákroky.' },
+    { area: 'Nejlepší střelec', text: 'Petr je nejlepším střelcem, ale jeho 5 gólů mu v soutěži stačí jen na 26. místo.' },
+    { area: 'Hráč, který se potýká s formou', text: 'Oto Křídlo (6,44) se potýká s formou.' },
+  ],
+  verdicts: [{ area: 'Celková výkonnost', verdict: 'Podává podprůměrné výkony' }, { area: 'Bránění – obránci', verdict: 'Podává výrazně nadprůměrné výkony' }],
+  setPieces: {
+    attack: ['They have failed recently to convert free-kicks into goals, with none of their last 3 attempts resulting in a goal.'],
+    defence: [
+      'They have struggled to defend free-kicks, conceding from 1 of the last 7 they have faced.',
+      'They have been good when defending corners, conceding from none of the previous 5 deliveries.',
+      'They have struggled with free-kicks delivered to the far post, with 100% of goals conceded from free-kicks being delivered to this area.',
+    ],
+    preferences: { delivery: 'Rotace od brány', target: 'Přední tyč', attackers: 'Vyváženě', defendPosts: 'Přední tyč', defenders: 'Protiútok', marking: 'Vyváženě', line: 'Bránit šestnáctku' },
+  },
+  lineup: [
+    { slot: 'B', name: 'Adam Brankář', rating: 6.92 },
+    { slot: 'OP', name: 'Kenny Pravý', rating: 6.94 },
+    { slot: 'OSP', name: 'Karel Stoper', rating: 6.8 },
+    { slot: 'OSL', name: 'Calvin Střed', rating: 6.86 },
+    { slot: 'OL', name: 'Antonín Levý', rating: 6.82 },
+    { slot: 'DZSP', name: 'Tomáš Záloha', rating: 6.78 },
+    { slot: 'DZSL', name: 'Hugo Zadní', rating: 6.8 },
+    { slot: 'OZP', name: 'Oto Křídlo', rating: 6.96 },
+    { slot: 'OZS', name: 'Josef Tvůrce', rating: 6.75 },
+    { slot: 'OZL', name: 'Kevin Levák', rating: 6.69 },
+    { slot: 'ÚTS', name: 'Petr Útočník', rating: 6.78 },
+  ],
+  notes: 'čitelné',
+};
+

@@ -152,7 +152,8 @@
     return { codes, unknown };
   }
 
-  /** parseSlotCode('OZSP') → {fm: 'AMC', side: 'RC', code: 'OZSP'} | null. Kód místa v rozestavení soupeře (pokyny k soupeři). */
+  /** parseSlotCode('OZSP') → {fm: 'AMC', side: 'RC', code: 'OZSP'} | null. Kód místa v rozestavení soupeře (pokyny k soupeři); `code` je psaný tak, jak ho
+      píše hra (ÚTS s diakritikou). */
   function parseSlotCode(text) {
     const raw = upperAscii(text);
     const m = raw.match(/^(KO|DZ|OZ|UT|B|O|Z)([PLS]{0,2})$/);
@@ -171,7 +172,7 @@
     const sideBase = side.length === 2 ? 'C' : side;
     const fm = table && (table[sideBase] || (sideBase === '' ? table[''] : undefined));
     if (!fm) return null;
-    return { fm, side: side || (role === 'GK' ? '' : 'C'), code: m[0] };
+    return { fm, side: side || (role === 'GK' ? '' : 'C'), code: SLOT_CODE_BY_KEY.get(m[0]) || m[0] };
   }
 
   /** Kódy míst v rozestavení aplikace (RB, LCB, DM…), kterým odpovídá kód pozice (DC → CB, RCB, LCB). Pořadí od středu ke krajům. */
@@ -190,6 +191,7 @@
 
   /** Všech 22 míst, která hra nabízí v pokynech k soupeři (záložka „Všechny pozice“), v pořadí obrazovky. */
   const OPPOSITION_SLOT_CODES = deepFreeze(['B', 'OP', 'OL', 'OS', 'OSL', 'OSP', 'KOP', 'KOL', 'DZS', 'DZSL', 'DZSP', 'ZP', 'ZL', 'ZS', 'ZSL', 'ZSP', 'OZP', 'OZL', 'OZS', 'OZSL', 'OZSP', 'ÚTS']);
+  const SLOT_CODE_BY_KEY = new Map(OPPOSITION_SLOT_CODES.map((c) => [upperAscii(c), c]));
 
   /** normalizePositions(['O/KO/Z/OZ (P)', 'GK']) → {codes, unknown}. Přijme pole textů nebo jeden text; česky i anglicky. */
   function normalizePositions(value) {
@@ -274,8 +276,8 @@
     shotsFromDistance: [V('Povzbuzovat', 'Encourage', true)],
     crossingStyle: [V('Načechrané centry', 'Floated Crosses', true)],
     dribbling: [V('Vyvážený', 'Balanced', true)],
-    supportActions: [V('Vyvážené', 'Balanced', true), V('Obě strany', 'Both Flanks', true)],
-    progressThrough: [V('Levá', 'Left', true), V('Obě strany', 'Both Flanks', true)],
+    supportActions: [V('Vyvážené', 'Balanced', true), V('Levá', 'Left'), V('Pravá', 'Right'), V('Obě strany', 'Both Flanks', true)],
+    progressThrough: [V('Levá', 'Left', true), V('Pravá', 'Right'), V('Střed', 'Middle'), V('Obě strany', 'Both Flanks', true)],
     passReception: [V('Přihrávat do prostoru', 'Pass Into Space', true)],
     buildUpStrategy: [V('Obejít pressink', 'Bypass Press', true)],
     goalKicks: [V('Krátké', 'Short', true)],

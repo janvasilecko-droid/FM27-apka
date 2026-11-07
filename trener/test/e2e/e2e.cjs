@@ -150,6 +150,7 @@ function installMock(config) {
       : /obrazovka s taktikou hry Football Manager/.test(t) ? 'tacread'
       : /zjistil, jaký klub uživatel řídí/.test(t) ? 'careread'
       : /s profilem hráče nebo s popisem role/.test(t) ? 'roleread'
+      : /se zprávou o týmu soupeře nebo s jeho předpokládanou sestavou/.test(t) ? 'oppreport'
       : /informacemi o soupeři/.test(t) ? 'oppread'
       : /připravuješ předzápasový plán proti soupeři/.test(t) ? 'opponent'
       : /vysvětluješ, jak je postavené rozložení/.test(t) ? 'explain'
@@ -183,6 +184,8 @@ function installMock(config) {
       text = mock.careerRaw !== undefined ? mock.careerRaw : JSON.stringify(mock.careerReply || { club: 'Chelsea', competition: 'Premier League', season: '2026/27', notes: 'čitelné' });
     } else if (kind === 'roleread') {
       text = JSON.stringify(mock.roleReply || { role: 'Advanced Forward', phase: 'S míčem', duty: 'Attack', key: ['Finishing', 'Off The Ball'], preferred: ['Dribbling', 'Pace', 'Consistency'], notes: 'čitelné' });
+    } else if (kind === 'oppreport') {
+      text = JSON.stringify(mock.oppReportReply || { team: 'Sparta Test', summary: 'Těsný zápas.', manager: { mentality: 'Vyrovnaný', pressing: 'Častěji' }, weaknesses: [{ area: 'Dovednost ve vzduchu', text: 'Slabé ve vzduchu.' }], lineup: [], notes: 'čitelné' });
     } else if (kind === 'oppread') {
       text = JSON.stringify(mock.oppReadReply || { formation: '4 2 3 1', roles: ['Křídelník'], keyPlayers: ['Novák – hrot'], strengths: [], weaknesses: ['Pomalá obrana'], notes: 'čitelné' });
     } else if (kind === 'opponent' || kind === 'explain' || kind === 'report' || kind === 'lesson' || kind === 'scenario') {
