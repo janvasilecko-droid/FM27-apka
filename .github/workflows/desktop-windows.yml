@@ -1,0 +1,61 @@
+# Instalátor FM27 Trenér pro Windows: desktopová aplikace (desktop/, Electron) kolem samostatné verze aplikace.
+# Spouští se ručně (Actions → „Windows aplikace (instalátor)“ → Run workflow, název vydání například desktop-v1.0.0) nebo vložením značky desktop-v*.
+# Výsledek: soubor FM27-Trener-Setup.exe jako artefakt běhu a jako příloha vydání (Releases); stabilní odkaz ke stažení:
+# https://github.com/janvasilecko-droid/FM27-apka/releases/latest/download/FM27-Trener-Setup.exe
+# Instalátor NENÍ podepsaný (podpis kódu je placená služba): Windows při prvním spuštění ukáže varování SmartScreen.
+name: Windows aplikace (instalátor)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Název vydání (značka), například desktop-v1.0.0; vydání se vytvoří, nebo přepíše'
+        required: true
+        default: 'desktop-v1.0.0'
+  push:
+    tags:
+      - 'desktop-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Čistá logika výběru okna hry; zkoušky celé aplikace a jádra běží v pages.yml na Linuxu při každé změně.
+      - name: Zkoušky výběru okna hry
+        run: node --test desktop/test/windowpick.test.mjs
+      - name: Instalace závislostí
+        working-directory: desktop
+        run: npm ci
+      - name: Sestavení aplikace a instalátoru (NSIS)
+        working-directory: desktop
+        run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FM27-Trener-Setup
+          path: desktop/dist/FM27-Trener-Setup.exe
+          if-no-files-found: error
+      - name: Vydání s instalátorem
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: FM27 Trenér pro Windows (${{ inputs.tag || github.ref_name }})
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: desktop/dist/FM27-Trener-Setup.exe
+          body: |
+            Instalační aplikace FM27 Trenér pro Windows 10 a 11 (64bitová).
+
+            **Instalace:** stáhni `FM27-Trener-Setup.exe` a spusť ho. Instaluje se jen pro tebe, bez práv správce.
+            Instalátor není podepsaný, takže Windows ukáže „Windows ochránil váš počítač“: klikni na „Další informace“ a potom „Přesto spustit“.
+
+            **První spuštění:** v Nastavení zadej klíč AI (Anthropic API). Okno Football Manageru si aplikace najde sama (název okna obsahuje „Football Manager“); snímá se jen po kliknutí v aplikaci.
+
+            Podrobnosti: docs/WINDOWS_APLIKACE.md

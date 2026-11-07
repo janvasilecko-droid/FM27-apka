@@ -64,7 +64,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
 | `src/oppanalysis.js`, `screens/oppprep.js` | rozbor soupeře (17 pravidel: konkrétní úpravy tvé taktiky v českých názvech hry, pokyny k soupeři, sezení Zápasové přípravy, jedna testovatelná změna) a obrazovka Příprava na zápas |
 | `src/tacteff.js`, `screens/teffect.js` | karta Tactical Effectiveness: čtyři pilíře a jejich faktory ze hry, rady, odhad složitosti taktiky, doporučená sezení; úrovně pruhů zadává uživatel |
 | `test/*.test.mjs` | 1148 testů čistých modulů, úložiště, barev vzhledu a shody dokumentace s pravidly v kódu |
-| `test/e2e/` | zkoušky celé aplikace v Chromiu (27 scénářů, 1036 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
+| `test/e2e/` | zkoušky celé aplikace v Chromiu (28 scénářů, 1047 kontrol, z toho 4 jen se skutečnými exporty), falešné `db`, generátor syntetických souborů |
 
 ## Sestavení a zkoušky
 
@@ -76,7 +76,7 @@ důkaz příčiny** (vyhodnocení změny to říká pokaždé).
   (verze, na které se zkoušky ladily a kterou připíná CI; bez ní se porovnání s libzstd přes věštírnu přeskočí).
 - **Playwright s Chromiem** a `pdfjs-dist@3.11.174` pro zkoušky v prohlížeči (příkazy níže). Playwright se nedodává s repozitářem a `e2e.cjs` ho bere přes `require('playwright')`, takže musí být vidět přes `NODE_PATH`; ani globální instalace (`npm i -g playwright`) nestačí, Node hledá moduly jen v místních adresářích `node_modules` a v `NODE_PATH`, ne v globálním adresáři npm (u globální instalace: `export NODE_PATH=$(npm root -g)`).
 - **`FMF_SAMPLES_DIR`** (nepovinná proměnná): složka se skutečnými exporty `.fmf` z FM27. Jsou to soukromé soubory majitele, v repozitáři nejsou a nikdy nesmí být. Bez proměnné se zkoušky jádra se skutečnými exporty viditelně přeskočí
-  a ve scénáři 21 se vynechají 4 kontroly (z 1036 jich pak běží 1032).
+  a ve scénáři 21 se vynechají 4 kontroly (z 1047 jich pak běží 1043).
 
 ```bash
 node trener/build.mjs                                   # běžné sestavení

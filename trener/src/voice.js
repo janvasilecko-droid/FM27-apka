@@ -87,7 +87,8 @@
     },
 
     // ---------------------------------------------------------------- hlasový vstup (jen samostatná verze)
-    recognitionAvailable: () => !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+    // v desktopové aplikaci (Electron) rozpoznávání řeči z Chromia nefunguje (chybí klíče služby), proto se tam hlasový vstup nenabízí
+    recognitionAvailable: () => !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !(FM27.app && FM27.app.desktop && FM27.app.desktop.noSpeechRecognition),
     /** Poslechne jednu větu. Vrací {stop()}. onResult(text), onEnd(), onError(kód). */
     listen(o) {
       const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;

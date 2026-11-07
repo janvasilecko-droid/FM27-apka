@@ -340,7 +340,7 @@
             capStatusText = 'Sdílení běží. Vyber okno hry; snímky se posílají jen při změně obrazovky.';
             drawCapture();
           } catch (e) {
-            capStatusText = e && e.name === 'NotAllowedError' ? 'Sdílení jsi nepovolil, nic se nesleduje.' : (e && e.message) || String(e);
+            capStatusText = live.captureDenied(e) ? (FM27.app.desktop ? 'Okno hry se nevybralo, nic se nesleduje.' : 'Sdílení jsi nepovolil, nic se nesleduje.') : (e && e.message) || String(e);
             capStatus.textContent = capStatusText;
           }
         } }),
@@ -351,7 +351,7 @@
       captureCard.replaceChildren(
         h('h2', { text: 'Snímky obrazovky' }),
         canShare
-          ? h('p', { class: 'lead', text: 'Sdílej okno hry (prohlížeč se zeptá a ukáže, že se sdílí). Aplikace pošle snímek jen když se obrazovka změní a ustálí, a nikdy nepřekročí limity z Nastavení. Zastavit jde kdykoli tady i tlačítkem prohlížeče.' })
+          ? h('p', { class: 'lead', text: (FM27.app.desktop ? 'Sdílej okno hry (aplikace si najde okno Football Manageru sama a ukáže, že sleduje). ' : 'Sdílej okno hry (prohlížeč se zeptá a ukáže, že se sdílí). ') + 'Aplikace pošle snímek jen když se obrazovka změní a ustálí, a nikdy nepřekročí limity z Nastavení. Zastavit jde kdykoli tady' + (FM27.app.desktop ? '.' : ' i tlačítkem prohlížeče.') })
           : h('p', { class: 'lead', text: 'Stránka v Claude nesmí sama snímat obrazovku ani mikrofon (stav je v Nastavení). Snímky vkládej ručně: ve Windows Win+Shift+S a pak tady Ctrl+V, na telefonu vyfoť obrazovku. Čtení souvislého sdílení obrazovky je v samostatné verzi aplikace.' }),
         share,
         capStatus,

@@ -88,13 +88,13 @@
     const live = FM27.live;
     if (!live || typeof live.captureAvailable !== 'function' || !live.captureAvailable()) return null;
     const o = opts || {};
-    const btn = h('button', { class: 'btn', type: 'button', id: o.id, 'data-act': 'grab', text: 'Načíst z okna hry', title: 'Prohlížeč se zeptá na okno hry; vezme se jeden snímek a sdílení se hned ukončí.' });
+    const btn = h('button', { class: 'btn', type: 'button', id: o.id, 'data-act': 'grab', text: 'Načíst z okna hry', title: FM27.app && FM27.app.desktop ? 'Aplikace si najde okno Football Manageru sama (název okna obsahuje „Football Manager“) a vezme jeden snímek jen po tomto kliknutí.' : 'Prohlížeč se zeptá na okno hry; vezme se jeden snímek a sdílení se hned ukončí.' });
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
         onBlob(await live.grabFrame());
       } catch (e) {
-        ui.toast(e && e.name === 'NotAllowedError' ? 'Sdílení jsi nepovolil, nic se nenačetlo.' : (e && e.message) || String(e));
+        ui.toast(live.captureDenied(e) ? (FM27.app.desktop ? 'Okno hry se nevybralo, nic se nenačetlo.' : 'Sdílení jsi nepovolil, nic se nenačetlo.') : (e && e.message) || String(e));
       } finally {
         btn.disabled = false;
       }

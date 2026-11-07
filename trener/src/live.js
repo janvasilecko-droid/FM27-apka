@@ -385,9 +385,32 @@
   /** Důvod pro Nastavení: kde to jde a proč ne. */
   live.captureReason = () => {
     if (!hasDisplayMedia()) return 'ne: prohlížeč sdílení obrazovky nemá';
+    if (FM27.app.desktop) return 'ano (aplikace pro Windows si okno hry najde sama)';
     if (FM27.app.standalone) return 'ano';
     if (window.self === window.top) return 'ne (jen v samostatné verzi)';
     return live.framedCaptureAllowed() ? 'ano (okno claude.ai to stránce povoluje)' : 'ne: okno claude.ai sdílení obrazovky stránkám nepovoluje, snímky vkládej ručně (Win+Shift+S a Ctrl+V)';
+  };
+
+  /** Odmítnutí sdílení: v prohlížeči NotAllowedError; v desktopové aplikaci (Electron) Chromium hlásí zrušený výběr okna jako AbortError „Invalid capture constraints“. */
+  live.captureDenied = (e) => !!e && (e.name === 'NotAllowedError' || (!!FM27.app.desktop && e.name === 'AbortError'));
+
+  /** Je snímek celý (téměř) černý? Hra v režimu „celá obrazovka“ (výhradní) se snímá jako černá plocha; takový snímek se nesmí poslat k přečtení, ať se nehádá z ničeho.
+      Vzorkuje mřížku bodů; stačí jediný zřetelně světlý bod. Plátno, které nejde přečíst, se za černé nepovažuje. */
+  live.isBlankFrame = (canvas) => {
+    try {
+      if (!canvas.width || !canvas.height) return false;
+      // zmenšený obraz: levnější než číst celé plátno (u 4K by to bylo 33 MB) a stejně spolehlivé pro „celé černé“
+      const small = document.createElement('canvas');
+      small.width = 48;
+      small.height = 27;
+      const ctx = small.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, 48, 27);
+      const data = ctx.getImageData(0, 0, 48, 27).data;
+      for (let i = 0; i < data.length; i += 4) if (data[i] > 24 || data[i + 1] > 24 || data[i + 2] > 24) return false;
+      return true;
+    } catch (e) {
+      return false;
+    }
   };
 
   /** Jeden snímek okna hry bez spuštění sledování. Běží-li sdílení, vezme se jeho obraz; jinak se prohlížeč zeptá na okno (uživatel
@@ -414,6 +437,9 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
+      if (live.isBlankFrame(canvas)) {
+        throw new Error('Okno hry je na snímku celé černé. Hra nejspíš běží na celou obrazovku výhradním režimem, který se nedá nasnímat: v nastavení hry ji přepni do okna nebo do režimu bez okrajů a zkus to znovu.');
+      }
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
       if (!blob) throw new Error('Snímek se nepodařilo uložit.');
       return blob;

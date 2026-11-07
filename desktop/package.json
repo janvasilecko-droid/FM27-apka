@@ -1,0 +1,20 @@
+{
+  "name": "fm27-trener-desktop",
+  "productName": "FM27 Trenér",
+  "version": "1.0.0",
+  "description": "FM27 Trenér: instalační aplikace pro Windows (desktopový obal kolem samostatné verze aplikace).",
+  "main": "main.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "FM27 Trenér",
+  "scripts": {
+    "prepare-app": "node prepare.mjs",
+    "start": "node prepare.mjs && electron .",
+    "dist": "node prepare.mjs && electron-builder --win nsis --x64 --publish never",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0"
+  }
+}

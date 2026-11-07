@@ -1,0 +1,33 @@
+# Instalátor pro Windows (NSIS, instalace pro jednoho uživatele bez práv správce). Sestavuje ho GitHub Actions na windows-latest (.github/workflows/desktop-windows.yml).
+# Instalátor NENÍ podepsaný (podpis kódu je placená služba): Windows při prvním spuštění ukáže varování SmartScreen („Další informace“ → „Přesto spustit“).
+appId: cz.fm27.trener
+productName: FM27 Trenér
+copyright: FM27 Trenér
+directories:
+  output: dist
+files:
+  - main.js
+  - preload.js
+  - src/**
+  - app/**
+  - build/icon.png
+  - package.json
+asar: true
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+  artifactName: FM27-Trener-Setup.${ext}
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: FM27 Trenér
+  runAfterFinish: true
+  language: '1029' # čeština (LCID)
+  deleteAppDataOnUninstall: false
+publish: null

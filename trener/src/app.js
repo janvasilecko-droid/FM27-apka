@@ -396,7 +396,7 @@
       h('button', { class: 'btn small', type: 'button', text: 'Nová kariéra', onclick: () => (ui.closeDrawer(), openCareerDrawer()) })
     );
     ui.openDrawer('Načíst aktuální hru', [
-      h('p', { class: 'lead', id: 'loadLead', text: grab ? 'Aplikace čte to, co je právě vidět na obrazovce hry. V každé z těchto sekcí je tlačítko „Načíst z okna hry“: sdílíš okno hry a vezme se jeden snímek.' : 'Aplikace čte to, co je právě vidět na obrazovce hry. Snímek vlož ručně (ve Windows Win+Shift+S a pak Ctrl+V, na telefonu fotka). Tlačítko „Načíst z okna hry“ je jen tam, kde to stránka smí (samostatná verze).' }),
+      h('p', { class: 'lead', id: 'loadLead', text: grab ? (app.desktop ? 'Aplikace čte to, co je právě vidět na obrazovce hry. V každé z těchto sekcí je tlačítko „Načíst z okna hry“: aplikace si okno Football Manageru najde sama (ptá se jen když ho nenajde) a vezme jeden snímek. Ve hře otevři obrazovku, kterou chceš načíst, a klikni.' : 'Aplikace čte to, co je právě vidět na obrazovce hry. V každé z těchto sekcí je tlačítko „Načíst z okna hry“: sdílíš okno hry a vezme se jeden snímek.') : 'Aplikace čte to, co je právě vidět na obrazovce hry. Snímek vlož ručně (ve Windows Win+Shift+S a pak Ctrl+V, na telefonu fotka). Tlačítko „Načíst z okna hry“ je jen tam, kde to stránka smí (samostatná verze).' }),
       h(
         'div',
         { class: 'books', id: 'loadList' },

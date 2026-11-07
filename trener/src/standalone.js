@@ -4,6 +4,8 @@
   'use strict';
   const FM27 = window.FM27;
   FM27.app.standalone = true;
+  // Desktopová aplikace pro Windows (desktop/) vloží před stránku `window.fm27desktop`: jen příznaky (verze, systém), žádné funkce Node.js ani Electronu.
+  FM27.app.desktop = window.fm27desktop && window.fm27desktop.isDesktop === true ? window.fm27desktop : null;
   if ('serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.href)) {
     navigator.serviceWorker.register('sw.js').catch(() => {
       /* bez service workeru aplikace funguje dál, jen ne offline */
