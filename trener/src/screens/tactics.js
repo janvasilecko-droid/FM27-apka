@@ -516,7 +516,7 @@ Odpověz POUZE JSON objektem:
         importBox
       );
       const RFU = FM27.rolefitUI;
-      root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, tactic && FM27.tacticCheckUI ? FM27.tacticCheckUI.card(app, tactic) : null, tactic && RFU ? RFU.bestCard(app, tactic, draw) : null, RFU ? RFU.profilesCard(app, draw) : null, tacticReadCard(app, draw), imports);
+      root.replaceChildren(list, tactic ? editor(app, tactic, draw) : null, tactic && FM27.tacticCheckUI ? FM27.tacticCheckUI.card(app, tactic) : null, tactic && FM27.teUI ? FM27.teUI.card(app, tactic) : null, tactic && RFU ? RFU.bestCard(app, tactic, draw) : null, RFU ? RFU.profilesCard(app, draw) : null, tacticReadCard(app, draw), imports);
     };
     const guard = ui.dirtyGuard(root, app, () => draw());
     draw();
